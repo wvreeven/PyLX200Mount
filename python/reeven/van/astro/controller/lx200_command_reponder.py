@@ -28,7 +28,7 @@ class Lx200CommandResponder:
         self.dispatch_dict = {
             "Gc": (self.get_clock_format, False),
             "GC": (self.get_current_date, False),
-            "GD": (self.get_dec, False),
+            "GD": (self.get_de, False),
             "Gg": (self.get_current_site_longitude, False),
             "GG": (self.get_utc_offset, False),
             "GL": (self.get_local_time, False),
@@ -52,7 +52,7 @@ class Lx200CommandResponder:
         return "00:00:00" + HASH
 
     # noinspection PyMethodMayBeStatic
-    async def get_dec(self):
+    async def get_de(self):
         """"Get the DE that the mount currently is pointing at."""
         return "-90:00:00" + HASH
 
