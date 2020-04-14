@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 import logging
 from astropy.coordinates import Longitude, Latitude
 from astropy import units as u
@@ -10,6 +10,9 @@ logging.basicConfig(
 
 # Commands and replies are terminated by the hash symbol
 HASH = "#"
+
+# The number of seconds in an hour
+NUM_SEC_PER_HOUR = 3600
 
 
 class Lx200CommandResponder:
@@ -71,18 +74,21 @@ class Lx200CommandResponder:
         """Get the UTC offset of the obsering site. The LX200 counts the number of hours that need to be
         added to get the UTC instead of the number of hours that the local time is ahead or behind of UTC.
         The difference is a minus symbol."""
-        return str(self.location.utc_offset) + HASH
+        dt = datetime.now()
+        utc_offset = self.location.loc.timezone.utcoffset(dt=dt).total_seconds() / 3600
+        self.log.info(f"UTC Offset = {utc_offset}")
+        return "{:.1f}".format(-utc_offset) + HASH
 
     # noinspection PyMethodMayBeStatic
     async def get_local_time(self):
         """Get the local time at the observing site."""
-        current_dt = datetime.datetime.now()
+        current_dt = datetime.now()
         return current_dt.strftime("%H:%M:%S") + HASH
 
     # noinspection PyMethodMayBeStatic
     async def get_current_date(self):
         """Get the local date at the observing site."""
-        current_dt = datetime.datetime.now()
+        current_dt = datetime.now()
         return current_dt.strftime("%m/%d/%y") + HASH
 
     # noinspection PyMethodMayBeStatic
@@ -112,12 +118,15 @@ class Lx200CommandResponder:
 
     async def get_current_site_latitude(self):
         """Get the latitude of the obsering site."""
-        return self.location.latitude.to_string(unit=u.degree, sep=":", fields=2) + HASH
+        return (
+            self.location.loc.location.lat.to_string(unit=u.degree, sep=":", fields=2)
+            + HASH
+        )
 
     async def set_current_site_latitude(self, data):
         """Set the latitude of the obsering site as received from Ekos."""
         self.log.info(f"set_current_site_latitude received data {data!r}")
-        self.location.latitude = Latitude(f"{data} degrees")
+        self.location.set_latitude(Latitude(f"{data} degrees"))
         return "1"
 
     async def get_current_site_longitude(self):
@@ -125,13 +134,15 @@ class Lx200CommandResponder:
         astropy puts East longitude positive so we need to convert from the astropy longitude to the LX200
         longitude.
         """
-        longitude = self.location.longitude.to_string(unit=u.degree, sep=":", fields=2)
-        if longitude[0] is "-":
+        longitude = self.location.loc.location.lon.to_string(
+            unit=u.degree, sep=":", fields=2
+        )
+        if longitude[0] == "-":
             longitude = longitude[1:]
         else:
             longitude = "-" + longitude
         self.log.info(
-            f"Converted internal longitude {self.location.longitude.to_string()} "
+            f"Converted internal longitude {self.location.loc.location.lon.to_string()} "
             f"to LX200 longitude {longitude}"
         )
         return longitude + HASH
@@ -142,19 +153,20 @@ class Lx200CommandResponder:
         longitude.
         """
         self.log.info(f"set_current_site_longitude received data {data!r}")
-        if data[0] is "-":
+        if data[0] == "-":
             longitude = data[1:]
         else:
             longitude = "-" + data
-        self.location.longitude = Longitude(f"{longitude} degrees")
+        self.location.set_longitude(Longitude(f"{longitude} degrees"))
         self.log.info(
-            f"Converted LX200 longitude {data} to internal longitude {self.location.longitude.to_string()}"
+            f"Converted LX200 longitude {data} to internal longitude"
+            f" {self.location.loc.location.lon.to_string()}"
         )
         return "1"
 
     async def get_site_1_name(self):
         """Get the name of the observing site."""
-        return self.location.observing_location_name + HASH
+        return self.location.loc.name + HASH
 
     # noinspection PyMethodMayBeStatic
     async def set_slew_rate(self):
