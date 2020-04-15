@@ -28,7 +28,7 @@ class SocketServer:
         """Start the TCP/IP server."""
         self.log.info("Start called")
         self._server = await asyncio.start_server(self.cmd_loop, port=self.port)
-        await self._server.serve_forever()
+        await self._server.wait_closed()
 
     async def stop(self):
         """Stop the TCP/IP server."""
@@ -44,7 +44,7 @@ class SocketServer:
     async def write(self, st):
         """Write the string st appended with a HASH character."""
         reply = st.encode()
-        self.log.info(f"Writing reply {reply!r}")
+        self.log.info("Writing reply {}".format(reply))
         self._writer.write(reply)
         await self._writer.drain()
 
@@ -58,16 +58,16 @@ class SocketServer:
             while True:
                 # First read only one character and see if it is 0x06
                 c = (await reader.read(1)).decode()
-                self.log.debug(f"Read char {c}")
+                self.log.debug("Read char {}".format(c))
                 if c is not ":":
-                    self.log.info(f"Received ACK {c}")
+                    self.log.info("Received ACK {}".format(c))
                     await self.write("A")
                 else:
                     # All the next commands end in a # so we simply read all incoming strings up to # and
                     # parse them.
                     line = await reader.readuntil(HASH)
                     line = line.decode().strip()
-                    self.log.info(f"Read command line: {line!r}")
+                    self.log.info("Read command line: {}".format(line))
 
                     # Almost all LX200 commands are unique but don't have a fixed length. So we simply loop
                     # over all implemented commands until we find the one that we have received. None of
@@ -81,7 +81,7 @@ class SocketServer:
 
                     # Log a message if the command wasn't found.
                     if cmd not in responder.dispatch_dict:
-                        self.log.error(f"Unknown command {cmd!r}")
+                        self.log.error("Unknown command {}".format(cmd))
 
                     # Otherwise process the command.
                     else:
@@ -93,7 +93,7 @@ class SocketServer:
                             data_start = len(cmd)
                             kwargs["data"] = line[data_start:-1]
                         output = await func(**kwargs)
-                        self.log.info(f"Received output {output}")
+                        self.log.info("Received output {}".format(output))
                         if output:
                             await self.write(output)
         except ConnectionResetError:

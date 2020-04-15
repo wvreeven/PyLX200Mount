@@ -76,7 +76,7 @@ class Lx200CommandResponder:
         The difference is a minus symbol."""
         dt = datetime.now()
         utc_offset = self.location.loc.timezone.utcoffset(dt=dt).total_seconds() / 3600
-        self.log.info(f"UTC Offset = {utc_offset}")
+        self.log.info("UTC Offset = {}".format(utc_offset))
         return "{:.1f}".format(-utc_offset) + HASH
 
     # noinspection PyMethodMayBeStatic
@@ -125,8 +125,8 @@ class Lx200CommandResponder:
 
     async def set_current_site_latitude(self, data):
         """Set the latitude of the obsering site as received from Ekos."""
-        self.log.info(f"set_current_site_latitude received data {data!r}")
-        self.location.set_latitude(Latitude(f"{data} degrees"))
+        self.log.info("set_current_site_latitude received data{}".format(data))
+        self.location.set_latitude(Latitude("{} degrees".format(data)))
         return "1"
 
     async def get_current_site_longitude(self):
@@ -142,8 +142,10 @@ class Lx200CommandResponder:
         else:
             longitude = "-" + longitude
         self.log.info(
-            f"Converted internal longitude {self.location.loc.location.lon.to_string()} "
-            f"to LX200 longitude {longitude}"
+            "Converted internal longitude {}".format(
+                self.location.loc.location.lon.to_string()
+            )
+            + "to LX200 longitude {}".format(longitude)
         )
         return longitude + HASH
 
@@ -152,15 +154,15 @@ class Lx200CommandResponder:
         astropy puts East longitude positive so we need to convert from the LX200 longitude to the astropy
         longitude.
         """
-        self.log.info(f"set_current_site_longitude received data {data!r}")
+        self.log.info("set_current_site_longitude received data {}".format(data))
         if data[0] == "-":
             longitude = data[1:]
         else:
             longitude = "-" + data
-        self.location.set_longitude(Longitude(f"{longitude} degrees"))
+        self.location.set_longitude(Longitude("{} degrees".format(longitude)))
         self.log.info(
-            f"Converted LX200 longitude {data} to internal longitude"
-            f" {self.location.loc.location.lon.to_string()}"
+            "Converted LX200 longitude {} to internal longitude".format(data)
+            + " {}".format(self.location.loc.location.lon.to_string())
         )
         return "1"
 
