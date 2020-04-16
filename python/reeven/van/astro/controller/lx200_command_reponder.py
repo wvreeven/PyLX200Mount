@@ -2,7 +2,7 @@ from datetime import datetime
 import logging
 from astropy.coordinates import Longitude, Latitude
 from astropy import units as u
-from reeven.van.astro.location import Location
+from reeven.van.astro.observing_location import ObservingLocation
 
 logging.basicConfig(
     format="%(asctime)s:%(levelname)s:%(name)s:%(message)s", level=logging.INFO,
@@ -25,7 +25,7 @@ class Lx200CommandResponder:
         self.altitude = 45.0
         self.autoguide_speed = 0
 
-        self.location = Location()
+        self.observing_location = ObservingLocation()
 
         # Dictionary of the functions to execute based on the commando received.
         self.dispatch_dict = {
@@ -75,7 +75,7 @@ class Lx200CommandResponder:
         added to get the UTC instead of the number of hours that the local time is ahead or behind of UTC.
         The difference is a minus symbol."""
         dt = datetime.now()
-        utc_offset = self.location.loc.timezone.utcoffset(dt=dt).total_seconds() / 3600
+        utc_offset = self.observing_location.tz(dt=dt).total_seconds() / 3600
         self.log.info("UTC Offset = {}".format(utc_offset))
         return "{:.1f}".format(-utc_offset) + HASH
 
@@ -119,14 +119,16 @@ class Lx200CommandResponder:
     async def get_current_site_latitude(self):
         """Get the latitude of the obsering site."""
         return (
-            self.location.loc.location.lat.to_string(unit=u.degree, sep=":", fields=2)
+            self.observing_location.location.lat.to_string(
+                unit=u.degree, sep=":", fields=2
+            )
             + HASH
         )
 
     async def set_current_site_latitude(self, data):
         """Set the latitude of the obsering site as received from Ekos."""
         self.log.info("set_current_site_latitude received data{}".format(data))
-        self.location.set_latitude(Latitude("{} degrees".format(data)))
+        self.observing_location.set_latitude(Latitude("{} degrees".format(data)))
         return "1"
 
     async def get_current_site_longitude(self):
@@ -134,7 +136,7 @@ class Lx200CommandResponder:
         astropy puts East longitude positive so we need to convert from the astropy longitude to the LX200
         longitude.
         """
-        longitude = self.location.loc.location.lon.to_string(
+        longitude = self.observing_location.location.lon.to_string(
             unit=u.degree, sep=":", fields=2
         )
         if longitude[0] == "-":
@@ -143,7 +145,7 @@ class Lx200CommandResponder:
             longitude = "-" + longitude
         self.log.info(
             "Converted internal longitude {}".format(
-                self.location.loc.location.lon.to_string()
+                self.observing_location.location.lon.to_string()
             )
             + "to LX200 longitude {}".format(longitude)
         )
@@ -159,16 +161,16 @@ class Lx200CommandResponder:
             longitude = data[1:]
         else:
             longitude = "-" + data
-        self.location.set_longitude(Longitude("{} degrees".format(longitude)))
+        self.observing_location.set_longitude(Longitude("{} degrees".format(longitude)))
         self.log.info(
             "Converted LX200 longitude {} to internal longitude".format(data)
-            + " {}".format(self.location.loc.location.lon.to_string())
+            + " {}".format(self.observing_location.location.lon.to_string())
         )
         return "1"
 
     async def get_site_1_name(self):
         """Get the name of the observing site."""
-        return self.location.loc.name + HASH
+        return self.observing_location.name + HASH
 
     # noinspection PyMethodMayBeStatic
     async def set_slew_rate(self):
