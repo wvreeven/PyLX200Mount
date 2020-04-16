@@ -75,7 +75,8 @@ class Lx200CommandResponder:
         added to get the UTC instead of the number of hours that the local time is ahead or behind of UTC.
         The difference is a minus symbol."""
         dt = datetime.now()
-        utc_offset = self.observing_location.tz(dt=dt).total_seconds() / 3600
+        tz = self.observing_location.tz.utcoffset(dt=dt)
+        utc_offset = tz.total_seconds() / 3600
         self.log.info("UTC Offset = {}".format(utc_offset))
         return "{:.1f}".format(-utc_offset) + HASH
 
