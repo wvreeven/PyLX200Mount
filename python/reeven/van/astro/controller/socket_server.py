@@ -59,7 +59,7 @@ class SocketServer:
                 # First read only one character and see if it is 0x06
                 c = (await reader.read(1)).decode()
                 self.log.debug("Read char {}".format(c))
-                if c is not ":":
+                if c != ":":
                     self.log.info("Received ACK {}".format(c))
                     await self.write("A")
                 else:
