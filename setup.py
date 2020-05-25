@@ -15,9 +15,12 @@ data_files_path = tools_path.relative_to(base_prefix).parents[1]
 
 setuptools.setup(
     name="PhidgetMountController",
+    version="0.1.0",
+    author="Wouter van Reeven",
+    author_email="wouter@van.reeven.nl",
     description="PhidgetMountController",
     setup_requires=["setuptools_scm", "pytest-runner"],
-    install_requires=install_requires,
+    install_requires=setup_requires,
     package_dir={"": "python"},
     packages=setuptools.find_namespace_packages(where="python"),
     package_data={"": ["*.rst", "*.yaml"]},

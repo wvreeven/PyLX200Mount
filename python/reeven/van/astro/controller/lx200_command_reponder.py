@@ -172,7 +172,8 @@ class Lx200CommandResponder:
         else:
             longitude = "-" + longitude
         self.log.info(
-            f"Converted internal longitude {self.observing_location.location.lon.to_string()} "
+            f"Converted internal longitude "
+            f"{self.mount_controller.observing_location.location.lon.to_string()} "
             f"to LX200 longitude {longitude}"
         )
         return longitude + HASH
@@ -202,7 +203,7 @@ class Lx200CommandResponder:
             )
         self.log.info(
             f"Converted LX200 longitude {data} to internal "
-            f"longitude {self.observing_location.location.lon.to_string()}"
+            f"longitude {self.mount_controller.observing_location.location.lon.to_string()}"
         )
         return "1"
 
