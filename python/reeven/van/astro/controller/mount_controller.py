@@ -3,6 +3,8 @@ from astropy.time import Time
 from astropy import units as u
 import logging
 
+from reeven.van.astro.observing_location import ObservingLocation
+
 
 class MountController:
     """Control the Mount.
