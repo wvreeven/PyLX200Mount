@@ -4,7 +4,6 @@ from astropy.coordinates import Longitude, Latitude
 from astropy import units as u
 
 from reeven.van.astro.controller.mount_controller import MountController
-from reeven.van.astro.observing_location import ObservingLocation
 
 logging.basicConfig(
     format="%(asctime)s:%(levelname)s:%(name)s:%(message)s", level=logging.INFO,
@@ -32,7 +31,6 @@ class Lx200CommandResponder:
         self.altitude = 45.0
         self.autoguide_speed = 0
 
-        self.observing_location = ObservingLocation()
         self.mount_controller = MountController()
 
         # Dictionary of the functions to execute based on the commando received.
@@ -71,7 +69,6 @@ class Lx200CommandResponder:
         dec_dms = dec.signed_dms
         # LX200 specific format
         dec_str = f"{dec_dms.sign*dec_dms.d:2.0f}*{dec_dms.m:2.0f}'{dec_dms.s:2.2f}"
-        # dec_str = dec.to_string(unit=u.deg, sep=":", precision=0, pad=True)
         return dec_str + HASH
 
     # noinspection PyMethodMayBeStatic
@@ -93,7 +90,7 @@ class Lx200CommandResponder:
         hours that the local time is ahead or behind of UTC. The difference is a minus symbol.
         """
         dt = datetime.now()
-        tz = self.observing_location.tz.utcoffset(dt=dt)
+        tz = mount_controller.observing_location.tz.utcoffset(dt=dt)
         utc_offset = tz.total_seconds() / 3600
         self.log.info(f"UTC Offset = {utc_offset}")
         return f"{-utc_offset:.1f}" + HASH
@@ -135,10 +132,11 @@ class Lx200CommandResponder:
         """Get the mount name which is just a name that I made up."""
         return "Phidgets" + HASH
 
+    # noinspection PyMethodMayBeStatic
     async def get_current_site_latitude(self):
         """Get the latitude of the obsering site."""
         return (
-            self.observing_location.location.lat.to_string(
+            mount_controller.observing_location.location.lat.to_string(
                 unit=u.degree, sep=":", fields=2
             )
             + HASH
@@ -150,10 +148,14 @@ class Lx200CommandResponder:
         if "*" in data:
             # SkySafari sends the latitude in the form "deg*min"
             lat_deg, lat_min = data.split("*")
-            self.observing_location.set_latitude(Latitude(f"{lat_deg}d{lat_min}m"))
+            mount_controller.observing_location.set_latitude(
+                Latitude(f"{lat_deg}d{lat_min}m")
+            )
         else:
             # Ekos sends the latitude in the form of a decimal value
-            self.observing_location.set_latitude(Latitude(f"{data} degrees"))
+            mount_controller.observing_location.set_latitude(
+                Latitude(f"{data} degrees")
+            )
         return "1"
 
     async def get_current_site_longitude(self):
@@ -162,7 +164,7 @@ class Lx200CommandResponder:
         The LX200 protocol puts West longitudes positive while astropy puts East longitude positive so we
         need to convert from the astropy longitude to the LX200 longitude.
         """
-        longitude = self.observing_location.location.lon.to_string(
+        longitude = mount_controller.observing_location.location.lon.to_string(
             unit=u.degree, sep=":", fields=2
         )
         if longitude[0] == "-":
@@ -190,19 +192,24 @@ class Lx200CommandResponder:
         if "*" in data:
             # SkySafari sends the longitude in the form "deg*min"
             lon_deg, lon_min = longitude.split("*")
-            self.observing_location.set_longitude(Latitude(f"{lon_deg}d{lon_min}m"))
+            mount_controller.observing_location.set_longitude(
+                Latitude(f"{lon_deg}d{lon_min}m")
+            )
         else:
             # Ekos sends the longitude in the form of a decimal value
-            self.observing_location.set_longitude(Longitude(f"{longitude} degrees"))
+            mount_controller.observing_location.set_longitude(
+                Longitude(f"{longitude} degrees")
+            )
         self.log.info(
             f"Converted LX200 longitude {data} to internal "
             f"longitude {self.observing_location.location.lon.to_string()}"
         )
         return "1"
 
+    # noinspection PyMethodMayBeStatic
     async def get_site_1_name(self):
         """Get the name of the observing site."""
-        return self.observing_location.name + HASH
+        return mount_controller.observing_location.name + HASH
 
     # noinspection PyMethodMayBeStatic
     async def set_slew_rate(self):
