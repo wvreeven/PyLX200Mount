@@ -20,7 +20,7 @@ setuptools.setup(
     author_email="wouter@van.reeven.nl",
     description="PhidgetMountController",
     setup_requires=["setuptools_scm", "pytest-runner"],
-    install_requires=setup_requires,
+    install_requires=install_requires,
     package_dir={"": "python"},
     packages=setuptools.find_namespace_packages(where="python"),
     package_data={"": ["*.rst", "*.yaml"]},
