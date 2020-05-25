@@ -90,7 +90,7 @@ class Lx200CommandResponder:
         hours that the local time is ahead or behind of UTC. The difference is a minus symbol.
         """
         dt = datetime.now()
-        tz = mount_controller.observing_location.tz.utcoffset(dt=dt)
+        tz = self.mount_controller.observing_location.tz.utcoffset(dt=dt)
         utc_offset = tz.total_seconds() / 3600
         self.log.info(f"UTC Offset = {utc_offset}")
         return f"{-utc_offset:.1f}" + HASH
@@ -136,7 +136,7 @@ class Lx200CommandResponder:
     async def get_current_site_latitude(self):
         """Get the latitude of the obsering site."""
         return (
-            mount_controller.observing_location.location.lat.to_string(
+            self.mount_controller.observing_location.location.lat.to_string(
                 unit=u.degree, sep=":", fields=2
             )
             + HASH
@@ -148,12 +148,12 @@ class Lx200CommandResponder:
         if "*" in data:
             # SkySafari sends the latitude in the form "deg*min"
             lat_deg, lat_min = data.split("*")
-            mount_controller.observing_location.set_latitude(
+            self.mount_controller.observing_location.set_latitude(
                 Latitude(f"{lat_deg}d{lat_min}m")
             )
         else:
             # Ekos sends the latitude in the form of a decimal value
-            mount_controller.observing_location.set_latitude(
+            self.mount_controller.observing_location.set_latitude(
                 Latitude(f"{data} degrees")
             )
         return "1"
@@ -164,7 +164,7 @@ class Lx200CommandResponder:
         The LX200 protocol puts West longitudes positive while astropy puts East longitude positive so we
         need to convert from the astropy longitude to the LX200 longitude.
         """
-        longitude = mount_controller.observing_location.location.lon.to_string(
+        longitude = self.mount_controller.observing_location.location.lon.to_string(
             unit=u.degree, sep=":", fields=2
         )
         if longitude[0] == "-":
@@ -192,12 +192,12 @@ class Lx200CommandResponder:
         if "*" in data:
             # SkySafari sends the longitude in the form "deg*min"
             lon_deg, lon_min = longitude.split("*")
-            mount_controller.observing_location.set_longitude(
+            self.mount_controller.observing_location.set_longitude(
                 Latitude(f"{lon_deg}d{lon_min}m")
             )
         else:
             # Ekos sends the longitude in the form of a decimal value
-            mount_controller.observing_location.set_longitude(
+            self.mount_controller.observing_location.set_longitude(
                 Longitude(f"{longitude} degrees")
             )
         self.log.info(
@@ -209,7 +209,7 @@ class Lx200CommandResponder:
     # noinspection PyMethodMayBeStatic
     async def get_site_1_name(self):
         """Get the name of the observing site."""
-        return mount_controller.observing_location.name + HASH
+        return self.mount_controller.observing_location.name + HASH
 
     # noinspection PyMethodMayBeStatic
     async def set_slew_rate(self):
