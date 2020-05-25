@@ -22,6 +22,8 @@ class SocketServer:
         self.port = 11880
         self._server = None
         self._writer = None
+        self.responder = Lx200CommandResponder()
+
         self.log = logging.getLogger("SocketServer")
 
     async def start(self):
@@ -44,13 +46,13 @@ class SocketServer:
     async def write(self, st):
         """Write the string st appended with a HASH character."""
         reply = st.encode()
-        self.log.info("Writing reply {}".format(reply))
+        self.log.info(f"Writing reply {reply}")
         self._writer.write(reply)
         await self._writer.drain()
 
     async def cmd_loop(self, reader, writer):
         """Execute commands and output replies."""
-        self.log.info("The cmd_loop begins")
+        self.log.info("Waiting for client to connect.")
         self._writer = writer
 
         # Just keep waiting for commands to arrive and then just process them and send a reply.
@@ -58,34 +60,33 @@ class SocketServer:
             while True:
                 # First read only one character and see if it is 0x06
                 c = (await reader.read(1)).decode()
-                self.log.debug("Read char {}".format(c))
+                self.log.debug(f"Read char {c}")
                 if c != ":":
-                    self.log.info("Received ACK {}".format(c))
+                    self.log.info(f"Writing ACK {c}")
                     await self.write("A")
                 else:
                     # All the next commands end in a # so we simply read all incoming strings up to # and
                     # parse them.
                     line = await reader.readuntil(HASH)
                     line = line.decode().strip()
-                    self.log.info("Read command line: {}".format(line))
+                    self.log.info(f"Read command line: {line}")
 
                     # Almost all LX200 commands are unique but don't have a fixed length. So we simply loop
                     # over all implemented commands until we find the one that we have received. None of
                     # the implemented commands are non-unique so this is a safe way to do this without
                     # having to write too much boiler plate code.
-                    responder = Lx200CommandResponder()
                     cmd = None
-                    for key in responder.dispatch_dict.keys():
+                    for key in self.responder.dispatch_dict.keys():
                         if line.startswith(key):
                             cmd = key
 
                     # Log a message if the command wasn't found.
-                    if cmd not in responder.dispatch_dict:
-                        self.log.error("Unknown command {}".format(cmd))
+                    if cmd not in self.responder.dispatch_dict:
+                        self.log.error(f"Unknown command {cmd}")
 
                     # Otherwise process the command.
                     else:
-                        (func, has_arg) = responder.dispatch_dict[cmd]
+                        (func, has_arg) = self.responder.dispatch_dict[cmd]
                         kwargs = {}
                         if has_arg:
                             # Read the function argument from the incoming command line and pass it on to
@@ -93,11 +94,11 @@ class SocketServer:
                             data_start = len(cmd)
                             kwargs["data"] = line[data_start:-1]
                         output = await func(**kwargs)
-                        self.log.info("Received output {}".format(output))
                         if output:
                             await self.write(output)
+
         except ConnectionResetError:
-            self.log.info("Ekos disconnected.")
+            self.log.info("Client disconnected.")
 
 
 async def main():

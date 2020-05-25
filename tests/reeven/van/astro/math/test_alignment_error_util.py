@@ -43,5 +43,5 @@ class Test(TestCase):
             location=location,
             altaz=sirius_altaz,
         )
-        self.assertAlmostEqual(sirius_tel.lon.deg, 50.366056969450526)
-        self.assertAlmostEqual(sirius_tel.lat.deg, 70.3316280887568)
+        self.assertAlmostEqual(sirius_tel.lon.deg, 50.36605861725904)
+        self.assertAlmostEqual(sirius_tel.lat.deg, 70.33162748097351)
