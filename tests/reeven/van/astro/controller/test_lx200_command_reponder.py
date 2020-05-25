@@ -22,7 +22,8 @@ class Test(asynctest.TestCase):
         self.assertEndsInHash(ra)
 
     async def test_get_dec(self):
-        de = await self.responder.get_de()
+        ra = await self.responder.get_ra()
+        de = await self.responder.get_dec()
         self.assertEndsInHash(de)
 
     async def test_get_clock_format(self):
