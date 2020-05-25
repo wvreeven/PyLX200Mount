@@ -22,7 +22,6 @@ class Lx200CommandResponder:
     """Implements the LX200 protocol.
 
     For more info, see the TelescopeProtocol PDF document in the misc/docs section.
-
     """
 
     def __init__(self,):
@@ -69,10 +68,7 @@ class Lx200CommandResponder:
 
     async def get_dec(self):
         """"Get the DEC that the mount currently is pointing at."""
-        time = Time.now()
-        dec = await self.mount_controller.get_dec(
-            time, self.observing_location.location
-        )
+        dec = await self.mount_controller.get_dec()
         # Use signed_dms here because dms will have negative minutes and seconds!!!
         dec_dms = dec.signed_dms
         # LX200 specific format
@@ -96,7 +92,8 @@ class Lx200CommandResponder:
         """Get the UTC offset of the obsering site.
 
         The LX200 counts the number of hours that need to be added to get the UTC instead of the number of
-        hours that the local time is ahead or behind of UTC. The difference is a minus symbol."""
+        hours that the local time is ahead or behind of UTC. The difference is a minus symbol.
+        """
         dt = datetime.now()
         tz = self.observing_location.tz.utcoffset(dt=dt)
         utc_offset = tz.total_seconds() / 3600
