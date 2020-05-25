@@ -1,7 +1,6 @@
 from datetime import datetime
 import logging
 from astropy.coordinates import Longitude, Latitude
-from astropy.time import Time
 from astropy import units as u
 
 from reeven.van.astro.controller.mount_controller import MountController
@@ -61,8 +60,7 @@ class Lx200CommandResponder:
 
     async def get_ra(self):
         """"Get the RA that the mount currently is pointing at."""
-        time = Time.now()
-        ra = await self.mount_controller.get_ra(time, self.observing_location.location)
+        ra = await self.mount_controller.get_ra()
         ra_str = ra.to_string(unit=u.hour, sep=":", precision=2, pad=True)
         return ra_str + HASH
 
