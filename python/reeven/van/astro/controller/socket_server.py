@@ -4,7 +4,8 @@ import logging
 from reeven.van.astro.controller.lx200_command_reponder import Lx200CommandResponder
 
 logging.basicConfig(
-    format="%(asctime)s:%(levelname)s:%(name)s:%(message)s", level=logging.INFO,
+    format="%(asctime)s:%(levelname)s:%(name)s:%(message)s",
+    level=logging.INFO,
 )
 
 # ACK symbol sent by Ekos
@@ -18,7 +19,9 @@ HASH = b"#"
 
 
 class SocketServer:
-    def __init__(self,):
+    def __init__(
+        self,
+    ):
         self.port = 11880
         self._server = None
         self._writer = None
@@ -55,7 +58,8 @@ class SocketServer:
         self.log.info("Waiting for client to connect.")
         self._writer = writer
 
-        # Just keep waiting for commands to arrive and then just process them and send a reply.
+        # Just keep waiting for commands to arrive and then just process them and send a
+        # reply.
         try:
             while True:
                 # First read only one character and see if it is 0x06
@@ -65,16 +69,18 @@ class SocketServer:
                     self.log.info(f"Writing ACK {c}")
                     await self.write("A")
                 else:
-                    # All the next commands end in a # so we simply read all incoming strings up to # and
+                    # All the next commands end in a # so we simply read all incoming
+                    # strings up to # and
                     # parse them.
                     line = await reader.readuntil(HASH)
                     line = line.decode().strip()
                     self.log.info(f"Read command line: {line}")
 
-                    # Almost all LX200 commands are unique but don't have a fixed length. So we simply loop
-                    # over all implemented commands until we find the one that we have received. None of
-                    # the implemented commands are non-unique so this is a safe way to do this without
-                    # having to write too much boiler plate code.
+                    # Almost all LX200 commands are unique but don't have a fixed length.
+                    # So we simply loop over all implemented commands until we find
+                    # the one that we have received. None of the implemented commands
+                    # are non-unique so this is a safe way to do this without having
+                    # to write too much boiler plate code.
                     cmd = None
                     for key in self.responder.dispatch_dict.keys():
                         if line.startswith(key):
@@ -89,8 +95,8 @@ class SocketServer:
                         (func, has_arg) = self.responder.dispatch_dict[cmd]
                         kwargs = {}
                         if has_arg:
-                            # Read the function argument from the incoming command line and pass it on to
-                            # the function.
+                            # Read the function argument from the incoming command line
+                            # and pass it on to the function.
                             data_start = len(cmd)
                             kwargs["data"] = line[data_start:-1]
                         output = await func(**kwargs)

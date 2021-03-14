@@ -7,8 +7,7 @@ from reeven.van.astro.observing_location import ObservingLocation
 
 
 class MountController:
-    """Control the Mount.
-    """
+    """Control the Mount."""
 
     def __init__(self):
         self.log = logging.getLogger("MountController")
@@ -22,7 +21,8 @@ class MountController:
     async def get_ra(self):
         """Get the current RA of the mount.
 
-        Since RA and DEC of the mount are requested in pairs, this method computes both the RA and DEC.
+        Since RA and DEC of the mount are requested in pairs, this method computes both
+        the RA and DEC.
 
         Returns
         -------
@@ -45,8 +45,8 @@ class MountController:
     async def get_dec(self):
         """Get the current DEC of the mount.
 
-        Since RA and DEC of the mount are requested in pairs, the get_ra method computes both the RA and
-        DEC and this method simply returns the computed DEC.
+        Since RA and DEC of the mount are requested in pairs, the get_ra method computes
+        both the RA and DEC and this method simply returns the computed DEC.
 
         Returns
         -------

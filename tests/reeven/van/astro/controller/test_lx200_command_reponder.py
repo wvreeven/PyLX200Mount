@@ -1,10 +1,10 @@
-import asynctest
+from unittest import IsolatedAsyncioTestCase
 
 from reeven.van.astro.controller.lx200_command_reponder import Lx200CommandResponder
 
 
-class Test(asynctest.TestCase):
-    async def setUp(self):
+class Test(IsolatedAsyncioTestCase):
+    def setUp(self):
         self.responder = Lx200CommandResponder()
 
     def assertEndsInHash(self, s):

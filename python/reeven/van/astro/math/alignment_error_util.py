@@ -11,11 +11,11 @@ import math
 
 
 def compute_alignment_error(lat, s1, s2, err_ra, err_dec):
-    """Compute the alignment error for the given latitdue, the given measured sky coordinates and the given
-    errors in right ascentsion and declination.
+    """Compute the alignment error for the given latitdue, the given measured sky
+    coordinates and the given errors in right ascentsion and declination.
 
-    This computation is based on the Two Star Polar Alignment paper by Ralph Pass in the misc/docs
-    directory of the source tree on GitHub.
+    This computation is based on the Two Star Polar Alignment paper by Ralph Pass in the
+    misc/docs directory of the source tree on GitHub.
 
     Parameters
     ----------
@@ -66,8 +66,8 @@ def compute_alignment_error(lat, s1, s2, err_ra, err_dec):
 
 
 def get_altaz_in_rotated_frame(delta_alt, delta_az, time, location, altaz):
-    """Rotates the given coordinates to the frame defined by given the altitude and azimuth offsets for the
-    given time and observing_location.
+    """Rotates the given coordinates to the frame defined by given the altitude and
+    azimuth offsets for the given time and observing_location.
 
     Parameters
     ----------
