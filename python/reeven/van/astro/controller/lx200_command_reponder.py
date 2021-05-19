@@ -12,10 +12,16 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
-# Commands and replies are terminated by the hash symbol
+"""Default reply."""
+DEFAULT_REPLY = "1"
+
+"""A slew to the target position is possible."""
+SLEW_POSSIBLE = "0"
+
+"""Commands and replies are terminated by the hash symbol."""
 HASH = "#"
 
-# The number of seconds in an hour
+"""The number of seconds in an hour."""
 NUM_SEC_PER_HOUR = 3600
 
 
@@ -36,6 +42,10 @@ class Lx200CommandResponder:
         self.altitude = 45.0
         self.autoguide_speed = 0
 
+        # Variables holding the target position
+        self.target_ra = 0.0
+        self.target_dec = 0.0
+
         self.mount_controller = MountController()
 
         # Dictionary of the functions to execute based on the commando received.
@@ -55,9 +65,24 @@ class Lx200CommandResponder:
             "GVN": (self.get_firmware_number, False),
             "GVP": (self.get_telescope_name, False),
             "GVT": (self.get_firmware_time, False),
+            "Mn": (self.move_north_slew, False),
+            "Me": (self.move_east_slew, False),
+            "Ms": (self.move_south_slew, False),
+            "Mw": (self.move_west_slew, False),
+            "MS": (self.move_slew, False),
+            "Qn": (self.stop_north_slew, False),
+            "Qe": (self.stop_east_slew, False),
+            "Qs": (self.stop_south_slew, False),
+            "Qw": (self.stop_west_slew, False),
+            # In general the keys should not contain the trailing '#' but in
+            # this case it is necessary to avoid confusion with the other
+            # commands starting with 'Q'.
+            "Q#": (self.stop_slew, False),
             "RM": (self.set_slew_rate, False),
             "RS": (self.set_slew_rate, False),
+            "Sd": (self.set_dec, True),
             "Sg": (self.set_current_site_longitude, True),
+            "Sr": (self.set_ra, True),
             "St": (self.set_current_site_latitude, True),
         }
 
@@ -67,6 +92,23 @@ class Lx200CommandResponder:
         ra_str = ra.to_string(unit=u.hour, sep=":", precision=2, pad=True)
         return ra_str + HASH
 
+    async def set_ra(self, data):
+        """Set the RA that the mount should slew to.
+
+        Parameters
+        ----------
+        data: `str`
+            A sexagemal representation of the RA, HH:mm:ss
+
+        Returns
+        -------
+        DEFAULT_REPLY
+            The default reply accoring to the LX200 command protocol.
+        """
+        self.log.info(f"Setting RA to {data}")
+        self.target_ra = data
+        return DEFAULT_REPLY
+
     async def get_dec(self):
         """"Get the DEC that the mount currently is pointing at."""
         dec = await self.mount_controller.get_dec()
@@ -75,6 +117,23 @@ class Lx200CommandResponder:
         # LX200 specific format
         dec_str = f"{dec_dms.sign*dec_dms.d:2.0f}*{dec_dms.m:2.0f}'{dec_dms.s:2.2f}"
         return dec_str + HASH
+
+    async def set_dec(self, data):
+        """Set the DEC that the mount should slew to.
+
+        Parameters
+        ----------
+        data: `str`
+            A sexagemal representation of the DEC, dd*mm:ss
+
+        Returns
+        -------
+        DEFAULT_REPLY
+            The default reply accoring to the LX200 command protocol.
+        """
+        self.log.info(f"Setting DEC to {data}")
+        self.target_dec = data
+        return DEFAULT_REPLY
 
     # noinspection PyMethodMayBeStatic
     async def get_clock_format(self):
@@ -138,7 +197,6 @@ class Lx200CommandResponder:
         """Get the mount name which is just a name that I made up."""
         return "Phidgets" + HASH
 
-    # noinspection PyMethodMayBeStatic
     async def get_current_site_latitude(self):
         """Get the latitude of the obsering site."""
         return (
@@ -162,7 +220,7 @@ class Lx200CommandResponder:
             self.mount_controller.observing_location.set_latitude(
                 Latitude(f"{data} degrees")
             )
-        return "1"
+        return DEFAULT_REPLY
 
     async def get_current_site_longitude(self):
         """Get the longitude of the obsering site.
@@ -213,9 +271,8 @@ class Lx200CommandResponder:
             f"Converted LX200 longitude {data} to internal longitude "
             f"{self.mount_controller.observing_location.location.lon.to_string()}"
         )
-        return "1"
+        return DEFAULT_REPLY
 
-    # noinspection PyMethodMayBeStatic
     async def get_site_1_name(self):
         """Get the name of the observing site."""
         return self.mount_controller.observing_location.name + HASH
@@ -227,3 +284,48 @@ class Lx200CommandResponder:
         This can be ignored since we determine the slew rate ourself.
         """
         pass
+
+    async def move_slew(self):
+        """Move the telescope at slew rate to the target position."""
+        self.log.info(f"Slewing to ({self.target_ra}, {self.target_dec}).")
+        return SLEW_POSSIBLE
+
+    async def move_north_slew(self):
+        """Move the telescope at slew rate to the target position."""
+        self.log.info(f"Slewing north.")
+        return SLEW_POSSIBLE
+
+    async def move_east_slew(self):
+        """Move the telescope at slew rate to the target position."""
+        self.log.info(f"Slewing east.")
+        return SLEW_POSSIBLE
+
+    async def move_south_slew(self):
+        """Move the telescope at slew rate to the target position."""
+        self.log.info(f"Slewing south.")
+        return SLEW_POSSIBLE
+
+    async def move_west_slew(self):
+        """Move the telescope at slew rate to the target position."""
+        self.log.info(f"Slewing west.")
+        return SLEW_POSSIBLE
+
+    async def stop_slew(self):
+        """Stop the current slew."""
+        self.log.info("Stopping current slew.")
+
+    async def stop_north_slew(self):
+        """Stop the current slew."""
+        self.log.info("Stopping current slew north.")
+
+    async def stop_east_slew(self):
+        """Stop the current slew."""
+        self.log.info("Stopping current slew east.")
+
+    async def stop_south_slew(self):
+        """Stop the current slew."""
+        self.log.info("Stopping current slew south.")
+
+    async def stop_west_slew(self):
+        """Stop the current slew."""
+        self.log.info("Stopping current slew west.")
