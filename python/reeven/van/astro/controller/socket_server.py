@@ -49,13 +49,13 @@ class SocketServer:
     async def write(self, st):
         """Write the string st appended with a HASH character."""
         reply = st.encode()
-        self.log.info(f"Writing reply {reply}")
+        self.log.debug(f"Writing reply {reply}")
         self._writer.write(reply)
         await self._writer.drain()
 
     async def cmd_loop(self, reader, writer):
         """Execute commands and output replies."""
-        self.log.info("Waiting for client to connect.")
+        # self.log.info("Waiting for client to connect.")
         self._writer = writer
 
         # Just keep waiting for commands to arrive and then just process them and send a
@@ -66,7 +66,7 @@ class SocketServer:
                 c = (await reader.read(1)).decode()
                 self.log.debug(f"Read char {c}")
                 if c != ":":
-                    self.log.info(f"Writing ACK {c}")
+                    self.log.debug(f"Writing ACK {c}")
                     await self.write("A")
                 else:
                     # All the next commands end in a # so we simply read all incoming
@@ -74,7 +74,8 @@ class SocketServer:
                     # parse them.
                     line = await reader.readuntil(HASH)
                     line = line.decode().strip()
-                    self.log.info(f"Read command line: {line}")
+                    if line not in ["GR#", "GD#"]:
+                        self.log.info(f"Read command line: {line!r}")
 
                     # Almost all LX200 commands are unique but don't have a fixed length.
                     # So we simply loop over all implemented commands until we find
@@ -104,17 +105,17 @@ class SocketServer:
                             await self.write(output)
 
         except ConnectionResetError:
-            self.log.info("Client disconnected.")
+            # self.log.info("Client disconnected.")
+            pass
 
 
 async def main():
-    socket_server = SocketServer()
     await socket_server.start()
 
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
+    socket_server = SocketServer()
     try:
-        loop.run_until_complete(main())
+        asyncio.run(main())
     except (asyncio.CancelledError, KeyboardInterrupt):
-        pass
+        asyncio.run(socket_server.stop())
