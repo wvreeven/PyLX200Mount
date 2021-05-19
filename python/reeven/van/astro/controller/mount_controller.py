@@ -16,40 +16,25 @@ class MountController:
         self.ra_dec = None
         self.observing_location = ObservingLocation()
 
-    # noinspection PyMethodMayBeStatic
     # TODO Add with real implementation as soon as goto and tracking are implemented
-    async def get_ra(self):
-        """Get the current RA of the mount.
+    async def get_ra_dec(self):
+        """Get the current RA and DEC of the mount.
 
         Since RA and DEC of the mount are requested in pairs, this method computes both
         the RA and DEC.
 
         Returns
         -------
-        The right ascention.
+        The right ascention and declination.
         """
 
         time = Time.now()
-        zenith = SkyCoord(
+        altaz = SkyCoord(
             alt=Angle(90 * u.deg),
             az=Angle(0 * u.deg),
             frame="altaz",
             obstime=time,
             location=self.observing_location.location,
         )
-        self.ra_dec = zenith.transform_to("icrs")
-        return self.ra_dec.ra
-
-    # noinspection PyMethodMayBeStatic
-    # TODO Add with real implementation as soon as goto and tracking are implemented
-    async def get_dec(self):
-        """Get the current DEC of the mount.
-
-        Since RA and DEC of the mount are requested in pairs, the get_ra method computes
-        both the RA and DEC and this method simply returns the computed DEC.
-
-        Returns
-        -------
-        The declination.
-        """
-        return self.ra_dec.dec
+        self.ra_dec = altaz.transform_to("icrs")
+        return self.ra_dec

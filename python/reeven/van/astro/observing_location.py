@@ -18,9 +18,9 @@ class ObservingLocation:
     ):
         # Variables holding the site information
         self.location = EarthLocation.from_geodetic(
-            lon=Longitude("-71d14m12.5s"),
-            lat=Latitude("-29d56m29.7s"),
-            height=110.0 * u.meter,
+            lon=Longitude("00d00m00.0s"),
+            lat=Latitude("00d00m00.0s"),
+            height=0.0 * u.meter,
         )
         self.name = "La Serena"
         self.tz = TimezoneInfo(utc_offset=-4 * u.hour)

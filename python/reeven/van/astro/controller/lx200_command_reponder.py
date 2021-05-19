@@ -5,7 +5,7 @@ from astropy import units as u
 
 from reeven.van.astro.controller.mount_controller import MountController
 
-_all__ = ["Lx200CommandResponder"]
+_all__ = ["Lx200CommandResponder", "REPLY_SEPARATOR"]
 
 logging.basicConfig(
     format="%(asctime)s:%(levelname)s:%(name)s:%(message)s",
@@ -23,6 +23,13 @@ HASH = "#"
 
 """The number of seconds in an hour."""
 NUM_SEC_PER_HOUR = 3600
+
+"""Multiple strings which get sent as a reply to the SC command."""
+UPDATING_PLANETARY_DATA1 = "Updating Planetary Data       " + HASH
+UPDATING_PLANETARY_DATA2 = "                              " + HASH
+
+"""Separator used for multiple replies."""
+REPLY_SEPARATOR = "\n"
 
 
 class Lx200CommandResponder:
@@ -42,6 +49,9 @@ class Lx200CommandResponder:
         self.altitude = 45.0
         self.autoguide_speed = 0
 
+        # Hold the computed RA and DEC
+        self.ra_dec = None
+
         # Variables holding the target position
         self.target_ra = 0.0
         self.target_dec = 0.0
@@ -50,6 +60,7 @@ class Lx200CommandResponder:
 
         # Dictionary of the functions to execute based on the commando received.
         self.dispatch_dict = {
+            "CM": (self.sync, False),
             "Gc": (self.get_clock_format, False),
             "GC": (self.get_current_date, False),
             "GD": (self.get_dec, False),
@@ -80,15 +91,19 @@ class Lx200CommandResponder:
             "Q#": (self.stop_slew, False),
             "RM": (self.set_slew_rate, False),
             "RS": (self.set_slew_rate, False),
+            "SC": (self.set_local_date, True),
             "Sd": (self.set_dec, True),
             "Sg": (self.set_current_site_longitude, True),
+            "SG": (self.set_utc_offset, True),
+            "SL": (self.set_local_time, True),
             "Sr": (self.set_ra, True),
             "St": (self.set_current_site_latitude, True),
         }
 
     async def get_ra(self):
         """"Get the RA that the mount currently is pointing at."""
-        ra = await self.mount_controller.get_ra()
+        self.ra_dec = await self.mount_controller.get_ra_dec()
+        ra = self.ra_dec.ra
         ra_str = ra.to_string(unit=u.hour, sep=":", precision=2, pad=True)
         return ra_str + HASH
 
@@ -111,7 +126,7 @@ class Lx200CommandResponder:
 
     async def get_dec(self):
         """"Get the DEC that the mount currently is pointing at."""
-        dec = await self.mount_controller.get_dec()
+        dec = self.ra_dec.dec
         # Use signed_dms here because dms will have negative minutes and seconds!!!
         dec_dms = dec.signed_dms
         # LX200 specific format
@@ -287,45 +302,80 @@ class Lx200CommandResponder:
 
     async def move_slew(self):
         """Move the telescope at slew rate to the target position."""
+        # TODO Replace with real implementation
         self.log.info(f"Slewing to ({self.target_ra}, {self.target_dec}).")
         return SLEW_POSSIBLE
 
     async def move_north_slew(self):
         """Move the telescope at slew rate to the target position."""
+        # TODO Replace with real implementation
         self.log.info(f"Slewing north.")
         return SLEW_POSSIBLE
 
     async def move_east_slew(self):
         """Move the telescope at slew rate to the target position."""
+        # TODO Replace with real implementation
         self.log.info(f"Slewing east.")
         return SLEW_POSSIBLE
 
     async def move_south_slew(self):
         """Move the telescope at slew rate to the target position."""
+        # TODO Replace with real implementation
         self.log.info(f"Slewing south.")
         return SLEW_POSSIBLE
 
     async def move_west_slew(self):
         """Move the telescope at slew rate to the target position."""
+        # TODO Replace with real implementation
         self.log.info(f"Slewing west.")
         return SLEW_POSSIBLE
 
     async def stop_slew(self):
         """Stop the current slew."""
+        # TODO Replace with real implementation
         self.log.info("Stopping current slew.")
 
     async def stop_north_slew(self):
         """Stop the current slew."""
+        # TODO Replace with real implementation
         self.log.info("Stopping current slew north.")
 
     async def stop_east_slew(self):
         """Stop the current slew."""
+        # TODO Replace with real implementation
         self.log.info("Stopping current slew east.")
 
     async def stop_south_slew(self):
         """Stop the current slew."""
+        # TODO Replace with real implementation
         self.log.info("Stopping current slew south.")
 
     async def stop_west_slew(self):
         """Stop the current slew."""
+        # TODO Replace with real implementation
         self.log.info("Stopping current slew west.")
+
+    async def set_utc_offset(self, data):
+        """Set the UTC offset."""
+        # TODO Replace with real implementation
+        self.log.info(f"set_utc_offset received data {data}")
+        return DEFAULT_REPLY
+
+    async def set_local_time(self, data):
+        """Set the local time."""
+        # TODO Replace with real implementation
+        self.log.info(f"set_local_time received data {data}")
+        return DEFAULT_REPLY
+
+    async def set_local_date(self, data):
+        """Set the local date."""
+        # TODO Replace with real implementation
+        self.log.info(f"set_local_date received data {data}")
+        # Two return strings are expected so here we separate them by a new
+        # line character and will let the socket server deal with it.
+        return UPDATING_PLANETARY_DATA1 + REPLY_SEPARATOR + UPDATING_PLANETARY_DATA2
+
+    async def sync(self):
+        # TODO Replace with real implementation
+        self.log.info(f"sync received.")
+        return "RANDOM NAME" + HASH

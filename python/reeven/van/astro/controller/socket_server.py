@@ -1,7 +1,10 @@
 import asyncio
 import logging
 
-from reeven.van.astro.controller.lx200_command_reponder import Lx200CommandResponder
+from reeven.van.astro.controller.lx200_command_reponder import (
+    Lx200CommandResponder,
+    REPLY_SEPARATOR,
+)
 
 logging.basicConfig(
     format="%(asctime)s:%(levelname)s:%(name)s:%(message)s",
@@ -102,6 +105,13 @@ class SocketServer:
                             kwargs["data"] = line[data_start:-1]
                         output = await func(**kwargs)
                         if output:
+                            if REPLY_SEPARATOR in output:
+                                # dirty trick to be able to send two output
+                                # strings as is expected for e.g. "SC#"
+                                outputs = output.split(REPLY_SEPARATOR)
+                                for i in range(len(outputs) - 1):
+                                    await self.write(output[0])
+                                output = outputs[-1]
                             await self.write(output)
 
         except ConnectionResetError:
