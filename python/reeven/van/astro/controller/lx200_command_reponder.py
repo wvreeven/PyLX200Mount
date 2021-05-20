@@ -378,4 +378,5 @@ class Lx200CommandResponder:
     async def sync(self):
         # TODO Replace with real implementation
         self.log.info(f"sync received.")
+        await self.mount_controller.set_ra_dec(ra=self.target_ra, dec=self.target_dec)
         return "RANDOM NAME" + HASH
