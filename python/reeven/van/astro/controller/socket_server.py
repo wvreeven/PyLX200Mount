@@ -34,20 +34,24 @@ class SocketServer:
 
     async def start(self):
         """Start the TCP/IP server."""
-        self.log.info("Start called")
+        self.log.info("Start called.")
+        await self.responder.start()
         self._server = await asyncio.start_server(self.cmd_loop, port=self.port)
+        self.log.info(f"Server started at port {self.port}")
         await self._server.wait_closed()
 
     async def stop(self):
         """Stop the TCP/IP server."""
+        self.log.info("Stop called.")
+        await self.responder.stop()
         if self._server is None:
             return
 
         server = self._server
         self._server = None
-        self.log.info("Closing server")
+        self.log.info("Closing server.")
         server.close()
-        self.log.info("Done closing")
+        self.log.info("Done closing.")
 
     async def write(self, st):
         """Write the string st appended with a HASH character."""
@@ -67,9 +71,9 @@ class SocketServer:
             while True:
                 # First read only one character and see if it is 0x06
                 c = (await reader.read(1)).decode()
-                self.log.debug(f"Read char {c}")
+                self.log.debug(f"Read char {c!r}.")
                 if c != ":":
-                    self.log.debug(f"Writing ACK {c}")
+                    self.log.debug(f"Writing ACK {c!r}.")
                     await self.write("A")
                 else:
                     # All the next commands end in a # so we simply read all incoming
@@ -92,7 +96,7 @@ class SocketServer:
 
                     # Log a message if the command wasn't found.
                     if cmd not in self.responder.dispatch_dict:
-                        self.log.error(f"Unknown command {cmd}")
+                        self.log.error(f"Unknown command {cmd!r}.")
 
                     # Otherwise process the command.
                     else:
