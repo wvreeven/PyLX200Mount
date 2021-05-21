@@ -25,6 +25,7 @@ class SocketServer:
     def __init__(
         self,
     ):
+        self.host = "127.0.0.1"
         self.port = 11880
         self._server = None
         self._writer = None
@@ -37,7 +38,10 @@ class SocketServer:
         self.log.info("Start called.")
         await self.responder.start()
         self._server = await asyncio.start_server(self.cmd_loop, port=self.port)
-        self.log.info(f"Server started at port {self.port}")
+        socket_name = self._server.sockets[1].getsockname()
+        self.host = socket_name[0]
+        self.port = socket_name[1]
+        self.log.info(f"Server started on host {self.host}:{self.port}")
         await self._server.wait_closed()
 
     async def stop(self):
