@@ -1,11 +1,21 @@
+import logging
 from unittest import IsolatedAsyncioTestCase
 
 from reeven.van.astro.controller.lx200_command_reponder import Lx200CommandResponder
 
+logging.basicConfig(
+    format="%(asctime)s:%(levelname)s:%(name)s:%(message)s",
+    level=logging.INFO,
+)
+
 
 class Test(IsolatedAsyncioTestCase):
-    def setUp(self):
+    async def asyncSetUp(self):
         self.responder = Lx200CommandResponder()
+        await self.responder.start()
+
+    async def asyncTearDown(self):
+        await self.responder.stop()
 
     def assertEndsInHash(self, s):
         self.assertTrue(

@@ -7,11 +7,6 @@ from reeven.van.astro.controller.mount_controller import MountController
 
 _all__ = ["Lx200CommandResponder", "REPLY_SEPARATOR"]
 
-logging.basicConfig(
-    format="%(asctime)s:%(levelname)s:%(name)s:%(message)s",
-    level=logging.INFO,
-)
-
 """Default reply."""
 DEFAULT_REPLY = "1"
 
@@ -45,16 +40,11 @@ class Lx200CommandResponder:
         self.log = logging.getLogger("Lx200CommandResponder")
 
         # Variables holding the status of the mount
-        self.azimuth = 0.0
-        self.altitude = 45.0
         self.autoguide_speed = 0
 
-        # Hold the computed RA and DEC
-        self.ra_dec = None
-
         # Variables holding the target position
-        self.target_ra = 0.0
-        self.target_dec = 0.0
+        self.target_ra = "0.0"
+        self.target_dec = "0.0"
 
         self.mount_controller = MountController()
 
@@ -100,10 +90,20 @@ class Lx200CommandResponder:
             "St": (self.set_current_site_latitude, True),
         }
 
+    async def start(self):
+        """Start the responder."""
+        self.log.info("Start called.")
+        await self.mount_controller.start()
+
+    async def stop(self):
+        """Stop the responder."""
+        self.log.info("Stop called.")
+        await self.mount_controller.stop()
+
     async def get_ra(self):
         """"Get the RA that the mount currently is pointing at."""
-        self.ra_dec = await self.mount_controller.get_ra_dec()
-        ra = self.ra_dec.ra
+        ra_dec = await self.mount_controller.get_ra_dec()
+        ra = ra_dec.ra
         ra_str = ra.to_string(unit=u.hour, sep=":", precision=2, pad=True)
         return ra_str + HASH
 
@@ -126,7 +126,8 @@ class Lx200CommandResponder:
 
     async def get_dec(self):
         """"Get the DEC that the mount currently is pointing at."""
-        dec = self.ra_dec.dec
+        ra_dec = await self.mount_controller.get_ra_dec()
+        dec = ra_dec.dec
         # Use signed_dms here because dms will have negative minutes and seconds!!!
         dec_dms = dec.signed_dms
         # LX200 specific format
@@ -222,7 +223,7 @@ class Lx200CommandResponder:
         )
 
     async def set_current_site_latitude(self, data):
-        """Set the latitude of the obsering site as received from Ekos."""
+        """Set the latitude of the obsering site."""
         self.log.info(f"set_current_site_latitude received data {data}")
         if "*" in data:
             # SkySafari sends the latitude in the form "deg*min"
@@ -302,9 +303,11 @@ class Lx200CommandResponder:
 
     async def move_slew(self):
         """Move the telescope at slew rate to the target position."""
-        # TODO Replace with real implementation
         self.log.info(f"Slewing to ({self.target_ra}, {self.target_dec}).")
-        return SLEW_POSSIBLE
+        slew_possible = await self.mount_controller.slew_to(
+            self.target_ra, self.target_dec
+        )
+        return slew_possible
 
     async def move_north_slew(self):
         """Move the telescope at slew rate to the target position."""
@@ -378,5 +381,7 @@ class Lx200CommandResponder:
     async def sync(self):
         # TODO Replace with real implementation
         self.log.info(f"sync received.")
-        await self.mount_controller.set_ra_dec(ra=self.target_ra, dec=self.target_dec)
+        await self.mount_controller.set_ra_dec(
+            ra_str=self.target_ra, dec_str=self.target_dec
+        )
         return "RANDOM NAME" + HASH
