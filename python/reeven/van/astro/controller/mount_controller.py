@@ -38,8 +38,6 @@ class MountController:
         self.observing_location = ObservingLocation()
         self.alt_az = self.get_skycoord_from_alt_az(90.0, 0.0)
         self.state = MountControllerState.STOPPED
-        # Used in case of an error in state or slew mode handling.
-        self.prev_state = None
         self.position_loop = None
         self.ra_dec = None
 
@@ -61,7 +59,6 @@ class MountController:
     async def _start_position_loop(self):
         """Start the position loop."""
         while True:
-            self.log.debug(f"state = {self.state} and prev_state = {self.prev_state}")
             if self.state == MountControllerState.STOPPED:
                 await self._stopped()
             elif self.state == MountControllerState.TRACKING:
@@ -71,7 +68,7 @@ class MountController:
             else:
                 msg = f"Invalid state encountered: {self.state}"
                 self.log.error(msg)
-                self.state = self.prev_state
+                self.state = MountControllerState.STOPPED
                 raise NotImplementedError(msg)
             # Loop at 10 Hz.
             await asyncio.sleep(0.1)
@@ -95,7 +92,7 @@ class MountController:
         else:
             msg = f"Invalid slew mode encountered: {self.slew_mode}"
             self.log.error(msg)
-            self.state = self.prev_state
+            self.state = MountControllerState.STOPPED
             raise NotImplementedError(msg)
 
     async def _slew_radec(self):
@@ -126,7 +123,7 @@ class MountController:
 
         self.ra_dec = self.get_skycoord_from_ra_dec(ra=ra, dec=dec)
         if diff_ra == 0 and diff_dec == 0:
-            self._set_state(MountControllerState.TRACKING)
+            self.state = MountControllerState.TRACKING
 
         self.slew_ref_time = now
 
@@ -160,7 +157,7 @@ class MountController:
         self.alt_az = self.get_skycoord_from_alt_az(alt=alt, az=az)
         self.ra_dec = self.get_radec_from_altaz(alt_az=self.alt_az)
         if diff_alt == 0 and diff_az == 0:
-            self._set_state(MountControllerState.TRACKING)
+            self.state = MountControllerState.TRACKING
 
         self.slew_ref_time = now
 
@@ -190,7 +187,7 @@ class MountController:
         print(f"{ra_str} {dec_str}")
         self.ra_dec = self.get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
         self.alt_az = self.get_altaz_from_radec(ra_dec=self.ra_dec)
-        self._set_state(MountControllerState.TRACKING)
+        self.state = MountControllerState.TRACKING
 
     async def slew_to(self, ra_str, dec_str):
         """Instruct the mount to slew to the target RA and DEC if possible.
@@ -213,14 +210,14 @@ class MountController:
         if alt_az.alt.value > 0:
             self.slew_ref_time = Time.now()
             self.target_ra_dec = ra_dec
-            self._set_state(MountControllerState.SLEWING)
+            self.state = MountControllerState.SLEWING
             return "0"
         else:
             return "1"
 
-    def _set_state(self, state):
-        self.prev_state = self.state
-        self.state = state
+    async def stop_slew(self):
+        """Stop the slew and start tracking where the mount is pointing at."""
+        self.state = MountControllerState.TRACKING
 
     # noinspection PyMethodMayBeStatic
     def get_skycoord_from_ra_dec(self, ra, dec):

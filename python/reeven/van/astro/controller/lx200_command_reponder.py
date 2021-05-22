@@ -71,10 +71,10 @@ class Lx200CommandResponder:
             "Ms": (self.move_south_slew, False),
             "Mw": (self.move_west_slew, False),
             "MS": (self.move_slew, False),
-            "Qn": (self.stop_north_slew, False),
-            "Qe": (self.stop_east_slew, False),
-            "Qs": (self.stop_south_slew, False),
-            "Qw": (self.stop_west_slew, False),
+            "Qn": (self.stop_slew, False),
+            "Qe": (self.stop_slew, False),
+            "Qs": (self.stop_slew, False),
+            "Qw": (self.stop_slew, False),
             # In general the keys should not contain the trailing '#' but in
             # this case it is necessary to avoid confusion with the other
             # commands starting with 'Q'.
@@ -335,28 +335,8 @@ class Lx200CommandResponder:
 
     async def stop_slew(self):
         """Stop the current slew."""
-        # TODO Replace with real implementation
         self.log.info("Stopping current slew.")
-
-    async def stop_north_slew(self):
-        """Stop the current slew."""
-        # TODO Replace with real implementation
-        self.log.info("Stopping current slew north.")
-
-    async def stop_east_slew(self):
-        """Stop the current slew."""
-        # TODO Replace with real implementation
-        self.log.info("Stopping current slew east.")
-
-    async def stop_south_slew(self):
-        """Stop the current slew."""
-        # TODO Replace with real implementation
-        self.log.info("Stopping current slew south.")
-
-    async def stop_west_slew(self):
-        """Stop the current slew."""
-        # TODO Replace with real implementation
-        self.log.info("Stopping current slew west.")
+        await self.mount_controller.stop_slew()
 
     async def set_utc_offset(self, data):
         """Set the UTC offset."""
