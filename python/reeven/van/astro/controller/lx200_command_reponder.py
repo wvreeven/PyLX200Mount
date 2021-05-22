@@ -236,6 +236,7 @@ class Lx200CommandResponder:
             self.mount_controller.observing_location.set_latitude(
                 Latitude(f"{data} degrees")
             )
+        await self.mount_controller.location_updated()
         return DEFAULT_REPLY
 
     async def get_current_site_longitude(self):
@@ -287,6 +288,7 @@ class Lx200CommandResponder:
             f"Converted LX200 longitude {data} to internal longitude "
             f"{self.mount_controller.observing_location.location.lon.to_string()}"
         )
+        await self.mount_controller.location_updated()
         return DEFAULT_REPLY
 
     async def get_site_1_name(self):
