@@ -1,5 +1,4 @@
 import asyncio
-import enum
 import logging
 
 from astropy.coordinates import AltAz, Angle, SkyCoord
@@ -7,27 +6,13 @@ from astropy.time import Time
 from astropy import units as u
 
 from reeven.van.astro import ObservingLocation
+from .enums import MountControllerState, SlewMode
 
 
-__all__ = ["MountController", "MountControllerState", "SlewMode"]
+__all__ = ["MountController"]
 
 """Fixed slew speed [deg/sec]."""
 SLEW_SPEED = 3.0
-
-
-class MountControllerState(enum.Enum):
-    """State of the mount controller."""
-
-    STOPPED = 0
-    TRACKING = 1
-    SLEWING = 2
-
-
-class SlewMode(enum.Enum):
-    """Slew modes"""
-
-    ALT_AZ = "AltAz"
-    RA_DEC = "RaDec"
 
 
 class MountController:
@@ -39,7 +24,7 @@ class MountController:
         self.alt_az = self.get_skycoord_from_alt_az(90.0, 0.0)
         self.state = MountControllerState.STOPPED
         self.position_loop = None
-        self.ra_dec = None
+        self.ra_dec = self.get_radec_from_altaz(self.alt_az)
 
         # Slew related variables
         self.slew_ref_time = 0.0
@@ -59,6 +44,7 @@ class MountController:
     async def _start_position_loop(self):
         """Start the position loop."""
         while True:
+            self.log.debug(f"Mount state = {self.state.name}")
             if self.state == MountControllerState.STOPPED:
                 await self._stopped()
             elif self.state == MountControllerState.TRACKING:
@@ -75,12 +61,18 @@ class MountController:
 
     async def _stopped(self):
         """Mount behavior in STOPPED state."""
-        self.log.debug("Stopped.")
+        self.log.debug(
+            f"Stopped at AltAz {self.alt_az.to_string()}"
+            f" == RaDec {'None' if None else self.ra_dec.to_string('hmsdms')}."
+        )
         self.ra_dec = self.get_radec_from_altaz(alt_az=self.alt_az)
 
     async def _track(self):
         """Mount behavior in TRACKING state."""
-        self.log.debug("Tracking.")
+        self.log.debug(
+            f"Tracking at AltAz {self.alt_az.to_string()}"
+            f" == RaDec {'None' if None else self.ra_dec.to_string('hmsdms')}."
+        )
         self.alt_az = self.get_altaz_from_radec(ra_dec=self.ra_dec)
 
     async def _slew(self):
@@ -97,7 +89,10 @@ class MountController:
 
     async def _slew_radec(self):
         """RaDec mount behavior in SLEWING state."""
-        self.log.debug(f"Slewing to RaDec ({self.target_ra_dec.to_string('hmsdms')})")
+        self.log.debug(
+            f"Slewing from RaDec {self.ra_dec.to_string('hmsdms')} "
+            f"to RaDec ({self.target_ra_dec.to_string('hmsdms')})"
+        )
         now = Time.now()
         diff_ra = self.target_ra_dec.ra.value - self.ra_dec.ra.value
         diff_dec = self.target_ra_dec.dec.value - self.ra_dec.dec.value
@@ -131,7 +126,10 @@ class MountController:
         """AltAz mount behavior in SLEWING state."""
         now = Time.now()
         target_altaz = self.get_altaz_from_radec(ra_dec=self.target_ra_dec)
-        self.log.debug(f"Slewing to AltAz ({target_altaz.to_string()})")
+        self.log.debug(
+            f"Slewing from AltAz {self.alt_az.to_string()} "
+            f"to AltAz ({target_altaz.to_string()})"
+        )
         diff_alt = target_altaz.alt.value - self.alt_az.alt.value
         diff_az = self.get_shortest_path(target_altaz.az, self.alt_az.az).value
         time_diff = now - self.slew_ref_time
@@ -218,6 +216,14 @@ class MountController:
     async def stop_slew(self):
         """Stop the slew and start tracking where the mount is pointing at."""
         self.state = MountControllerState.TRACKING
+
+    async def location_updated(self):
+        """Update the location but stay pointed at the same altitude and
+        azimuth."""
+        altitude = self.alt_az.alt.value
+        azimuth = self.alt_az.az.value
+        self.alt_az = self.get_skycoord_from_alt_az(alt=altitude, az=azimuth)
+        self.ra_dec = self.get_radec_from_altaz(alt_az=self.alt_az)
 
     # noinspection PyMethodMayBeStatic
     def get_skycoord_from_ra_dec(self, ra, dec):

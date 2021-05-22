@@ -4,11 +4,8 @@ from unittest import IsolatedAsyncioTestCase
 
 import astropy.units as u
 
-from reeven.van.astro.controller.mount_controller import (
-    MountController,
-    MountControllerState,
-    SlewMode,
-)
+from reeven.van.astro.controller.mount_controller import MountController
+from reeven.van.astro.controller.enums import MountControllerState, SlewMode
 
 logging.basicConfig(
     format="%(asctime)s:%(levelname)s:%(name)s:%(message)s",
