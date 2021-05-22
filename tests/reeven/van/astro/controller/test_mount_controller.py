@@ -69,10 +69,9 @@ class Test(IsolatedAsyncioTestCase):
         slew_to = await self.mount_controller.slew_to(
             ra_str=self.target_ra_str, dec_str=self.target_dec_str
         )
-        prev_state = self.mount_controller.prev_state
         self.assertEqual("0", slew_to)
 
-        while self.mount_controller.state != prev_state:
+        while self.mount_controller.state != MountControllerState.STOPPED:
             self.assertEqual(self.mount_controller.state, MountControllerState.SLEWING)
             self.assertEqual(self.mount_controller.slew_mode, bad_mode)
             await asyncio.sleep(0.5)
