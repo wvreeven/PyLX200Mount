@@ -5,14 +5,11 @@ from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.time import Time
 from astropy import units as u
 
-from reeven.van.astro import ObservingLocation
-from .enums import MountControllerState, SlewMode
+from reeven.van.astro.observing_location import ObservingLocation
+from .enums import MountControllerState, SlewMode, SlewDirection, SlewRate
 
 
 __all__ = ["MountController"]
-
-"""Fixed slew speed [deg/sec]."""
-SLEW_SPEED = 3.0
 
 
 class MountController:
@@ -30,6 +27,8 @@ class MountController:
         self.slew_ref_time = 0.0
         self.target_ra_dec = None
         self.slew_mode = SlewMode.ALT_AZ
+        self.slew_direction = None
+        self.slew_rate = SlewRate.HIGH
 
     async def start(self):
         self.log.info("Start called.")
@@ -94,64 +93,67 @@ class MountController:
             f"to RaDec ({self.target_ra_dec.to_string('hmsdms')})"
         )
         now = Time.now()
-        diff_ra = self.target_ra_dec.ra.value - self.ra_dec.ra.value
-        diff_dec = self.target_ra_dec.dec.value - self.ra_dec.dec.value
-        time_diff = now - self.slew_ref_time
-
-        ra_step = SLEW_SPEED * time_diff.sec
-        if diff_ra < 0:
-            ra_step = -ra_step
-        dec_step = SLEW_SPEED * time_diff.sec
-        if diff_dec < 0:
-            dec_step = -dec_step
-
-        if abs(diff_ra) < abs(ra_step):
-            ra = self.target_ra_dec.ra.value
-            diff_ra = 0
-        else:
-            ra = self.ra_dec.ra.value + ra_step
-        if abs(diff_dec) < abs(dec_step):
-            dec = self.target_ra_dec.dec.value
-            diff_dec = 0
-        else:
-            dec = self.ra_dec.dec.value + dec_step
-
+        ra, diff_ra = self._determine_new_coord_value(
+            time=now, curr=self.ra_dec.ra.value, target=self.target_ra_dec.ra.value
+        )
+        dec, diff_dec = self._determine_new_coord_value(
+            time=now, curr=self.ra_dec.dec.value, target=self.target_ra_dec.dec.value
+        )
         self.ra_dec = self.get_skycoord_from_ra_dec(ra=ra, dec=dec)
         if diff_ra == 0 and diff_dec == 0:
             self.state = MountControllerState.TRACKING
 
         self.slew_ref_time = now
 
+    def _determine_target_altaz(self):
+        if not self.slew_direction:
+            target_altaz = self.get_altaz_from_radec(ra_dec=self.target_ra_dec)
+        elif self.slew_direction == SlewDirection.UP:
+            target_altaz = self.get_skycoord_from_alt_az(
+                alt=90.0, az=self.alt_az.az.value
+            )
+        elif self.slew_direction == SlewDirection.LEFT:
+            target_altaz = self.get_skycoord_from_alt_az(
+                alt=self.alt_az.alt.value, az=self.alt_az.az.value - 1.0
+            )
+        elif self.slew_direction == SlewDirection.DOWN:
+            target_altaz = self.get_skycoord_from_alt_az(
+                alt=0.0, az=self.alt_az.az.value
+            )
+        else:
+            target_altaz = self.get_skycoord_from_alt_az(
+                alt=self.alt_az.alt.value, az=self.alt_az.az.value + 1.0
+            )
+        return target_altaz
+
+    def _determine_new_coord_value(self, time, curr, target):
+        diff = target - curr
+        time_diff = time - self.slew_ref_time
+        step = self.slew_rate.value * time_diff.sec
+        if diff < 0:
+            step = -step
+        if abs(diff) < abs(step):
+            new_coord_value = target
+            diff = 0
+        else:
+            new_coord_value = curr + step
+        return new_coord_value, diff
+
     async def _slew_altaz(self):
         """AltAz mount behavior in SLEWING state."""
         now = Time.now()
-        target_altaz = self.get_altaz_from_radec(ra_dec=self.target_ra_dec)
+        target_altaz = self._determine_target_altaz()
         self.log.debug(
             f"Slewing from AltAz {self.alt_az.to_string()} "
             f"to AltAz ({target_altaz.to_string()})"
         )
-        diff_alt = target_altaz.alt.value - self.alt_az.alt.value
-        diff_az = self.get_shortest_path(target_altaz.az, self.alt_az.az).value
-        time_diff = now - self.slew_ref_time
 
-        alt_step = SLEW_SPEED * time_diff.sec
-        if diff_alt < 0:
-            alt_step = -alt_step
-        az_step = SLEW_SPEED * time_diff.sec
-        if diff_az < 0:
-            az_step = -az_step
-
-        if abs(diff_alt) < abs(alt_step):
-            alt = target_altaz.alt.value
-            diff_alt = 0
-        else:
-            alt = self.alt_az.alt.value + alt_step
-        if abs(diff_az) < abs(az_step):
-            az = target_altaz.az.value
-            diff_az = 0
-        else:
-            az = self.alt_az.az.value + az_step
-
+        alt, diff_alt = self._determine_new_coord_value(
+            time=now, curr=self.alt_az.alt.value, target=target_altaz.alt.value
+        )
+        az, diff_az = self._determine_new_coord_value(
+            time=now, curr=self.alt_az.az.value, target=target_altaz.az.value
+        )
         self.alt_az = self.get_skycoord_from_alt_az(alt=alt, az=az)
         self.ra_dec = self.get_radec_from_altaz(alt_az=self.alt_az)
         if diff_alt == 0 and diff_az == 0:
@@ -187,6 +189,18 @@ class MountController:
         self.alt_az = self.get_altaz_from_radec(ra_dec=self.ra_dec)
         self.state = MountControllerState.TRACKING
 
+    async def set_slew_rate(self, cmd):
+        if cmd not in ["RC", "RG", "RM", "RS"]:
+            raise ValueError(f"Received unknown slew rate command {cmd}.")
+        if cmd == "RC":
+            self.slew_rate = SlewRate.CENTERING
+        elif cmd == "RG":
+            self.slew_rate = SlewRate.GUIDING
+        elif cmd == "RG":
+            self.slew_rate = SlewRate.FIND
+        else:
+            self.slew_rate = SlewRate.HIGH
+
     async def slew_to(self, ra_str, dec_str):
         """Instruct the mount to slew to the target RA and DEC if possible.
 
@@ -205,6 +219,7 @@ class MountController:
         """
         ra_dec = self.get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
         alt_az = self.get_altaz_from_radec(ra_dec=self.ra_dec)
+        self.slew_direction = None
         if alt_az.alt.value > 0:
             self.slew_ref_time = Time.now()
             self.target_ra_dec = ra_dec
@@ -213,9 +228,34 @@ class MountController:
         else:
             return "1"
 
+    async def slew_in_direction(self, cmd):
+        if cmd not in ["Mn", "Me", "Ms", "Mw"]:
+            raise ValueError(f"Received unknown slew direction command {cmd}.")
+        if self.slew_mode == SlewMode.ALT_AZ:
+            if cmd == "Mn":
+                self.slew_direction = SlewDirection.UP
+            elif cmd == "Me":
+                self.slew_direction = SlewDirection.LEFT
+            elif cmd == "Ms":
+                self.slew_direction = SlewDirection.DOWN
+            else:
+                self.slew_direction = SlewDirection.RIGHT
+        else:
+            if cmd == "Mn":
+                self.slew_direction = SlewDirection.NORTH
+            elif cmd == "Me":
+                self.slew_direction = SlewDirection.EAST
+            elif cmd == "Ms":
+                self.slew_direction = SlewDirection.SOUTH
+            else:
+                self.slew_direction = SlewDirection.WEST
+        self.slew_ref_time = Time.now()
+        self.state = MountControllerState.SLEWING
+
     async def stop_slew(self):
         """Stop the slew and start tracking where the mount is pointing at."""
         self.state = MountControllerState.TRACKING
+        self.slew_direction = None
 
     async def location_updated(self):
         """Update the location but stay pointed at the same altitude and
