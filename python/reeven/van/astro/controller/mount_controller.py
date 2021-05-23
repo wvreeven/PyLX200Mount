@@ -6,10 +6,23 @@ from astropy.time import Time
 from astropy import units as u
 
 from reeven.van.astro.observing_location import ObservingLocation
-from .enums import MountControllerState, SlewMode, SlewDirection, SlewRate
+from reeven.van.astro.math import alignment_error_util
+from .enums import (
+    MountControllerState,
+    SlewMode,
+    SlewDirection,
+    SlewRate,
+    AlignmentState,
+)
 
 
 __all__ = ["MountController"]
+
+
+class AlignmentData:
+    def __init__(self, ra_dec, time):
+        self.ra_dec = ra_dec
+        self.time = time
 
 
 class MountController:
@@ -29,6 +42,13 @@ class MountController:
         self.slew_mode = SlewMode.ALT_AZ
         self.slew_direction = None
         self.slew_rate = SlewRate.HIGH
+
+        # Alignment related variables
+        self.alignment_state = AlignmentState.UNALIGNED
+        self.star_one_alignment_data = None
+        self.star_two_alignment_data = None
+        self.delta_alt = None
+        self.delta_az = None
 
     async def start(self):
         self.log.info("Start called.")
@@ -89,7 +109,7 @@ class MountController:
     async def _slew_radec(self):
         """RaDec mount behavior in SLEWING state."""
         self.log.debug(
-            f"Slewing from RaDec {self.ra_dec.to_string('hmsdms')} "
+            f"Slewing from RaDec ({self.ra_dec.to_string('hmsdms')}) "
             f"to RaDec ({self.target_ra_dec.to_string('hmsdms')})"
         )
         now = Time.now()
@@ -128,6 +148,8 @@ class MountController:
 
     def _determine_new_coord_value(self, time, curr, target):
         diff = target - curr
+        diff_angle = Angle(diff * u.deg)
+        diff = diff_angle.wrap_at(180.0 * u.deg).value
         time_diff = time - self.slew_ref_time
         step = self.slew_rate.value * time_diff.sec
         if diff < 0:
@@ -144,7 +166,7 @@ class MountController:
         now = Time.now()
         target_altaz = self._determine_target_altaz()
         self.log.debug(
-            f"Slewing from AltAz {self.alt_az.to_string()} "
+            f"Slewing from AltAz ({self.alt_az.to_string()}) "
             f"to AltAz ({target_altaz.to_string()})"
         )
 
@@ -184,7 +206,6 @@ class MountController:
         dec_str: `str`
             The Declination of the mount in degrees. The format is "+dd*mm:ss".
         """
-        print(f"{ra_str} {dec_str}")
         self.ra_dec = self.get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
         self.alt_az = self.get_altaz_from_radec(ra_dec=self.ra_dec)
         self.state = MountControllerState.TRACKING

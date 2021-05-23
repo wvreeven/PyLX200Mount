@@ -7,6 +7,7 @@ from astropy.coordinates import (
     SkyOffsetFrame,
 )
 from astropy.time import Time
+import astropy.units as u
 import math
 
 
@@ -22,18 +23,19 @@ def compute_alignment_error(lat, s1, s2, err_ra, err_dec):
     lat : `Latitude`
         The latitude of the observer.
     s1 : `SkyCoord`
-        The hour angle and declination of the first alignment star.
+        The right ascension and declination of the first alignment star.
     s2 : `SkyCoord`
-        The hour angle and declination of the second alignment star.
-    err_ra : `Angle`
-        The error in right ascension as measured for the second star.
-    err_dec : `Angle`
-        The error in declination as measured for the second star.
+        The right ascension and declination of the second alignment star.
+    err_ra : `float`
+        The error in right ascension as measured for the second star [arcmin].
+    err_dec : `float`
+        The error in declination as measured for the second star [arcmin].
 
     Returns
     -------
-    delta_alt, delta_a: `tuple` of `Angle`
-        The computed alignment errors given in offsets in elevation and azimuth.
+    delta_alt, delta_az: `tuple` of `float`
+        The computed alignment errors given in offsets in altitude and azimuth
+        [arcmin].
 
     """
     # Compute the determinant
@@ -59,10 +61,12 @@ def compute_alignment_error(lat, s1, s2, err_ra, err_dec):
         - math.tan(s1.dec.radian) * math.sin(s1.ra.radian)
     ) / d
 
-    # Compute the errors in elevaqtion and azimuth using the four matrix elements
-    delta_e = a11 * err_ra + a12 * err_dec
-    delta_a = a21 * err_ra + a22 * err_dec
-    return delta_e, delta_a
+    # Compute the errors in altitude and azimuth using the four matrix elements
+    err_ra_angle = Angle(err_ra * u.arcmin)
+    err_dec_angle = Angle(err_dec * u.arcmin)
+    delta_alt = a11 * err_ra_angle + a12 * err_dec_angle
+    delta_az = a21 * err_ra_angle + a22 * err_dec_angle
+    return delta_alt.arcmin, delta_az.arcmin
 
 
 def get_altaz_in_rotated_frame(delta_alt, delta_az, time, location, altaz):
@@ -71,10 +75,10 @@ def get_altaz_in_rotated_frame(delta_alt, delta_az, time, location, altaz):
 
     Parameters
     ----------
-    delta_alt : `Angle`
-        The altitude offset
-    delta_az : `Angle`
-        The azimuth offset
+    delta_alt : `float`
+        The altitude offset [armin].
+    delta_az : `float`
+        The azimuth offset [arcmin].
     time : `Time`
         The Time for which the AltAz coordinates are valid
     location : `EarthLocation`
@@ -87,6 +91,10 @@ def get_altaz_in_rotated_frame(delta_alt, delta_az, time, location, altaz):
     telescope_altaz: `SkyCoord`
         The altitude and azimuth rotated to the new frame.
     """
-    telescope_frame = AltAz(alt=delta_alt, az=delta_az, obstime=time, location=location)
+    delta_alt_angle = Angle(delta_alt * u.arcmin)
+    delta_az_angle = Angle(delta_az * u.arcmin)
+    telescope_frame = AltAz(
+        alt=delta_alt_angle, az=delta_az_angle, obstime=time, location=location
+    )
     telescope_altaz = altaz.transform_to(SkyOffsetFrame(origin=telescope_frame))
     return telescope_altaz

@@ -1,6 +1,12 @@
 import enum
 
-__all__ = ["MountControllerState", "SlewMode", "SlewDirection", "SlewRate"]
+__all__ = [
+    "MountControllerState",
+    "SlewMode",
+    "SlewDirection",
+    "SlewRate",
+    "AlignmentState",
+]
 
 
 class MountControllerState(enum.Enum):
@@ -38,3 +44,11 @@ class SlewRate(enum.Enum):
     GUIDING = 1.0
     FIND = 2.0
     HIGH = 3.0
+
+
+class AlignmentState(enum.IntEnum):
+    """Alignment state."""
+
+    UNALIGNED = 0
+    STAR_ONE_ALIGNED = 1
+    ALIGNED = 2
