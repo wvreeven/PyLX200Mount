@@ -3,7 +3,7 @@ import logging
 from astropy.coordinates import Longitude, Latitude
 from astropy import units as u
 
-from reeven.van.astro.controller.mount_controller import MountController
+from .mount_controller import MountController
 
 _all__ = ["Lx200CommandResponder", "REPLY_SEPARATOR"]
 
@@ -45,7 +45,9 @@ class Lx200CommandResponder:
 
         self.mount_controller = MountController()
 
-        # Dictionary of the functions to execute based on the commando received.
+        # The received command. This is kept as a reference for the slews.
+        self.cmd = None
+        # Dictionary of the functions to execute based on the received command.
         self.dispatch_dict = {
             "CM": (self.sync, False),
             "Gc": (self.get_clock_format, False),
@@ -63,10 +65,10 @@ class Lx200CommandResponder:
             "GVN": (self.get_firmware_number, False),
             "GVP": (self.get_telescope_name, False),
             "GVT": (self.get_firmware_time, False),
-            "Mn": (self.move_north_slew, False),
-            "Me": (self.move_east_slew, False),
-            "Ms": (self.move_south_slew, False),
-            "Mw": (self.move_west_slew, False),
+            "Mn": (self.move_slew_in_direction, False),
+            "Me": (self.move_slew_in_direction, False),
+            "Ms": (self.move_slew_in_direction, False),
+            "Mw": (self.move_slew_in_direction, False),
             "MS": (self.move_slew, False),
             "Qn": (self.stop_slew, False),
             "Qe": (self.stop_slew, False),
@@ -76,6 +78,8 @@ class Lx200CommandResponder:
             # this case it is necessary to avoid confusion with the other
             # commands starting with 'Q'.
             "Q#": (self.stop_slew, False),
+            "RC": (self.set_slew_rate, False),
+            "RG": (self.set_slew_rate, False),
             "RM": (self.set_slew_rate, False),
             "RS": (self.set_slew_rate, False),
             "SC": (self.set_local_date, True),
@@ -293,11 +297,9 @@ class Lx200CommandResponder:
 
     # noinspection PyMethodMayBeStatic
     async def set_slew_rate(self):
-        """Set the slew rate.
-
-        This can be ignored since we determine the slew rate ourself.
-        """
-        pass
+        """Set the slew rate at the commanded rate."""
+        self.log.info(f"Setting slew rate to value determined by command {self.cmd}")
+        await self.mount_controller.set_slew_rate(cmd=self.cmd)
 
     async def move_slew(self):
         """Move the telescope at slew rate to the target position."""
@@ -307,28 +309,10 @@ class Lx200CommandResponder:
         )
         return slew_possible
 
-    async def move_north_slew(self):
-        """Move the telescope at slew rate to the target position."""
-        # TODO Replace with real implementation
-        self.log.info(f"Slewing north.")
-        return SLEW_POSSIBLE
-
-    async def move_east_slew(self):
-        """Move the telescope at slew rate to the target position."""
-        # TODO Replace with real implementation
-        self.log.info(f"Slewing east.")
-        return SLEW_POSSIBLE
-
-    async def move_south_slew(self):
-        """Move the telescope at slew rate to the target position."""
-        # TODO Replace with real implementation
-        self.log.info(f"Slewing south.")
-        return SLEW_POSSIBLE
-
-    async def move_west_slew(self):
-        """Move the telescope at slew rate to the target position."""
-        # TODO Replace with real implementation
-        self.log.info(f"Slewing west.")
+    async def move_slew_in_direction(self):
+        """Move the telescope at slew rate in the commanded direction."""
+        self.log.info(f"Slewing in direction determined by cmd {self.cmd}")
+        await self.mount_controller.slew_in_direction(cmd=self.cmd)
         return SLEW_POSSIBLE
 
     async def stop_slew(self):

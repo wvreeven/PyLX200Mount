@@ -72,3 +72,13 @@ class Test(IsolatedAsyncioTestCase):
             self.assertEqual(self.mount_controller.state, MountControllerState.SLEWING)
             self.assertEqual(self.mount_controller.slew_mode, bad_mode)
             await asyncio.sleep(0.5)
+
+    async def test_slew_down(self):
+        await self.mount_controller.slew_in_direction("Ms")
+        alt = self.mount_controller.alt_az.alt.value
+        while alt >= 44:
+            self.assertEqual(self.mount_controller.state, MountControllerState.SLEWING)
+            await asyncio.sleep(0.5)
+            alt = self.mount_controller.alt_az.alt.value
+        await self.mount_controller.stop_slew()
+        self.assertEqual(self.mount_controller.state, MountControllerState.TRACKING)

@@ -101,5 +101,6 @@ class Test(IsolatedAsyncioTestCase):
         self.assertEndsInHash(site_1_name)
 
     async def test_set_slew_rate(self):
+        self.responder.cmd = "RS"
         slew_rate = await self.responder.set_slew_rate()
         self.assertTrue(slew_rate is None, "Received a reply but didn't expect one.")

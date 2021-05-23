@@ -107,6 +107,7 @@ class SocketServer:
 
                     # Otherwise process the command.
                     else:
+                        self.responder.cmd = cmd
                         (func, has_arg) = self.responder.dispatch_dict[cmd]
                         kwargs = {}
                         if has_arg:
