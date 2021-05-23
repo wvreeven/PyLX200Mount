@@ -2,7 +2,7 @@ import asyncio
 import logging
 from unittest import IsolatedAsyncioTestCase
 
-from astropy.coordinates import Latitude
+from astropy.coordinates import Angle, Latitude, SkyCoord
 import astropy.units as u
 
 from reeven.van.astro.controller.mount_controller import MountController
@@ -87,3 +87,54 @@ class Test(IsolatedAsyncioTestCase):
             alt = self.mount_controller.alt_az.alt.value
         await self.mount_controller.stop_slew()
         self.assertEqual(self.mount_controller.state, MountControllerState.TRACKING)
+
+    async def test_alignment(self):
+        self.mount_controller.state = MountControllerState.STOPPED
+        self.mount_controller.alignment_state = AlignmentState.UNALIGNED
+        self.mount_controller.star_one_alignment_data = None
+        self.mount_controller.star_two_alignment_data = None
+        self.mount_controller.observing_location.set_latitude(
+            Latitude((42 + (40 / 60)) * u.deg)
+        )
+        await self.mount_controller.location_updated()
+
+        # s1 = 03h00m00s, +48d00m00s
+        s1 = self.mount_controller.get_skycoord_from_ra_dec_str(
+            ra_str="03:00:00", dec_str="+48*00:00"
+        )
+        # s2 = 23h00m00s, +45d00m00s
+        s2 = self.mount_controller.get_skycoord_from_ra_dec_str(
+            ra_str="23:00:00", dec_str="+45*00:00"
+        )
+        # s2_real = 23h00m48s, +45d21m00s
+        s2_real_ra = s2.ra + Angle(12 * u.arcmin)
+        s2_real_dec = s2.dec + Angle(21 * u.arcmin)
+        s2_real = SkyCoord(ra=s2_real_ra, dec=s2_real_dec, frame="icrs")
+
+        s1_ra_str, s1_dec_str = format_ra_dec_str(s1)
+        await self.mount_controller.set_ra_dec(ra_str=s1_ra_str, dec_str=s1_dec_str)
+        self.assertEqual(
+            AlignmentState.STAR_ONE_ALIGNED, self.mount_controller.alignment_state
+        )
+        self.assertAlmostEqual(s1.ra.value, self.mount_controller.ra_dec.ra.value)
+        self.assertAlmostEqual(s1.dec.value, self.mount_controller.ra_dec.dec.value)
+
+        s2_ra_str, s2_dec_str = format_ra_dec_str(s2)
+        self.mount_controller.ra_dec = s2
+        await self.mount_controller.set_ra_dec(ra_str=s2_ra_str, dec_str=s2_dec_str)
+        self.assertEqual(AlignmentState.ALIGNED, self.mount_controller.alignment_state)
+        self.assertAlmostEqual(s2.ra.value, self.mount_controller.ra_dec.ra.value)
+        self.assertAlmostEqual(s2.dec.value, self.mount_controller.ra_dec.dec.value)
+        self.assertAlmostEqual(0.0, self.mount_controller.delta_alt)
+        self.assertAlmostEqual(0.0, self.mount_controller.delta_az)
+
+        self.mount_controller.alignment_state = AlignmentState.STAR_ONE_ALIGNED
+        self.mount_controller.star_two_alignment_data = None
+        self.mount_controller.ra_dec = s2_real
+        await self.mount_controller.set_ra_dec(ra_str=s2_ra_str, dec_str=s2_dec_str)
+        self.assertEqual(AlignmentState.ALIGNED, self.mount_controller.alignment_state)
+        self.assertAlmostEqual(s2.ra.value, self.mount_controller.ra_dec.ra.value)
+        self.assertAlmostEqual(s2.dec.value, self.mount_controller.ra_dec.dec.value)
+        self.assertAlmostEqual(7.3897, self.mount_controller.delta_alt, 4)
+        self.assertAlmostEqual(32.2597, self.mount_controller.delta_az, 4)
+        self.assertEqual(MountControllerState.TRACKING, self.mount_controller.state)

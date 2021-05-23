@@ -86,6 +86,20 @@ class MountController:
         )
         self.ra_dec = self.get_radec_from_altaz(alt_az=self.alt_az)
 
+    def _rotate_alt_az_if_necessray(self):
+        if self.delta_alt and self.delta_az:
+            time = Time.now()
+            alt_az = alignment_error_util.get_altaz_in_rotated_frame(
+                delta_alt=self.delta_alt,
+                delta_az=self.delta_az,
+                time=time,
+                location=self.observing_location.location,
+                altaz=self.alt_az,
+            )
+            self.log.debug(
+                f"AltAz {self.alt_az.to_string('dms')} is rotated {alt_az.to_string('dms')}"
+            )
+
     async def _track(self):
         """Mount behavior in TRACKING state."""
         self.log.debug(
@@ -93,6 +107,7 @@ class MountController:
             f" == RaDec {'None' if None else self.ra_dec.to_string('hmsdms')}."
         )
         self.alt_az = self.get_altaz_from_radec(ra_dec=self.ra_dec)
+        self._rotate_alt_az_if_necessray()
 
     async def _slew(self):
         """Dispatch slewing to the coroutine corresponding to the slew mode."""
@@ -177,6 +192,7 @@ class MountController:
             time=now, curr=self.alt_az.az.value, target=target_altaz.az.value
         )
         self.alt_az = self.get_skycoord_from_alt_az(alt=alt, az=az)
+        self._rotate_alt_az_if_necessray()
         self.ra_dec = self.get_radec_from_altaz(alt_az=self.alt_az)
         if diff_alt == 0 and diff_az == 0:
             self.state = MountControllerState.TRACKING
@@ -206,8 +222,42 @@ class MountController:
         dec_str: `str`
             The Declination of the mount in degrees. The format is "+dd*mm:ss".
         """
+        expected_ra_dec = self.ra_dec
         self.ra_dec = self.get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
         self.alt_az = self.get_altaz_from_radec(ra_dec=self.ra_dec)
+        self._rotate_alt_az_if_necessray()
+        if self.alignment_state == AlignmentState.UNALIGNED:
+            self.star_one_alignment_data = AlignmentData(
+                ra_dec=self.ra_dec, time=Time.now()
+            )
+            self.alignment_state = AlignmentState.STAR_ONE_ALIGNED
+            self.log.info(
+                f"First star aligned at RaDec ({self.ra_dec.to_string('hmsdms')})."
+            )
+        elif self.alignment_state == AlignmentState.STAR_ONE_ALIGNED:
+            self.star_two_alignment_data = AlignmentData(
+                ra_dec=self.ra_dec, time=Time.now()
+            )
+            err_ra = self.ra_dec.ra.arcmin - expected_ra_dec.ra.arcmin
+            err_dec = self.ra_dec.dec.arcmin - expected_ra_dec.dec.arcmin
+            (
+                self.delta_alt,
+                self.delta_az,
+            ) = alignment_error_util.compute_alignment_error(
+                lat=self.observing_location.location.lat,
+                s1=self.star_one_alignment_data.ra_dec,
+                s2=self.star_two_alignment_data.ra_dec,
+                err_ra=err_ra,
+                err_dec=err_dec,
+            )
+            self.alignment_state = AlignmentState.ALIGNED
+            self.log.info(
+                f"Second star aligned at RaDec ({self.ra_dec.to_string('hmsdms')})."
+            )
+            self.log.info(
+                f"Alignment complete. AltAz offset ({self.delta_alt}, {self.delta_az}) [arcmin]."
+            )
+
         self.state = MountControllerState.TRACKING
 
     async def set_slew_rate(self, cmd):
@@ -284,6 +334,7 @@ class MountController:
         altitude = self.alt_az.alt.value
         azimuth = self.alt_az.az.value
         self.alt_az = self.get_skycoord_from_alt_az(alt=altitude, az=azimuth)
+        self._rotate_alt_az_if_necessray()
         self.ra_dec = self.get_radec_from_altaz(alt_az=self.alt_az)
 
     # noinspection PyMethodMayBeStatic
