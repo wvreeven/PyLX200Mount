@@ -2,10 +2,15 @@ import asyncio
 import logging
 from unittest import IsolatedAsyncioTestCase
 
+from astropy.coordinates import Latitude
 import astropy.units as u
 
 from reeven.van.astro.controller.mount_controller import MountController
-from reeven.van.astro.controller.enums import MountControllerState, SlewMode
+from reeven.van.astro.controller.enums import (
+    MountControllerState,
+    SlewMode,
+    AlignmentState,
+)
 
 logging.basicConfig(
     format="%(asctime)s:%(levelname)s:%(name)s:%(message)s",
