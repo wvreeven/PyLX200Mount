@@ -16,9 +16,6 @@ SLEW_POSSIBLE = "0"
 """Commands and replies are terminated by the hash symbol."""
 HASH = "#"
 
-"""The number of seconds in an hour."""
-NUM_SEC_PER_HOUR = 3600
-
 """Multiple strings which get sent as a reply to the SC command."""
 UPDATING_PLANETARY_DATA1 = "Updating Planetary Data       " + HASH
 UPDATING_PLANETARY_DATA2 = "                              " + HASH
@@ -37,7 +34,7 @@ class Lx200CommandResponder:
         self,
     ):
 
-        self.log = logging.getLogger("Lx200CommandResponder")
+        self.log = logging.getLogger(type(self).__name__)
 
         # Variables holding the status of the mount
         self.autoguide_speed = 0
@@ -159,7 +156,6 @@ class Lx200CommandResponder:
     # noinspection PyMethodMayBeStatic
     async def get_tracking_rate(self):
         """Get the tracking rate of the mount."""
-        # TODO Replace with real implementation
         return "60.0" + HASH
 
     # noinspection PyMethodMayBeStatic
@@ -361,7 +357,6 @@ class Lx200CommandResponder:
         return UPDATING_PLANETARY_DATA1 + REPLY_SEPARATOR + UPDATING_PLANETARY_DATA2
 
     async def sync(self):
-        # TODO Replace with real implementation
         self.log.info(f"sync received.")
         await self.mount_controller.set_ra_dec(
             ra_str=self.target_ra, dec_str=self.target_dec

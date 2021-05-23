@@ -19,7 +19,7 @@ class MountController:
     """Control the Mount."""
 
     def __init__(self):
-        self.log = logging.getLogger("MountController")
+        self.log = logging.getLogger(type(self).__name__)
         self.observing_location = ObservingLocation()
         self.alt_az = self.get_skycoord_from_alt_az(90.0, 0.0)
         self.state = MountControllerState.STOPPED
