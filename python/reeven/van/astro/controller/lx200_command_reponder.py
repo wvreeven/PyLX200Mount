@@ -303,7 +303,7 @@ class Lx200CommandResponder:
 
     async def move_slew(self):
         """Move the telescope at slew rate to the target position."""
-        self.log.info(f"Slewing to ({self.target_ra}, {self.target_dec}).")
+        self.log.info(f"Slewing to RaDec ({self.target_ra}, {self.target_dec}).")
         slew_possible = await self.mount_controller.slew_to(
             self.target_ra, self.target_dec
         )
@@ -322,19 +322,16 @@ class Lx200CommandResponder:
 
     async def set_utc_offset(self, data):
         """Set the UTC offset."""
-        # TODO Replace with real implementation
         self.log.info(f"set_utc_offset received data {data}")
         return DEFAULT_REPLY
 
     async def set_local_time(self, data):
         """Set the local time."""
-        # TODO Replace with real implementation
         self.log.info(f"set_local_time received data {data}")
         return DEFAULT_REPLY
 
     async def set_local_date(self, data):
         """Set the local date."""
-        # TODO Replace with real implementation
         self.log.info(f"set_local_date received data {data}")
         # Two return strings are expected so here we separate them by a new
         # line character and will let the socket server deal with it.
