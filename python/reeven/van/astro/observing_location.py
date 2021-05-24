@@ -15,7 +15,7 @@ class ObservingLocation:
 
     def __init__(
         self,
-    ):
+    ) -> None:
         # Variables holding the site information
         self.location = EarthLocation.from_geodetic(
             lon=Longitude("00d00m00.0s"),
@@ -25,7 +25,7 @@ class ObservingLocation:
         self.name = "La Serena"
         self.tz = TimezoneInfo(utc_offset=-4 * u.hour)
 
-    def set_longitude(self, longitude):
+    def set_longitude(self, longitude: Longitude) -> None:
         """
         Set the longitude of the ObservingLocation. It will create a new
         `astropy.coordinates.EarthLocation` instance with the new value of longitude
@@ -33,7 +33,7 @@ class ObservingLocation:
 
         Parameters
         ----------
-        longitude: `astropy.coordinates.Longitude`
+        longitude: `Longitude`
             The new longitude
         """
         loc = EarthLocation.from_geodetic(
@@ -43,7 +43,7 @@ class ObservingLocation:
         )
         self.location = loc
 
-    def set_latitude(self, latitude):
+    def set_latitude(self, latitude: Latitude) -> None:
         """
         Set the latitude of the ObservingLocation. It will create a new
         `astropy.coordinates.EarthLocation` instance with the new value of latitude
@@ -51,7 +51,7 @@ class ObservingLocation:
 
         Parameters
         ----------
-        latitude: `astropy.coordinates.Latitude`
+        latitude: `Latitude`
             The new latitude
         """
         loc = EarthLocation.from_geodetic(
@@ -61,7 +61,7 @@ class ObservingLocation:
         )
         self.location = loc
 
-    def set_height(self, height):
+    def set_height(self, height: float) -> None:
         """
         Set the height of the ObservingLocation. It will create a new
         `astropy.coordinates.EarthLocation` instance with the new value of latitude
@@ -79,7 +79,7 @@ class ObservingLocation:
         )
         self.location = loc
 
-    def set_name(self, name):
+    def set_name(self, name: str) -> None:
         """
         Set the name of the ObservingLocation.
 
