@@ -32,7 +32,7 @@ class Lx200CommandResponder:
 
     def __init__(
         self,
-    ):
+    ) -> None:
 
         self.log = logging.getLogger(type(self).__name__)
 
@@ -91,24 +91,24 @@ class Lx200CommandResponder:
             "St": (self.set_current_site_latitude, True),
         }
 
-    async def start(self):
+    async def start(self) -> None:
         """Start the responder."""
         self.log.info("Start called.")
         await self.mount_controller.start()
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop the responder."""
         self.log.info("Stop called.")
         await self.mount_controller.stop()
 
-    async def get_ra(self):
-        """"Get the RA that the mount currently is pointing at."""
+    async def get_ra(self) -> str:
+        """ "Get the RA that the mount currently is pointing at."""
         ra_dec = await self.mount_controller.get_ra_dec()
         ra = ra_dec.ra
         ra_str = ra.to_string(unit=u.hour, sep=":", precision=2, pad=True)
         return ra_str + HASH
 
-    async def set_ra(self, data):
+    async def set_ra(self, data: str) -> str:
         """Set the RA that the mount should slew to.
 
         Parameters
@@ -125,8 +125,8 @@ class Lx200CommandResponder:
         self.target_ra = data
         return DEFAULT_REPLY
 
-    async def get_dec(self):
-        """"Get the DEC that the mount currently is pointing at."""
+    async def get_dec(self) -> str:
+        """ "Get the DEC that the mount currently is pointing at."""
         ra_dec = await self.mount_controller.get_ra_dec()
         dec = ra_dec.dec
         # Use signed_dms here because dms will have negative minutes and seconds!!!
@@ -135,7 +135,7 @@ class Lx200CommandResponder:
         dec_str = f"{dec_dms.sign*dec_dms.d:2.0f}*{dec_dms.m:2.0f}'{dec_dms.s:2.2f}"
         return dec_str + HASH
 
-    async def set_dec(self, data):
+    async def set_dec(self, data: str) -> str:
         """Set the DEC that the mount should slew to.
 
         Parameters
@@ -153,17 +153,17 @@ class Lx200CommandResponder:
         return DEFAULT_REPLY
 
     # noinspection PyMethodMayBeStatic
-    async def get_clock_format(self):
-        """"Get the clock format: 12h or 24h. We will always use 24h."""
+    async def get_clock_format(self) -> str:
+        """ "Get the clock format: 12h or 24h. We will always use 24h."""
         return "(24)" + HASH
 
     # noinspection PyMethodMayBeStatic
-    async def get_tracking_rate(self):
+    async def get_tracking_rate(self) -> str:
         """Get the tracking rate of the mount."""
         return "60.0" + HASH
 
     # noinspection PyMethodMayBeStatic
-    async def get_utc_offset(self):
+    async def get_utc_offset(self) -> str:
         """Get the UTC offset of the obsering site.
 
         The LX200 counts the number of hours that need to be added to get the UTC instead
@@ -177,43 +177,43 @@ class Lx200CommandResponder:
         return f"{-utc_offset:.1f}" + HASH
 
     # noinspection PyMethodMayBeStatic
-    async def get_local_time(self):
+    async def get_local_time(self) -> str:
         """Get the local time at the observing site."""
         current_dt = datetime.now()
         return current_dt.strftime("%H:%M:%S") + HASH
 
     # noinspection PyMethodMayBeStatic
-    async def get_current_date(self):
+    async def get_current_date(self) -> str:
         """Get the local date at the observing site."""
         current_dt = datetime.now()
         return current_dt.strftime("%m/%d/%y") + HASH
 
     # noinspection PyMethodMayBeStatic
-    async def get_firmware_date(self):
+    async def get_firmware_date(self) -> str:
         """Get the firmware date which is just a date that I made up."""
         return "Apr 05 2020" + HASH
 
     # noinspection PyMethodMayBeStatic
-    async def get_firmware_time(self):
+    async def get_firmware_time(self) -> str:
         """Get the firmware time which is just a time that I made up."""
         return "18:00:00" + HASH
 
     # noinspection PyMethodMayBeStatic
-    async def get_firmware_number(self):
+    async def get_firmware_number(self) -> str:
         """Get the firmware number which is just a number that I made up."""
         return "1.0" + HASH
 
     # noinspection PyMethodMayBeStatic
-    async def get_firmware_name(self):
+    async def get_firmware_name(self) -> str:
         """Get the firmware name which is just a name that I made up."""
         return "Phidgets|A|43Eg|Apr 05 2020@18:00:00" + HASH
 
     # noinspection PyMethodMayBeStatic
-    async def get_telescope_name(self):
+    async def get_telescope_name(self) -> str:
         """Get the mount name which is just a name that I made up."""
         return "Phidgets" + HASH
 
-    async def get_current_site_latitude(self):
+    async def get_current_site_latitude(self) -> str:
         """Get the latitude of the obsering site."""
         return (
             self.mount_controller.observing_location.location.lat.to_string(
@@ -222,7 +222,7 @@ class Lx200CommandResponder:
             + HASH
         )
 
-    async def set_current_site_latitude(self, data):
+    async def set_current_site_latitude(self, data: str) -> str:
         """Set the latitude of the obsering site."""
         self.log.info(f"set_current_site_latitude received data {data}")
         if "*" in data:
@@ -239,7 +239,7 @@ class Lx200CommandResponder:
         await self.mount_controller.location_updated()
         return DEFAULT_REPLY
 
-    async def get_current_site_longitude(self):
+    async def get_current_site_longitude(self) -> str:
         """Get the longitude of the obsering site.
 
         The LX200 protocol puts West longitudes positive while astropy puts East
@@ -260,7 +260,7 @@ class Lx200CommandResponder:
         )
         return longitude + HASH
 
-    async def set_current_site_longitude(self, data):
+    async def set_current_site_longitude(self, data: str) -> str:
         """Set the longitude of the obsering site.
 
         The LX200 protocol puts West longitudes positive while astropy puts East
@@ -291,17 +291,17 @@ class Lx200CommandResponder:
         await self.mount_controller.location_updated()
         return DEFAULT_REPLY
 
-    async def get_site_1_name(self):
+    async def get_site_1_name(self) -> str:
         """Get the name of the observing site."""
         return self.mount_controller.observing_location.name + HASH
 
     # noinspection PyMethodMayBeStatic
-    async def set_slew_rate(self):
+    async def set_slew_rate(self) -> str:
         """Set the slew rate at the commanded rate."""
         self.log.info(f"Setting slew rate to value determined by command {self.cmd}")
         await self.mount_controller.set_slew_rate(cmd=self.cmd)
 
-    async def move_slew(self):
+    async def move_slew(self) -> str:
         """Move the telescope at slew rate to the target position."""
         self.log.info(f"Slewing to RaDec ({self.target_ra}, {self.target_dec}).")
         slew_possible = await self.mount_controller.slew_to(
@@ -309,35 +309,35 @@ class Lx200CommandResponder:
         )
         return slew_possible
 
-    async def move_slew_in_direction(self):
+    async def move_slew_in_direction(self) -> str:
         """Move the telescope at slew rate in the commanded direction."""
         self.log.info(f"Slewing in direction determined by cmd {self.cmd}")
         await self.mount_controller.slew_in_direction(cmd=self.cmd)
         return SLEW_POSSIBLE
 
-    async def stop_slew(self):
+    async def stop_slew(self) -> str:
         """Stop the current slew."""
         self.log.info("Stopping current slew.")
         await self.mount_controller.stop_slew()
 
-    async def set_utc_offset(self, data):
+    async def set_utc_offset(self, data: str) -> str:
         """Set the UTC offset."""
         self.log.info(f"set_utc_offset received data {data}")
         return DEFAULT_REPLY
 
-    async def set_local_time(self, data):
+    async def set_local_time(self, data: str) -> str:
         """Set the local time."""
         self.log.info(f"set_local_time received data {data}")
         return DEFAULT_REPLY
 
-    async def set_local_date(self, data):
+    async def set_local_date(self, data: str) -> str:
         """Set the local date."""
         self.log.info(f"set_local_date received data {data}")
         # Two return strings are expected so here we separate them by a new
         # line character and will let the socket server deal with it.
         return UPDATING_PLANETARY_DATA1 + REPLY_SEPARATOR + UPDATING_PLANETARY_DATA2
 
-    async def sync(self):
+    async def sync(self) -> str:
         self.log.info(f"sync received.")
         await self.mount_controller.set_ra_dec(
             ra_str=self.target_ra, dec_str=self.target_dec

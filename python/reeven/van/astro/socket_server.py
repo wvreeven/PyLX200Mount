@@ -24,7 +24,7 @@ HASH = b"#"
 class SocketServer:
     def __init__(
         self,
-    ):
+    ) -> None:
         self.host = None
         self.port = 11880
         self._server = None
@@ -33,7 +33,7 @@ class SocketServer:
 
         self.log = logging.getLogger(type(self).__name__)
 
-    async def start(self):
+    async def start(self) -> None:
         """Start the TCP/IP server."""
         self.log.info("Start called.")
         await self.responder.start()
@@ -47,7 +47,7 @@ class SocketServer:
         self.log.info(msg)
         await self._server.wait_closed()
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop the TCP/IP server."""
         self.log.info("Stop called.")
         await self.responder.stop()
@@ -60,14 +60,22 @@ class SocketServer:
         server.close()
         self.log.info("Done closing.")
 
-    async def write(self, st):
-        """Write the string st appended with a HASH character."""
+    async def write(self, st: str) -> None:
+        """Write the string st appended with a HASH character.
+
+        Parameters
+        ----------
+        st: `str`
+            The string to append a HASH character to and then write.
+        """
         reply = st.encode()
         self.log.debug(f"Writing reply {reply}")
         self._writer.write(reply)
         await self._writer.drain()
 
-    async def cmd_loop(self, reader, writer):
+    async def cmd_loop(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
         """Execute commands and output replies."""
         # self.log.info("Waiting for client to connect.")
         self._writer = writer
@@ -127,11 +135,10 @@ class SocketServer:
                             await self.write(output)
 
         except ConnectionResetError:
-            # self.log.info("Client disconnected.")
             pass
 
 
-async def main():
+async def main() -> None:
     await socket_server.start()
 
 

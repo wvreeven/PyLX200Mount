@@ -11,7 +11,9 @@ import astropy.units as u
 import math
 
 
-def compute_alignment_error(lat, s1, s2, err_ra, err_dec):
+def compute_alignment_error(
+    lat: Latitude, s1: SkyCoord, s2: SkyCoord, err_ra: float, err_dec: float
+) -> tuple[float, float]:
     """Compute the alignment error for the given latitdue, the given measured sky
     coordinates and the given errors in right ascentsion and declination.
 
@@ -69,7 +71,13 @@ def compute_alignment_error(lat, s1, s2, err_ra, err_dec):
     return delta_alt.arcmin, delta_az.arcmin
 
 
-def get_altaz_in_rotated_frame(delta_alt, delta_az, time, location, altaz):
+def get_altaz_in_rotated_frame(
+    delta_alt: float,
+    delta_az: float,
+    time: Time,
+    location: EarthLocation,
+    altaz: SkyCoord,
+) -> SkyCoord:
     """Rotates the given coordinates to the frame defined by given the altitude and
     azimuth offsets for the given time and observing_location.
 
