@@ -32,7 +32,6 @@ class Test(IsolatedAsyncioTestCase):
         self.assertEndsInHash(ra)
 
     async def test_get_dec(self):
-        ra = await self.responder.get_ra()
         de = await self.responder.get_dec()
         self.assertEndsInHash(de)
 

@@ -338,7 +338,7 @@ class Lx200CommandResponder:
         return UPDATING_PLANETARY_DATA1 + REPLY_SEPARATOR + UPDATING_PLANETARY_DATA2
 
     async def sync(self) -> str:
-        self.log.info(f"sync received.")
+        self.log.info("sync received.")
         await self.mount_controller.set_ra_dec(
             ra_str=self.target_ra, dec_str=self.target_dec
         )
