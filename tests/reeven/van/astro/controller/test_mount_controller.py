@@ -91,8 +91,8 @@ class Test(IsolatedAsyncioTestCase):
     async def test_alignment(self):
         self.mount_controller.state = MountControllerState.STOPPED
         self.mount_controller.alignment_state = AlignmentState.UNALIGNED
-        self.mount_controller.star_one_alignment_data = None
-        self.mount_controller.star_two_alignment_data = None
+        self.mount_controller.position_one_alignment_data = None
+        self.mount_controller.position_two_alignment_data = None
         self.mount_controller.observing_location.set_latitude(
             Latitude((42 + (40 / 60)) * u.deg)
         )
@@ -129,7 +129,7 @@ class Test(IsolatedAsyncioTestCase):
         self.assertAlmostEqual(0.0, self.mount_controller.delta_az)
 
         self.mount_controller.alignment_state = AlignmentState.STAR_ONE_ALIGNED
-        self.mount_controller.star_two_alignment_data = None
+        self.mount_controller.position_two_alignment_data = None
         self.mount_controller.ra_dec = s2_real
         await self.mount_controller.set_ra_dec(ra_str=s2_ra_str, dec_str=s2_dec_str)
         self.assertEqual(AlignmentState.ALIGNED, self.mount_controller.alignment_state)

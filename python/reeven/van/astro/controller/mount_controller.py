@@ -40,8 +40,8 @@ class MountController:
 
         # Alignment related variables
         self.alignment_state = AlignmentState.UNALIGNED
-        self.star_one_alignment_data = None
-        self.star_two_alignment_data = None
+        self.position_one_alignment_data = None
+        self.position_two_alignment_data = None
         self.delta_alt = None
         self.delta_az = None
 
@@ -92,7 +92,8 @@ class MountController:
                 altaz=self.alt_az,
             )
             self.log.debug(
-                f"AltAz {self.alt_az.to_string('dms')} is rotated {alt_az.to_string('dms')}"
+                f"AltAz {self.alt_az.to_string('dms')} is rotated "
+                f"{alt_az.to_string('dms')}"
             )
 
     async def _track(self) -> None:
@@ -239,6 +240,9 @@ class MountController:
     async def set_ra_dec(self, ra_str: str, dec_str: str) -> None:
         """Set the current RA and DEC of the mount.
 
+        In case the mount has not been aligned yet, the AzAlt rotated frame of the
+        mount gets calclated as well.
+
         Parameters
         ----------
         ra_str: `str`
@@ -251,14 +255,25 @@ class MountController:
         self.ra_dec = self.get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
         self.alt_az = self.get_altaz_from_radec(ra_dec=self.ra_dec)
         self._rotate_alt_az_if_necessray()
-        if self.alignment_state == AlignmentState.UNALIGNED:
-            self.star_one_alignment_data = self.ra_dec
+
+        # Either the mount still is unaligned, or the mount is being aligned
+        # with the same position.
+        if self.alignment_state == AlignmentState.UNALIGNED or (
+            self.alignment_state == AlignmentState.STAR_ONE_ALIGNED
+            and self.position_one_alignment_data == self.ra_dec
+        ):
+            self.position_one_alignment_data = self.ra_dec
             self.alignment_state = AlignmentState.STAR_ONE_ALIGNED
             self.log.info(
-                f"First star aligned at RaDec ({self.ra_dec.to_string('hmsdms')})."
+                f"First position aligned at RaDec ({self.ra_dec.to_string('hmsdms')})."
             )
-        elif self.alignment_state == AlignmentState.STAR_ONE_ALIGNED:
-            self.star_two_alignment_data = self.ra_dec
+        # Either the mount is aligned with the first position only, or the mount is
+        # being aligned with the same, second, position.
+        elif self.alignment_state == AlignmentState.STAR_ONE_ALIGNED or (
+            self.alignment_state == AlignmentState.ALIGNED
+            and self.position_two_alignment_data == self.ra_dec
+        ):
+            self.position_two_alignment_data = self.ra_dec
             err_ra = self.ra_dec.ra.arcmin - expected_ra_dec.ra.arcmin
             err_dec = self.ra_dec.dec.arcmin - expected_ra_dec.dec.arcmin
             (
@@ -266,17 +281,18 @@ class MountController:
                 self.delta_az,
             ) = alignment_error_util.compute_alignment_error(
                 lat=self.observing_location.location.lat,
-                s1=self.star_one_alignment_data,
-                s2=self.star_two_alignment_data,
+                s1=self.position_one_alignment_data,
+                s2=self.position_two_alignment_data,
                 err_ra=err_ra,
                 err_dec=err_dec,
             )
             self.alignment_state = AlignmentState.ALIGNED
             self.log.info(
-                f"Second star aligned at RaDec ({self.ra_dec.to_string('hmsdms')})."
+                f"Second position aligned at RaDec ({self.ra_dec.to_string('hmsdms')})."
             )
             self.log.info(
-                f"Alignment complete. AltAz offset ({self.delta_alt}, {self.delta_az}) [arcmin]."
+                f"Alignment complete. AltAz offset ({self.delta_alt}, {self.delta_az}) "
+                f"[arcmin]."
             )
 
         self.state = MountControllerState.TRACKING
