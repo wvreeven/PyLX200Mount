@@ -3,15 +3,7 @@ import logging
 import socket
 from typing import Optional
 
-from reeven.van.astro.controller.lx200_command_reponder import (  # type: ignore
-    Lx200CommandResponder,
-    REPLY_SEPARATOR,
-)
-
-logging.basicConfig(
-    format="%(asctime)s:%(levelname)s:%(name)s:%(message)s",
-    level=logging.INFO,
-)
+from .controller import Lx200CommandResponder, REPLY_SEPARATOR
 
 # ACK symbol sent by Ekos
 ACK = b"\x06"
@@ -70,7 +62,7 @@ class SocketServer:
         st: `str`
             The string to append a HASH character to and then write.
         """
-        reply = st.encode()
+        reply = st.encode() + HASH
         self.log.debug(f"Writing reply {st}")
         self._writer.write(reply)  # type: ignore
         await self._writer.drain()  # type: ignore
@@ -125,7 +117,7 @@ class SocketServer:
                             # and pass it on to the function.
                             data_start = len(cmd)
                             kwargs["data"] = line[data_start:-1]
-                        output = await func(**kwargs)
+                        output = await func(**kwargs)  # type: ignore
                         if output:
                             if REPLY_SEPARATOR in output:
                                 # dirty trick to be able to send two output
