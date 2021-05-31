@@ -1,7 +1,8 @@
 from datetime import datetime
 import logging
-from astropy.coordinates import Longitude, Latitude
-from astropy import units as u
+
+from astropy.coordinates import Longitude, Latitude, SkyCoord  # type: ignore
+from astropy import units as u  # type: ignore
 
 from .mount_controller import MountController
 
@@ -46,7 +47,7 @@ class Lx200CommandResponder:
         self.mount_controller = MountController()
 
         # The received command. This is kept as a reference for the slews.
-        self.cmd = None
+        self.cmd: str = ""
         # Dictionary of the functions to execute based on the received command.
         self.dispatch_dict = {
             "CM": (self.sync, False),
@@ -103,7 +104,7 @@ class Lx200CommandResponder:
 
     async def get_ra(self) -> str:
         """ "Get the RA that the mount currently is pointing at."""
-        ra_dec = await self.mount_controller.get_ra_dec()
+        ra_dec: SkyCoord = await self.mount_controller.get_ra_dec()
         ra = ra_dec.ra
         ra_str = ra.to_string(unit=u.hour, sep=":", precision=2, pad=True)
         return ra_str + HASH
@@ -127,7 +128,7 @@ class Lx200CommandResponder:
 
     async def get_dec(self) -> str:
         """ "Get the DEC that the mount currently is pointing at."""
-        ra_dec = await self.mount_controller.get_ra_dec()
+        ra_dec: SkyCoord = await self.mount_controller.get_ra_dec()
         dec = ra_dec.dec
         # Use signed_dms here because dms will have negative minutes and seconds!!!
         dec_dms = dec.signed_dms
@@ -296,7 +297,7 @@ class Lx200CommandResponder:
         return self.mount_controller.observing_location.name + HASH
 
     # noinspection PyMethodMayBeStatic
-    async def set_slew_rate(self) -> str:
+    async def set_slew_rate(self) -> None:
         """Set the slew rate at the commanded rate."""
         self.log.info(f"Setting slew rate to value determined by command {self.cmd}")
         await self.mount_controller.set_slew_rate(cmd=self.cmd)
@@ -315,7 +316,7 @@ class Lx200CommandResponder:
         await self.mount_controller.slew_in_direction(cmd=self.cmd)
         return SLEW_POSSIBLE
 
-    async def stop_slew(self) -> str:
+    async def stop_slew(self) -> None:
         """Stop the current slew."""
         self.log.info("Stopping current slew.")
         await self.mount_controller.stop_slew()

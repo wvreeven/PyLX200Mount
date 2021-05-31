@@ -1,7 +1,9 @@
 import asyncio
 import logging
+import socket
+from typing import Optional
 
-from reeven.van.astro.controller.lx200_command_reponder import (
+from .controller.lx200_command_reponder import (
     Lx200CommandResponder,
     REPLY_SEPARATOR,
 )
@@ -27,8 +29,8 @@ class SocketServer:
     ) -> None:
         self.host = None
         self.port = 11880
-        self._server = None
-        self._writer = None
+        self._server: Optional[asyncio.AbstractServer] = None
+        self._writer: Optional[asyncio.StreamWriter] = None
         self.responder = Lx200CommandResponder()
 
         self.log = logging.getLogger(type(self).__name__)
@@ -37,14 +39,13 @@ class SocketServer:
         """Start the TCP/IP server."""
         self.log.info("Start called.")
         await self.responder.start()
-        self._server = await asyncio.start_server(self.cmd_loop, port=self.port)
-        msg = "Server started on host "
-        i = 0
-        for i in range(len(self._server.sockets) - 1):
-            msg += f"{self._server.sockets[i].getsockname()[0]}:{self._server.sockets[i].getsockname()[1]}, "
-        i = i + 1
-        msg += f"{self._server.sockets[i].getsockname()[0]}:{self._server.sockets[i].getsockname()[1]}"
-        self.log.info(msg)
+        self._server = await asyncio.start_server(
+            self.cmd_loop, port=self.port, family=socket.AF_INET
+        )
+        self.log.info(
+            f"Server started on host "
+            f"{self._server.sockets[0].getsockname()[0]}:{self._server.sockets[0].getsockname()[1]}"
+        )
         await self._server.wait_closed()
 
     async def stop(self) -> None:
@@ -69,7 +70,7 @@ class SocketServer:
             The string to append a HASH character to and then write.
         """
         reply = st.encode()
-        self.log.debug(f"Writing reply {reply}")
+        self.log.debug(f"Writing reply {st}")
         self._writer.write(reply)
         await self._writer.drain()
 
