@@ -1,13 +1,16 @@
 import asyncio
 import logging
-import typing
+from typing import Optional
 
-from astropy.coordinates import AltAz, Angle, SkyCoord
-from astropy.time import Time
-from astropy import units as u
+from astropy.coordinates import AltAz, Angle, SkyCoord  # type: ignore
+from astropy.time import Time  # type: ignore
+from astropy import units as u  # type: ignore
 
-from reeven.van.astro.observing_location import ObservingLocation
-from reeven.van.astro.math import alignment_error_util
+from ..observing_location import ObservingLocation
+from ..math.alignment_error_util import (
+    compute_alignment_error,
+    get_altaz_in_rotated_frame,
+)
 from .enums import (
     MountControllerState,
     SlewMode,
@@ -15,7 +18,6 @@ from .enums import (
     SlewRate,
     AlignmentState,
 )
-
 
 __all__ = ["MountController"]
 
@@ -33,17 +35,17 @@ class MountController:
 
         # Slew related variables
         self.slew_ref_time = 0.0
-        self.target_ra_dec = None
+        self.target_ra_dec: SkyCoord = None
         self.slew_mode = SlewMode.ALT_AZ
-        self.slew_direction = None
+        self.slew_direction: Optional[SlewDirection] = None
         self.slew_rate = SlewRate.HIGH
 
         # Alignment related variables
         self.alignment_state = AlignmentState.UNALIGNED
-        self.position_one_alignment_data = None
-        self.position_two_alignment_data = None
-        self.delta_alt = None
-        self.delta_az = None
+        self.position_one_alignment_data: Optional[SkyCoord] = None
+        self.position_two_alignment_data: Optional[SkyCoord] = None
+        self.delta_alt: Optional[float] = None
+        self.delta_az: Optional[float] = None
 
     async def start(self) -> None:
         self.log.info("Start called.")
@@ -84,7 +86,7 @@ class MountController:
     def _rotate_alt_az_if_necessray(self) -> None:
         if self.delta_alt and self.delta_az:
             time = Time.now()
-            alt_az = alignment_error_util.get_altaz_in_rotated_frame(
+            alt_az = get_altaz_in_rotated_frame(
                 delta_alt=self.delta_alt,
                 delta_az=self.delta_az,
                 time=time,
@@ -225,7 +227,7 @@ class MountController:
 
         self.slew_ref_time = now
 
-    async def get_ra_dec(self) -> typing.Optional[SkyCoord]:
+    async def get_ra_dec(self) -> Optional[SkyCoord]:
         """Get the current RA and DEC of the mount.
 
         Since RA and DEC of the mount are requested in pairs, this method computes both
@@ -276,10 +278,7 @@ class MountController:
             self.position_two_alignment_data = self.ra_dec
             err_ra = self.ra_dec.ra.arcmin - expected_ra_dec.ra.arcmin
             err_dec = self.ra_dec.dec.arcmin - expected_ra_dec.dec.arcmin
-            (
-                self.delta_alt,
-                self.delta_az,
-            ) = alignment_error_util.compute_alignment_error(
+            (self.delta_alt, self.delta_az,) = compute_alignment_error(
                 lat=self.observing_location.location.lat,
                 s1=self.position_one_alignment_data,
                 s2=self.position_two_alignment_data,
