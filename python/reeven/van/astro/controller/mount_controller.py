@@ -6,12 +6,12 @@ from astropy.coordinates import AltAz, Angle, SkyCoord  # type: ignore
 from astropy.time import Time  # type: ignore
 from astropy import units as u  # type: ignore
 
-from reeven.van.astro.observing_location import ObservingLocation  # type: ignore
-from reeven.van.astro.math.alignment_error_util import (  # type: ignore
+from ..observing_location import ObservingLocation  # type: ignore
+from ..math.alignment_error_util import (  # type: ignore
     compute_alignment_error,
     get_altaz_in_rotated_frame,
 )
-from reeven.van.astro.controller.enums import (  # type: ignore
+from .enums import (  # type: ignore
     MountControllerState,
     SlewMode,
     SlewDirection,
@@ -35,7 +35,7 @@ class MountController:
 
         # Slew related variables
         self.slew_ref_time = 0.0
-        self.target_ra_dec: SkyCoord = None
+        self.target_ra_dec: Optional[SkyCoord] = None
         self.slew_mode = SlewMode.ALT_AZ
         self.slew_direction: Optional[SlewDirection] = None
         self.slew_rate = SlewRate.HIGH
@@ -123,14 +123,14 @@ class MountController:
         """RaDec mount behavior in SLEWING state."""
         self.log.debug(
             f"Slewing from RaDec ({self.ra_dec.to_string('hmsdms')}) "
-            f"to RaDec ({self.target_ra_dec.to_string('hmsdms')})"
+            f"to RaDec ({self.target_ra_dec.to_string('hmsdms')})"  # type: ignore
         )
         now = Time.now()
         ra, diff_ra = self._determine_new_coord_value(
-            time=now, curr=self.ra_dec.ra.value, target=self.target_ra_dec.ra.value
+            time=now, curr=self.ra_dec.ra.value, target=self.target_ra_dec.ra.value  # type: ignore
         )
         dec, diff_dec = self._determine_new_coord_value(
-            time=now, curr=self.ra_dec.dec.value, target=self.target_ra_dec.dec.value
+            time=now, curr=self.ra_dec.dec.value, target=self.target_ra_dec.dec.value  # type: ignore
         )
         self.ra_dec = self.get_skycoord_from_ra_dec(ra=ra, dec=dec)
         if diff_ra == 0 and diff_dec == 0:

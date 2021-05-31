@@ -4,7 +4,7 @@ import logging
 from astropy.coordinates import Longitude, Latitude, SkyCoord  # type: ignore
 from astropy import units as u  # type: ignore
 
-from reeven.van.astro.controller.mount_controller import MountController  # type: ignore
+from .mount_controller import MountController  # type: ignore
 
 _all__ = ["Lx200CommandResponder", "REPLY_SEPARATOR"]
 
@@ -14,12 +14,9 @@ DEFAULT_REPLY = "1"
 """A slew to the target position is possible."""
 SLEW_POSSIBLE = "0"
 
-"""Commands and replies are terminated by the hash symbol."""
-HASH = "#"
-
 """Multiple strings which get sent as a reply to the SC command."""
-UPDATING_PLANETARY_DATA1 = "Updating Planetary Data       " + HASH
-UPDATING_PLANETARY_DATA2 = "                              " + HASH
+UPDATING_PLANETARY_DATA1 = "Updating Planetary Data       "
+UPDATING_PLANETARY_DATA2 = "                              "
 
 """Separator used for multiple replies."""
 REPLY_SEPARATOR = "\n"
@@ -107,7 +104,7 @@ class Lx200CommandResponder:
         ra_dec: SkyCoord = await self.mount_controller.get_ra_dec()
         ra = ra_dec.ra
         ra_str = ra.to_string(unit=u.hour, sep=":", precision=2, pad=True)
-        return ra_str + HASH
+        return ra_str
 
     async def set_ra(self, data: str) -> str:
         """Set the RA that the mount should slew to.
@@ -134,7 +131,7 @@ class Lx200CommandResponder:
         dec_dms = dec.signed_dms
         # LX200 specific format
         dec_str = f"{dec_dms.sign*dec_dms.d:2.0f}*{dec_dms.m:2.0f}'{dec_dms.s:2.2f}"
-        return dec_str + HASH
+        return dec_str
 
     async def set_dec(self, data: str) -> str:
         """Set the DEC that the mount should slew to.
@@ -156,12 +153,12 @@ class Lx200CommandResponder:
     # noinspection PyMethodMayBeStatic
     async def get_clock_format(self) -> str:
         """ "Get the clock format: 12h or 24h. We will always use 24h."""
-        return "(24)" + HASH
+        return "(24)"
 
     # noinspection PyMethodMayBeStatic
     async def get_tracking_rate(self) -> str:
         """Get the tracking rate of the mount."""
-        return "60.0" + HASH
+        return "60.0"
 
     # noinspection PyMethodMayBeStatic
     async def get_utc_offset(self) -> str:
@@ -175,52 +172,49 @@ class Lx200CommandResponder:
         tz = self.mount_controller.observing_location.tz.utcoffset(dt=dt)
         utc_offset = tz.total_seconds() / 3600
         self.log.info(f"UTC Offset = {utc_offset}")
-        return f"{-utc_offset:.1f}" + HASH
+        return f"{-utc_offset:.1f}"
 
     # noinspection PyMethodMayBeStatic
     async def get_local_time(self) -> str:
         """Get the local time at the observing site."""
         current_dt = datetime.now()
-        return current_dt.strftime("%H:%M:%S") + HASH
+        return current_dt.strftime("%H:%M:%S")
 
     # noinspection PyMethodMayBeStatic
     async def get_current_date(self) -> str:
         """Get the local date at the observing site."""
         current_dt = datetime.now()
-        return current_dt.strftime("%m/%d/%y") + HASH
+        return current_dt.strftime("%m/%d/%y")
 
     # noinspection PyMethodMayBeStatic
     async def get_firmware_date(self) -> str:
         """Get the firmware date which is just a date that I made up."""
-        return "Apr 05 2020" + HASH
+        return "Apr 05 2020"
 
     # noinspection PyMethodMayBeStatic
     async def get_firmware_time(self) -> str:
         """Get the firmware time which is just a time that I made up."""
-        return "18:00:00" + HASH
+        return "18:00:00"
 
     # noinspection PyMethodMayBeStatic
     async def get_firmware_number(self) -> str:
         """Get the firmware number which is just a number that I made up."""
-        return "1.0" + HASH
+        return "1.0"
 
     # noinspection PyMethodMayBeStatic
     async def get_firmware_name(self) -> str:
         """Get the firmware name which is just a name that I made up."""
-        return "Phidgets|A|43Eg|Apr 05 2020@18:00:00" + HASH
+        return "Phidgets|A|43Eg|Apr 05 2020@18:00:00"
 
     # noinspection PyMethodMayBeStatic
     async def get_telescope_name(self) -> str:
         """Get the mount name which is just a name that I made up."""
-        return "Phidgets" + HASH
+        return "Phidgets"
 
     async def get_current_site_latitude(self) -> str:
         """Get the latitude of the obsering site."""
-        return (
-            self.mount_controller.observing_location.location.lat.to_string(
-                unit=u.degree, sep=":", fields=2
-            )
-            + HASH
+        return self.mount_controller.observing_location.location.lat.to_string(
+            unit=u.degree, sep=":", fields=2
         )
 
     async def set_current_site_latitude(self, data: str) -> str:
@@ -259,7 +253,7 @@ class Lx200CommandResponder:
             f"{self.mount_controller.observing_location.location.lon.to_string()} "
             f"to LX200 longitude {longitude}"
         )
-        return longitude + HASH
+        return longitude
 
     async def set_current_site_longitude(self, data: str) -> str:
         """Set the longitude of the obsering site.
@@ -294,7 +288,7 @@ class Lx200CommandResponder:
 
     async def get_site_1_name(self) -> str:
         """Get the name of the observing site."""
-        return self.mount_controller.observing_location.name + HASH
+        return self.mount_controller.observing_location.name
 
     # noinspection PyMethodMayBeStatic
     async def set_slew_rate(self) -> None:
@@ -343,4 +337,4 @@ class Lx200CommandResponder:
         await self.mount_controller.set_ra_dec(
             ra_str=self.target_ra, dec_str=self.target_dec
         )
-        return "RANDOM NAME" + HASH
+        return "RANDOM NAME"
