@@ -4,7 +4,7 @@ import logging
 from astropy.coordinates import Longitude, Latitude, SkyCoord  # type: ignore
 from astropy import units as u  # type: ignore
 
-from .mount_controller import MountController
+from reeven.van.astro.controller.mount_controller import MountController  # type: ignore
 
 _all__ = ["Lx200CommandResponder", "REPLY_SEPARATOR"]
 

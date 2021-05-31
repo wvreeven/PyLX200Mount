@@ -6,12 +6,12 @@ from astropy.coordinates import AltAz, Angle, SkyCoord  # type: ignore
 from astropy.time import Time  # type: ignore
 from astropy import units as u  # type: ignore
 
-from ..observing_location import ObservingLocation
-from ..math.alignment_error_util import (
+from reeven.van.astro.observing_location import ObservingLocation  # type: ignore
+from reeven.van.astro.math.alignment_error_util import (  # type: ignore
     compute_alignment_error,
     get_altaz_in_rotated_frame,
 )
-from .enums import (
+from reeven.van.astro.controller.enums import (  # type: ignore
     MountControllerState,
     SlewMode,
     SlewDirection,
@@ -49,7 +49,7 @@ class MountController:
 
     async def start(self) -> None:
         self.log.info("Start called.")
-        self.position_loop = asyncio.create_task(self._start_position_loop())
+        self.position_loop = asyncio.create_task(self._start_position_loop())  # type: ignore
         self.log.info("Started.")
 
     async def stop(self) -> None:
