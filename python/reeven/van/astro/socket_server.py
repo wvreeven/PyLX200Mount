@@ -3,7 +3,7 @@ import logging
 import socket
 from typing import Optional
 
-from .controller.lx200_command_reponder import (
+from reeven.van.astro.controller.lx200_command_reponder import (  # type: ignore
     Lx200CommandResponder,
     REPLY_SEPARATOR,
 )
@@ -44,7 +44,8 @@ class SocketServer:
         )
         self.log.info(
             f"Server started on host "
-            f"{self._server.sockets[0].getsockname()[0]}:{self._server.sockets[0].getsockname()[1]}"
+            f"{self._server.sockets[0].getsockname()[0]}"  # type: ignore
+            f":{self._server.sockets[0].getsockname()[1]}"  # type: ignore
         )
         await self._server.wait_closed()
 
@@ -71,8 +72,8 @@ class SocketServer:
         """
         reply = st.encode()
         self.log.debug(f"Writing reply {st}")
-        self._writer.write(reply)
-        await self._writer.drain()
+        self._writer.write(reply)  # type: ignore
+        await self._writer.drain()  # type: ignore
 
     async def cmd_loop(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -95,8 +96,8 @@ class SocketServer:
                     # All the next commands end in a # so we simply read all incoming
                     # strings up to # and
                     # parse them.
-                    line = await reader.readuntil(HASH)
-                    line = line.decode().strip()
+                    line_b = await reader.readuntil(HASH)
+                    line = line_b.decode().strip()  # type: ignore
                     if line not in ["GR#", "GD#"]:
                         self.log.info(f"Read command line: {line!r}")
 
@@ -105,7 +106,7 @@ class SocketServer:
                     # the one that we have received. None of the implemented commands
                     # are non-unique so this is a safe way to do this without having
                     # to write too much boiler plate code.
-                    cmd = None
+                    cmd = ""
                     for key in self.responder.dispatch_dict.keys():
                         if line.startswith(key):
                             cmd = key
