@@ -64,8 +64,9 @@ class SocketServer:
         """
         reply = st.encode() + HASH
         self.log.debug(f"Writing reply {st}")
-        self._writer.write(reply)  # type: ignore
-        await self._writer.drain()  # type: ignore
+        if self._writer is not None:
+            self._writer.write(reply)
+            await self._writer.drain()
 
     async def cmd_loop(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -89,7 +90,7 @@ class SocketServer:
                     # strings up to # and
                     # parse them.
                     line_b = await reader.readuntil(HASH)
-                    line = line_b.decode().strip()  # type: ignore
+                    line = line_b.decode().strip()
                     if line not in ["GR#", "GD#"]:
                         self.log.info(f"Read command line: {line!r}")
 

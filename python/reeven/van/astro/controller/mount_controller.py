@@ -6,12 +6,12 @@ from astropy.coordinates import AltAz, Angle, SkyCoord  # type: ignore
 from astropy.time import Time  # type: ignore
 from astropy import units as u  # type: ignore
 
-from ..observing_location import ObservingLocation  # type: ignore
+from ..observing_location import ObservingLocation
 from ..math.alignment_error_util import (  # type: ignore
     compute_alignment_error,
     get_altaz_in_rotated_frame,
 )
-from .enums import (  # type: ignore
+from .enums import (
     MountControllerState,
     SlewMode,
     SlewDirection,
@@ -30,7 +30,7 @@ class MountController:
         self.observing_location = ObservingLocation()
         self.alt_az = self.get_skycoord_from_alt_az(90.0, 0.0)
         self.state = MountControllerState.STOPPED
-        self.position_loop = None
+        self.position_loop: Optional[asyncio.Task] = None
         self.ra_dec = self.get_radec_from_altaz(self.alt_az)
 
         # Slew related variables
@@ -49,7 +49,7 @@ class MountController:
 
     async def start(self) -> None:
         self.log.info("Start called.")
-        self.position_loop = asyncio.create_task(self._start_position_loop())  # type: ignore
+        self.position_loop = asyncio.create_task(self._start_position_loop())
         self.log.info("Started.")
 
     async def stop(self) -> None:
@@ -121,22 +121,27 @@ class MountController:
 
     async def _slew_radec(self) -> None:
         """RaDec mount behavior in SLEWING state."""
-        self.log.debug(
-            f"Slewing from RaDec ({self.ra_dec.to_string('hmsdms')}) "
-            f"to RaDec ({self.target_ra_dec.to_string('hmsdms')})"  # type: ignore
-        )
-        now = Time.now()
-        ra, diff_ra = self._determine_new_coord_value(
-            time=now, curr=self.ra_dec.ra.value, target=self.target_ra_dec.ra.value  # type: ignore
-        )
-        dec, diff_dec = self._determine_new_coord_value(
-            time=now, curr=self.ra_dec.dec.value, target=self.target_ra_dec.dec.value  # type: ignore
-        )
-        self.ra_dec = self.get_skycoord_from_ra_dec(ra=ra, dec=dec)
-        if diff_ra == 0 and diff_dec == 0:
-            self.state = MountControllerState.TRACKING
+        if self.target_ra_dec is not None:
+            self.log.debug(
+                f"Slewing from RaDec ({self.ra_dec.to_string('hmsdms')}) "
+                f"to RaDec ({self.target_ra_dec.to_string('hmsdms')})"
+            )
+            now = Time.now()
+            ra, diff_ra = self._determine_new_coord_value(
+                time=now, curr=self.ra_dec.ra.value, target=self.target_ra_dec.ra.value
+            )
+            dec, diff_dec = self._determine_new_coord_value(
+                time=now,
+                curr=self.ra_dec.dec.value,
+                target=self.target_ra_dec.dec.value,
+            )
+            self.ra_dec = self.get_skycoord_from_ra_dec(ra=ra, dec=dec)
+            if diff_ra == 0 and diff_dec == 0:
+                self.state = MountControllerState.TRACKING
 
-        self.slew_ref_time = now
+            self.slew_ref_time = now
+        else:
+            raise ValueError("self.target_ra_dec is None.")
 
     def _determine_target_altaz(self) -> SkyCoord:
         """Determine the target AltAz for the slew that currently is being
