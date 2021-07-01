@@ -6,26 +6,25 @@ from typing import Optional
 from .controller import Lx200CommandResponder, REPLY_SEPARATOR
 
 # ACK symbol sent by Ekos
-ACK = b"\x06"
+ACK: bytes = b"\x06"
 
 # Command start with a colon symbol
-COLON = ":"
+COLON: str = ":"
 
 # Commands and replies are terminated by the hash symbol
-HASH = b"#"
+HASH: bytes = b"#"
 
 
 class SocketServer:
     def __init__(
         self,
     ) -> None:
-        self.host = None
-        self.port = 11880
+        self.port: int = 11880
         self._server: Optional[asyncio.AbstractServer] = None
         self._writer: Optional[asyncio.StreamWriter] = None
-        self.responder = Lx200CommandResponder()
+        self.responder: Lx200CommandResponder = Lx200CommandResponder()
 
-        self.log = logging.getLogger(type(self).__name__)
+        self.log: logging.Logger = logging.getLogger(type(self).__name__)
 
     async def start(self) -> None:
         """Start the TCP/IP server."""
