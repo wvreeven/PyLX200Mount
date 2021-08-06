@@ -6,7 +6,7 @@ import logging
 from reeven.van.astro import SocketServer
 
 
-async def main():
+async def main() -> None:
     logging.info("main method.")
     server = SocketServer()
     await server.start()

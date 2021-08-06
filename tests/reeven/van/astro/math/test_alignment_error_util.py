@@ -13,7 +13,7 @@ from unittest import TestCase
 
 
 class Test(TestCase):
-    def test_compute_alignment_error(self):
+    def test_compute_alignment_error(self) -> None:
         lat = Angle((42 + (40 / 60)) * u.deg)
         s1 = SkyCoord(ra=3 * u.hourangle, dec=48 * u.degree)
         s2 = SkyCoord(ra=23 * u.hourangle, dec=45 * u.degree)
@@ -25,7 +25,7 @@ class Test(TestCase):
         self.assertAlmostEqual(delta_alt, 7.3897, 4)
         self.assertAlmostEqual(delta_az, 32.2597, 4)
 
-    def test_compute_zero_alignment_error(self):
+    def test_compute_zero_alignment_error(self) -> None:
         lat = Angle((42 + (40 / 60)) * u.deg)
         s1 = SkyCoord(ra=3 * u.hourangle, dec=48 * u.degree)
         s2 = SkyCoord(ra=23 * u.hourangle, dec=45 * u.degree)
@@ -37,7 +37,7 @@ class Test(TestCase):
         self.assertAlmostEqual(delta_alt, 0.0)
         self.assertAlmostEqual(delta_az, 0.0)
 
-    def test_get_altaz_in_rotated_frame(self):
+    def test_get_altaz_in_rotated_frame(self) -> None:
         delta_alt = 7.3897
         delta_az = 32.2597
         location = EarthLocation.from_geodetic(
