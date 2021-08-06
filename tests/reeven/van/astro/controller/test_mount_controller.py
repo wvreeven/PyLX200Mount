@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from typing import Tuple
 from unittest import IsolatedAsyncioTestCase
 
 from astropy.coordinates import Angle, Latitude, SkyCoord
@@ -18,7 +19,7 @@ logging.basicConfig(
 )
 
 
-def format_ra_dec_str(ra_dec):
+def format_ra_dec_str(ra_dec: SkyCoord) -> Tuple[str, str]:
     ra = ra_dec.ra
     ra_str = ra.to_string(unit=u.hour, sep=":", precision=2, pad=True)
     dec = ra_dec.dec
@@ -28,7 +29,7 @@ def format_ra_dec_str(ra_dec):
 
 
 class Test(IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+    async def asyncSetUp(self) -> None:
         self.mount_controller = MountController()
         alt_az = self.mount_controller.get_skycoord_from_alt_az(alt=45.0, az=175.0)
         ra_dec = self.mount_controller.get_radec_from_altaz(alt_az=alt_az)
@@ -41,10 +42,10 @@ class Test(IsolatedAsyncioTestCase):
         await self.mount_controller.start()
         await self.mount_controller.set_ra_dec(ra_str=self.ra_str, dec_str=self.dec_str)
 
-    async def asyncTearDown(self):
+    async def asyncTearDown(self) -> None:
         await self.mount_controller.stop()
 
-    async def test_slew_to_altaz(self):
+    async def test_slew_to_altaz(self) -> None:
         slew_to = await self.mount_controller.slew_to(
             ra_str=self.target_ra_str, dec_str=self.target_dec_str
         )
@@ -54,7 +55,7 @@ class Test(IsolatedAsyncioTestCase):
             self.assertEqual(self.mount_controller.slew_mode, SlewMode.ALT_AZ)
             await asyncio.sleep(0.5)
 
-    async def test_slew_to_radec(self):
+    async def test_slew_to_radec(self) -> None:
         self.mount_controller.slew_mode = SlewMode.RA_DEC
         slew_to = await self.mount_controller.slew_to(
             ra_str=self.target_ra_str, dec_str=self.target_dec_str
@@ -65,7 +66,7 @@ class Test(IsolatedAsyncioTestCase):
             self.assertEqual(self.mount_controller.slew_mode, SlewMode.RA_DEC)
             await asyncio.sleep(0.5)
 
-    async def test_slew_bad(self):
+    async def test_slew_bad(self) -> None:
         bad_mode = "Bad"
         self.mount_controller.slew_mode = bad_mode
         slew_to = await self.mount_controller.slew_to(
@@ -78,7 +79,7 @@ class Test(IsolatedAsyncioTestCase):
             self.assertEqual(self.mount_controller.slew_mode, bad_mode)
             await asyncio.sleep(0.5)
 
-    async def test_slew_down(self):
+    async def test_slew_down(self) -> None:
         await self.mount_controller.slew_in_direction("Ms")
         alt = self.mount_controller.alt_az.alt.value
         while alt >= 44:
@@ -88,7 +89,7 @@ class Test(IsolatedAsyncioTestCase):
         await self.mount_controller.stop_slew()
         self.assertEqual(self.mount_controller.state, MountControllerState.TRACKING)
 
-    async def test_alignment(self):
+    async def test_alignment(self) -> None:
         self.mount_controller.state = MountControllerState.STOPPED
         self.mount_controller.alignment_state = AlignmentState.UNALIGNED
         self.mount_controller.position_one_alignment_data = None
