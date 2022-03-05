@@ -2,12 +2,12 @@ import asyncio
 import logging
 from typing import Optional
 
-from astropy.coordinates import AltAz, Angle, SkyCoord  # type: ignore
-from astropy.time import Time  # type: ignore
-from astropy import units as u  # type: ignore
+from astropy.coordinates import AltAz, Angle, SkyCoord
+from astropy.time import Time
+from astropy import units as u
 
 from ..observing_location import ObservingLocation
-from ..math.alignment_error_util import (  # type: ignore
+from ..math.alignment_error_util import (
     compute_alignment_error,
     get_altaz_in_rotated_frame,
 )

@@ -35,8 +35,8 @@ class SocketServer:
         )
         self.log.info(
             f"Server started on host "
-            f"{self._server.sockets[0].getsockname()[0]}"  # type: ignore
-            f":{self._server.sockets[0].getsockname()[1]}"  # type: ignore
+            f"{self._server.sockets[0].getsockname()[0]}"
+            f":{self._server.sockets[0].getsockname()[1]}"
         )
         await self._server.wait_closed()
 
@@ -97,7 +97,7 @@ class SocketServer:
                     # So we simply loop over all implemented commands until we find
                     # the one that we have received. None of the implemented commands
                     # are non-unique so this is a safe way to do this without having
-                    # to write too much boiler plate code.
+                    # to write too much boilerplate code.
                     cmd = ""
                     for key in self.responder.dispatch_dict.keys():
                         if line.startswith(key):
@@ -107,7 +107,7 @@ class SocketServer:
                     if cmd not in self.responder.dispatch_dict:
                         self.log.error(f"Unknown command {cmd!r}.")
 
-                    # Otherwise process the command.
+                    # Otherwise, process the command.
                     else:
                         self.responder.cmd = cmd
                         (func, has_arg) = self.responder.dispatch_dict[cmd]

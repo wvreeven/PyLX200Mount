@@ -1,8 +1,8 @@
 from datetime import datetime
 import logging
 
-from astropy.coordinates import Longitude, Latitude, SkyCoord  # type: ignore
-from astropy import units as u  # type: ignore
+from astropy.coordinates import Longitude, Latitude, SkyCoord
+from astropy import units as u
 
 from .mount_controller import MountController
 
