@@ -1,4 +1,4 @@
-from astropy.coordinates import (  # type: ignore
+from astropy.coordinates import (
     AltAz,
     Angle,
     EarthLocation,
@@ -6,8 +6,8 @@ from astropy.coordinates import (  # type: ignore
     SkyCoord,
     SkyOffsetFrame,
 )
-from astropy.time import Time  # type: ignore
-import astropy.units as u  # type: ignore
+from astropy.time import Time
+import astropy.units as u
 import math
 
 
