@@ -163,8 +163,8 @@ class Test(IsolatedAsyncioTestCase):
         )
         self.assertAlmostEqual(s2.ra.value, self.mount_controller.ra_dec.ra.value)
         self.assertAlmostEqual(s2.dec.value, self.mount_controller.ra_dec.dec.value)
-        self.assertAlmostEqual(0.0, self.mount_controller.delta_alt.arcmin)
-        self.assertAlmostEqual(0.0, self.mount_controller.delta_az.arcmin)
+        self.assertAlmostEqual(0.0, self.mount_controller.aeu.delta_alt.arcmin)
+        self.assertAlmostEqual(0.0, self.mount_controller.aeu.delta_az.arcmin)
 
         self.mount_controller.alignment_state = (
             astro.controller.enums.AlignmentState.STAR_ONE_ALIGNED
@@ -178,8 +178,8 @@ class Test(IsolatedAsyncioTestCase):
         )
         self.assertAlmostEqual(s2.ra.value, self.mount_controller.ra_dec.ra.value)
         self.assertAlmostEqual(s2.dec.value, self.mount_controller.ra_dec.dec.value)
-        self.assertAlmostEqual(7.3897, self.mount_controller.delta_alt.arcmin, 4)
-        self.assertAlmostEqual(32.2597, self.mount_controller.delta_az.arcmin, 4)
+        self.assertAlmostEqual(7.3897, self.mount_controller.aeu.delta_alt.arcmin, 4)
+        self.assertAlmostEqual(32.2597, self.mount_controller.aeu.delta_az.arcmin, 4)
         self.assertEqual(
             astro.controller.enums.MountControllerState.TRACKING,
             self.mount_controller.state,
