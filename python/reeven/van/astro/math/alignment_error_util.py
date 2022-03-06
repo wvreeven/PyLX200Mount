@@ -10,6 +10,8 @@ from astropy.time import Time
 import astropy.units as u
 import math
 
+__all__ = ["compute_alignment_error", "get_altaz_in_rotated_frame"]
+
 
 def compute_alignment_error(
     lat: Latitude, s1: SkyCoord, s2: SkyCoord, err_ra: float, err_dec: float
