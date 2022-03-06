@@ -1,3 +1,4 @@
+import logging
 import math
 import typing
 
@@ -12,6 +13,8 @@ from astropy.coordinates import (
 from astropy.time import Time
 import astropy.units as u
 
+from ..observing_location import ObservingLocation
+
 __all__ = ["AlignmentErrorUtil"]
 
 
@@ -19,6 +22,7 @@ class AlignmentErrorUtil:
     """Utility for alignment error computations."""
 
     def __init__(self) -> None:
+        self.log = logging.getLogger(type(self).__name__)
         self.delta_alt: typing.Optional[Angle] = None
         self.delta_az: typing.Optional[Angle] = None
 
@@ -73,6 +77,12 @@ class AlignmentErrorUtil:
         self.delta_alt = a11 * err_ra + a12 * err_dec
         self.delta_az = a21 * err_ra + a22 * err_dec
 
+        if self.delta_alt is not None and self.delta_az is not None:
+            self.log.info(
+                f"Alignment complete. AltAz offset ({self.delta_alt.arcmin},"
+                f" {self.delta_az.arcmin}) [arcmin]."
+            )
+
     def get_altaz_in_rotated_frame(
         self,
         time: Time,
@@ -107,3 +117,20 @@ class AlignmentErrorUtil:
             obstime=time,
             location=location,
         )
+
+    def rotate_alt_az_if_necessary(
+        self, alt_az: SkyCoord, observing_location: ObservingLocation
+    ) -> None:
+        # Prevent an astropy deprecation warning by explicitly testing for None here.
+        if self.delta_alt is not None and self.delta_az is not None:
+            time = Time.now()
+            alt_az_rot = self.get_altaz_in_rotated_frame(
+                time=time,
+                location=observing_location.location,
+                altaz=alt_az,
+            )
+            self.log.debug(
+                f"AltAz {alt_az.to_string('dms')} is rotated "
+                f"{alt_az_rot.to_string('dms')}"
+            )
+            # TODO Make sure that the rotated frame actually is used.
