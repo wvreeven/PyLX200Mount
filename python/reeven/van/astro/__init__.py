@@ -1,4 +1,6 @@
 from .observing_location import *
 from .socket_server import *
 
-from .controller import *
+# Import submodules.
+from . import controller
+from . import math

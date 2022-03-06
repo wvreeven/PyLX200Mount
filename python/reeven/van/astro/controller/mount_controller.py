@@ -2,14 +2,18 @@ import asyncio
 import logging
 from typing import Optional
 
-from astropy.coordinates import AltAz, Angle, SkyCoord
+from astropy.coordinates import Angle, SkyCoord
 from astropy.time import Time
 from astropy import units as u
 
 from ..observing_location import ObservingLocation
-from ..math.alignment_error_util import (
-    compute_alignment_error,
-    get_altaz_in_rotated_frame,
+from ..math import alignment_error_util
+from ..math.astropy_util import (
+    get_radec_from_altaz,
+    get_altaz_from_radec,
+    get_skycoord_from_ra_dec_str,
+    get_skycoord_from_alt_az,
+    get_skycoord_from_ra_dec,
 )
 from .enums import (
     MountControllerState,
@@ -28,10 +32,10 @@ class MountController:
     def __init__(self) -> None:
         self.log = logging.getLogger(type(self).__name__)
         self.observing_location = ObservingLocation()
-        self.alt_az = self.get_skycoord_from_alt_az(90.0, 0.0)
+        self.alt_az = get_skycoord_from_alt_az(90.0, 0.0, self.observing_location)
         self.state = MountControllerState.STOPPED
         self.position_loop: Optional[asyncio.Task] = None
-        self.ra_dec = self.get_radec_from_altaz(self.alt_az)
+        self.ra_dec = get_radec_from_altaz(self.alt_az)
 
         # Slew related variables
         self.slew_ref_time = 0.0
@@ -81,12 +85,12 @@ class MountController:
             f"Stopped at AltAz {self.alt_az.to_string()}"
             f" == RaDec {'None' if None else self.ra_dec.to_string('hmsdms')}."
         )
-        self.ra_dec = self.get_radec_from_altaz(alt_az=self.alt_az)
+        self.ra_dec = get_radec_from_altaz(alt_az=self.alt_az)
 
     def _rotate_alt_az_if_necessray(self) -> None:
         if self.delta_alt and self.delta_az:
             time = Time.now()
-            alt_az = get_altaz_in_rotated_frame(
+            alt_az = alignment_error_util.get_altaz_in_rotated_frame(
                 delta_alt=self.delta_alt,
                 delta_az=self.delta_az,
                 time=time,
@@ -104,7 +108,9 @@ class MountController:
             f"Tracking at AltAz {self.alt_az.to_string()}"
             f" == RaDec {'None' if None else self.ra_dec.to_string('hmsdms')}."
         )
-        self.alt_az = self.get_altaz_from_radec(ra_dec=self.ra_dec)
+        self.alt_az = get_altaz_from_radec(
+            ra_dec=self.ra_dec, observing_location=self.observing_location
+        )
         self._rotate_alt_az_if_necessray()
 
     async def _slew(self) -> None:
@@ -135,7 +141,7 @@ class MountController:
                 curr=self.ra_dec.dec.value,
                 target=self.target_ra_dec.dec.value,
             )
-            self.ra_dec = self.get_skycoord_from_ra_dec(ra=ra, dec=dec)
+            self.ra_dec = get_skycoord_from_ra_dec(ra=ra, dec=dec)
             if diff_ra == 0 and diff_dec == 0:
                 self.state = MountControllerState.TRACKING
 
@@ -152,22 +158,32 @@ class MountController:
         the direction that the slew is performed in.
         """
         if not self.slew_direction:
-            target_altaz = self.get_altaz_from_radec(ra_dec=self.target_ra_dec)
+            target_altaz = get_altaz_from_radec(
+                ra_dec=self.target_ra_dec, observing_location=self.observing_location
+            )
         elif self.slew_direction == SlewDirection.UP:
-            target_altaz = self.get_skycoord_from_alt_az(
-                alt=90.0, az=self.alt_az.az.value
+            target_altaz = get_skycoord_from_alt_az(
+                alt=90.0,
+                az=self.alt_az.az.value,
+                observing_location=self.observing_location,
             )
         elif self.slew_direction == SlewDirection.LEFT:
-            target_altaz = self.get_skycoord_from_alt_az(
-                alt=self.alt_az.alt.value, az=self.alt_az.az.value - 1.0
+            target_altaz = get_skycoord_from_alt_az(
+                alt=self.alt_az.alt.value,
+                az=self.alt_az.az.value - 1.0,
+                observing_location=self.observing_location,
             )
         elif self.slew_direction == SlewDirection.DOWN:
-            target_altaz = self.get_skycoord_from_alt_az(
-                alt=0.0, az=self.alt_az.az.value
+            target_altaz = get_skycoord_from_alt_az(
+                alt=0.0,
+                az=self.alt_az.az.value,
+                observing_location=self.observing_location,
             )
         else:
-            target_altaz = self.get_skycoord_from_alt_az(
-                alt=self.alt_az.alt.value, az=self.alt_az.az.value + 1.0
+            target_altaz = get_skycoord_from_alt_az(
+                alt=self.alt_az.alt.value,
+                az=self.alt_az.az.value + 1.0,
+                observing_location=self.observing_location,
             )
         return target_altaz
 
@@ -224,9 +240,11 @@ class MountController:
         az, diff_az = self._determine_new_coord_value(
             time=now, curr=self.alt_az.az.value, target=target_altaz.az.value
         )
-        self.alt_az = self.get_skycoord_from_alt_az(alt=alt, az=az)
+        self.alt_az = get_skycoord_from_alt_az(
+            alt=alt, az=az, observing_location=self.observing_location
+        )
         self._rotate_alt_az_if_necessray()
-        self.ra_dec = self.get_radec_from_altaz(alt_az=self.alt_az)
+        self.ra_dec = get_radec_from_altaz(alt_az=self.alt_az)
         if diff_alt == 0 and diff_az == 0:
             self.state = MountControllerState.TRACKING
 
@@ -259,8 +277,10 @@ class MountController:
             The Declination of the mount in degrees. The format is "+dd*mm:ss".
         """
         expected_ra_dec = self.ra_dec
-        self.ra_dec = self.get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
-        self.alt_az = self.get_altaz_from_radec(ra_dec=self.ra_dec)
+        self.ra_dec = get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
+        self.alt_az = get_altaz_from_radec(
+            ra_dec=self.ra_dec, observing_location=self.observing_location
+        )
         self._rotate_alt_az_if_necessray()
 
         # Either the mount still is unaligned, or the mount is being aligned
@@ -283,7 +303,10 @@ class MountController:
             self.position_two_alignment_data = self.ra_dec
             err_ra = self.ra_dec.ra.arcmin - expected_ra_dec.ra.arcmin
             err_dec = self.ra_dec.dec.arcmin - expected_ra_dec.dec.arcmin
-            (self.delta_alt, self.delta_az,) = compute_alignment_error(
+            (
+                self.delta_alt,
+                self.delta_az,
+            ) = alignment_error_util.compute_alignment_error(
                 lat=self.observing_location.location.lat,
                 s1=self.position_one_alignment_data,
                 s2=self.position_two_alignment_data,
@@ -329,8 +352,10 @@ class MountController:
         slew_possible: 0 or 1
             0 means in reach, 1 not.
         """
-        ra_dec = self.get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
-        alt_az = self.get_altaz_from_radec(ra_dec=self.ra_dec)
+        ra_dec = get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
+        alt_az = get_altaz_from_radec(
+            ra_dec=self.ra_dec, observing_location=self.observing_location
+        )
         self.slew_direction = None
         if alt_az.alt.value > 0:
             self.slew_ref_time = Time.now()
@@ -374,42 +399,8 @@ class MountController:
         azimuth."""
         altitude = self.alt_az.alt.value
         azimuth = self.alt_az.az.value
-        self.alt_az = self.get_skycoord_from_alt_az(alt=altitude, az=azimuth)
+        self.alt_az = get_skycoord_from_alt_az(
+            alt=altitude, az=azimuth, observing_location=self.observing_location
+        )
         self._rotate_alt_az_if_necessray()
-        self.ra_dec = self.get_radec_from_altaz(alt_az=self.alt_az)
-
-    # noinspection PyMethodMayBeStatic
-    def get_skycoord_from_ra_dec(self, ra: float, dec: float) -> SkyCoord:
-        return SkyCoord(
-            ra=Angle(ra * u.deg),
-            dec=Angle(dec * u.deg),
-            frame="icrs",
-        )
-
-    # noinspection PyMethodMayBeStatic
-    def get_skycoord_from_ra_dec_str(self, ra_str: str, dec_str: str) -> SkyCoord:
-        return SkyCoord(
-            ra=Angle(ra_str + " hours"),
-            dec=Angle(dec_str.replace("*", ":") + " degrees"),
-            frame="icrs",
-        )
-
-    def get_skycoord_from_alt_az(self, alt: float, az: float) -> SkyCoord:
-        time = Time.now()
-        return SkyCoord(
-            alt=Angle(alt * u.deg),
-            az=Angle(az * u.deg),
-            frame="altaz",
-            obstime=time,
-            location=self.observing_location.location,
-        )
-
-    def get_altaz_from_radec(self, ra_dec: SkyCoord) -> SkyCoord:
-        time = Time.now()
-        return ra_dec.transform_to(
-            AltAz(obstime=time, location=self.observing_location.location)
-        )
-
-    # noinspection PyMethodMayBeStatic
-    def get_radec_from_altaz(self, alt_az: SkyCoord) -> SkyCoord:
-        return alt_az.transform_to("icrs")
+        self.ra_dec = get_radec_from_altaz(alt_az=self.alt_az)

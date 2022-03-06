@@ -1,7 +1,7 @@
 import logging
 from unittest import IsolatedAsyncioTestCase
 
-from reeven.van.astro.controller.lx200_command_reponder import Lx200CommandResponder
+from reeven.van import astro
 
 logging.basicConfig(
     format="%(asctime)s:%(levelname)s:%(name)s:%(message)s",
@@ -11,7 +11,7 @@ logging.basicConfig(
 
 class Test(IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        self.responder = Lx200CommandResponder()
+        self.responder = astro.controller.lx200_command_reponder.Lx200CommandResponder()
         await self.responder.start()
 
     async def asyncTearDown(self) -> None:

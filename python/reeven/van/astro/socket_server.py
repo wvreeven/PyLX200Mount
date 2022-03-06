@@ -5,6 +5,8 @@ from typing import Optional
 
 from .controller import Lx200CommandResponder, REPLY_SEPARATOR
 
+__all__ = ["SocketServer"]
+
 # ACK symbol sent by Ekos
 ACK: bytes = b"\x06"
 
