@@ -7,7 +7,7 @@ from astropy.time import Time
 from astropy import units as u
 
 from ..observing_location import ObservingLocation
-from ..math import alignment_error_util
+from ..math import AlignmentErrorUtil
 from ..math.astropy_util import (
     get_radec_from_altaz,
     get_altaz_from_radec,
@@ -48,8 +48,7 @@ class MountController:
         self.alignment_state = AlignmentState.UNALIGNED
         self.position_one_alignment_data: typing.Optional[SkyCoord] = None
         self.position_two_alignment_data: typing.Optional[SkyCoord] = None
-        self.delta_alt: typing.Optional[Angle] = None
-        self.delta_az: typing.Optional[Angle] = None
+        self.aeu = AlignmentErrorUtil()
 
     async def start(self) -> None:
         self.log.info("Start called.")
@@ -87,23 +86,6 @@ class MountController:
         )
         self.ra_dec = get_radec_from_altaz(alt_az=self.alt_az)
 
-    def _rotate_alt_az_if_necessray(self) -> None:
-        # Prevent an astropy deprecation warning by explicitly testing for None here.
-        if self.delta_alt is not None and self.delta_az is not None:
-            time = Time.now()
-            alt_az = alignment_error_util.get_altaz_in_rotated_frame(
-                delta_alt=self.delta_alt,
-                delta_az=self.delta_az,
-                time=time,
-                location=self.observing_location.location,
-                altaz=self.alt_az,
-            )
-            self.log.debug(
-                f"AltAz {self.alt_az.to_string('dms')} is rotated "
-                f"{alt_az.to_string('dms')}"
-            )
-            # TODO Make sure that the rotated frame actually is used.
-
     async def _track(self) -> None:
         """Mount behavior in TRACKING state."""
         self.log.debug(
@@ -113,7 +95,9 @@ class MountController:
         self.alt_az = get_altaz_from_radec(
             ra_dec=self.ra_dec, observing_location=self.observing_location
         )
-        self._rotate_alt_az_if_necessray()
+        self.aeu.rotate_alt_az_if_necessary(
+            alt_az=self.alt_az, observing_location=self.observing_location
+        )
 
     async def _slew(self) -> None:
         """Dispatch slewing to the coroutine corresponding to the slew mode."""
@@ -245,7 +229,9 @@ class MountController:
         self.alt_az = get_skycoord_from_alt_az(
             alt=alt, az=az, observing_location=self.observing_location
         )
-        self._rotate_alt_az_if_necessray()
+        self.aeu.rotate_alt_az_if_necessary(
+            alt_az=self.alt_az, observing_location=self.observing_location
+        )
         self.ra_dec = get_radec_from_altaz(alt_az=self.alt_az)
         if diff_alt == 0 and diff_az == 0:
             self.state = MountControllerState.TRACKING
@@ -283,7 +269,9 @@ class MountController:
         self.alt_az = get_altaz_from_radec(
             ra_dec=self.ra_dec, observing_location=self.observing_location
         )
-        self._rotate_alt_az_if_necessray()
+        self.aeu.rotate_alt_az_if_necessary(
+            alt_az=self.alt_az, observing_location=self.observing_location
+        )
 
         # Either the mount still is unaligned, or the mount is being aligned
         # with the same position.
@@ -303,12 +291,13 @@ class MountController:
             and self.position_two_alignment_data == self.ra_dec
         ):
             self.position_two_alignment_data = self.ra_dec
+            self.log.info(
+                f"Second position aligned at RaDec ({self.ra_dec.to_string('hmsdms')})."
+            )
+
             err_ra = self.ra_dec.ra - expected_ra_dec.ra
             err_dec = self.ra_dec.dec - expected_ra_dec.dec
-            (
-                self.delta_alt,
-                self.delta_az,
-            ) = alignment_error_util.compute_alignment_error(
+            self.aeu.compute_alignment_error(
                 lat=self.observing_location.location.lat,
                 s1=self.position_one_alignment_data,
                 s2=self.position_two_alignment_data,
@@ -316,13 +305,6 @@ class MountController:
                 err_dec=err_dec,
             )
             self.alignment_state = AlignmentState.ALIGNED
-            self.log.info(
-                f"Second position aligned at RaDec ({self.ra_dec.to_string('hmsdms')})."
-            )
-            self.log.info(
-                f"Alignment complete. AltAz offset ({self.delta_alt.arcmin},"
-                f" {self.delta_az.arcmin}) [arcmin]."
-            )
 
         self.state = MountControllerState.TRACKING
 
@@ -404,5 +386,7 @@ class MountController:
         self.alt_az = get_skycoord_from_alt_az(
             alt=altitude, az=azimuth, observing_location=self.observing_location
         )
-        self._rotate_alt_az_if_necessray()
+        self.aeu.rotate_alt_az_if_necessary(
+            alt_az=self.alt_az, observing_location=self.observing_location
+        )
         self.ra_dec = get_radec_from_altaz(alt_az=self.alt_az)
