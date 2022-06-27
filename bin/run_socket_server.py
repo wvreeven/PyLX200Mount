@@ -3,7 +3,7 @@
 import asyncio
 import logging
 
-from reeven.van.astro import SocketServer
+from reeven.van.astro.pmc import SocketServer
 
 
 async def main() -> None:
