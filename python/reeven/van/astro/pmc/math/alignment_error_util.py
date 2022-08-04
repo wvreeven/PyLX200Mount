@@ -2,6 +2,7 @@ import logging
 import math
 import typing
 
+import astropy.units as u
 from astropy.coordinates import (
     AltAz,
     Angle,
@@ -11,7 +12,6 @@ from astropy.coordinates import (
     SkyOffsetFrame,
 )
 from astropy.time import Time
-import astropy.units as u
 
 from ..observing_location import ObservingLocation
 

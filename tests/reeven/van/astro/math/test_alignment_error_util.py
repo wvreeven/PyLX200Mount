@@ -5,13 +5,12 @@ from astropy.coordinates import (
     AltAz,
     Angle,
     EarthLocation,
-    Longitude,
     Latitude,
+    Longitude,
     SkyCoord,
 )
 from astropy.time import Time
-
-from reeven.van import astro
+from reeven.van.astro import pmc
 
 
 class Test(TestCase):
@@ -22,7 +21,7 @@ class Test(TestCase):
         err_ra = Angle(-12.0 * u.arcmin)
         err_dec = Angle(-21.0 * u.arcmin)
 
-        aeu = astro.math.AlignmentErrorUtil()
+        aeu = pmc.math.AlignmentErrorUtil()
         aeu.compute_alignment_error(lat, s1, s2, err_ra, err_dec)
         self.assertAlmostEqual(aeu.delta_alt.arcmin, 7.3897, 4)
         self.assertAlmostEqual(aeu.delta_az.arcmin, 32.2597, 4)
@@ -34,7 +33,7 @@ class Test(TestCase):
         err_ra = Angle(0.0 * u.arcmin)
         err_dec = Angle(0.0 * u.arcmin)
 
-        aeu = astro.math.AlignmentErrorUtil()
+        aeu = pmc.math.AlignmentErrorUtil()
         aeu.compute_alignment_error(lat, s1, s2, err_ra, err_dec)
         self.assertAlmostEqual(aeu.delta_alt.arcmin, 0.0)
         self.assertAlmostEqual(aeu.delta_az.arcmin, 0.0)
@@ -49,7 +48,7 @@ class Test(TestCase):
         time = Time("2020-04-15 20:49:48.560642")
         sirius_altaz = sirius.transform_to(AltAz(obstime=time, location=location))
 
-        aeu = astro.math.AlignmentErrorUtil()
+        aeu = pmc.math.AlignmentErrorUtil()
         aeu.delta_alt = Angle(7.3897 * u.arcmin)
         aeu.delta_az = Angle(32.2597 * u.arcmin)
         sirius_tel = aeu.get_altaz_in_rotated_frame(
