@@ -3,9 +3,9 @@ import logging
 import socket
 from typing import Optional
 
-from .controller import Lx200CommandResponder, REPLY_SEPARATOR
+from .controller import REPLY_SEPARATOR, Lx200CommandResponder
 
-__all__ = ["SocketServer"]
+__all__ = ["SocketServer", "run_socket_server"]
 
 # ACK symbol sent by Ekos
 ACK: bytes = b"\x06"
@@ -134,13 +134,9 @@ class SocketServer:
             pass
 
 
-async def main() -> None:
-    await socket_server.start()
-
-
-if __name__ == "__main__":
+async def run_socket_server() -> None:
     socket_server = SocketServer()
     try:
-        asyncio.run(main())
+        await socket_server.start()
     except (asyncio.CancelledError, KeyboardInterrupt):
-        asyncio.run(socket_server.stop())
+        await socket_server.stop()

@@ -1,8 +1,8 @@
-from datetime import datetime
 import logging
+from datetime import datetime
 
-from astropy.coordinates import Longitude, Latitude, SkyCoord
 from astropy import units as u
+from astropy.coordinates import Latitude, Longitude, SkyCoord
 
 from .mount_controller import MountController
 
@@ -100,7 +100,7 @@ class Lx200CommandResponder:
         await self.mount_controller.stop()
 
     async def get_ra(self) -> str:
-        """ "Get the RA that the mount currently is pointing at."""
+        """Get the RA that the mount currently is pointing at."""
         ra_dec: SkyCoord = await self.mount_controller.get_ra_dec()
         ra = ra_dec.ra
         ra_str = ra.to_string(unit=u.hour, sep=":", precision=2, pad=True)
@@ -124,7 +124,7 @@ class Lx200CommandResponder:
         return DEFAULT_REPLY
 
     async def get_dec(self) -> str:
-        """ "Get the DEC that the mount currently is pointing at."""
+        """Get the DEC that the mount currently is pointing at."""
         ra_dec: SkyCoord = await self.mount_controller.get_ra_dec()
         dec = ra_dec.dec
         # Use signed_dms here because dms will have negative minutes and seconds!!!
@@ -152,7 +152,7 @@ class Lx200CommandResponder:
 
     # noinspection PyMethodMayBeStatic
     async def get_clock_format(self) -> str:
-        """ "Get the clock format: 12h or 24h. We will always use 24h."""
+        """Get the clock format: 12h or 24h. We will always use 24h."""
         return "(24)"
 
     # noinspection PyMethodMayBeStatic
@@ -238,7 +238,7 @@ class Lx200CommandResponder:
         """Get the longitude of the obsering site.
 
         The LX200 protocol puts West longitudes positive while astropy puts East
-        longitude positive so we need to convert from the astropy longitude to the
+        longitude positive, so we need to convert from the astropy longitude to the
         LX200 longitude.
         """
         longitude = self.mount_controller.observing_location.location.lon.to_string(
@@ -259,7 +259,7 @@ class Lx200CommandResponder:
         """Set the longitude of the obsering site.
 
         The LX200 protocol puts West longitudes positive while astropy puts East
-        longitude positive so we need to convert from the LX200 longitude to the
+        longitude positive, so we need to convert from the LX200 longitude to the
         astropy longitude.
         """
         self.log.info(f"set_current_site_longitude received data {data}")
