@@ -10,6 +10,7 @@ author-email = "wouter@van.reeven.nl"
 license = { text = "GPL" }
 classifiers = [ "Programming Language :: Python :: 3" ]
 dynamic = [ "version" ]
+dependencies = [ "astropy" ]
 
 [tool.setuptools.dynamic]
 version = { attr = "setuptools_scm.get_version" }
@@ -29,6 +30,10 @@ __version__ = "{version}"
 """
 
 [tool.pytest.ini_options]
+addopts = "--black --flake8 --mypy --ignore-glob=*/version.py"
+flake8-ignore = [ "E133", "E203", "E226", "E228", "N802", "N803", "N806", "N812", "N813", "N815", "N816", "W503" ]
+flake8-max-line-length = 110
+flake8-max-doc-length = 110
 asyncio_mode = "auto"
 
 [tool.mypy]
@@ -41,9 +46,7 @@ exclude = "version.py"
 
 [tool.isort]
 profile = "black"
+skip = ["__init__.py"]
 
 [project.optional-dependencies]
-dev = [
-  "documenteer[pipelines]",
-  "astropy"
-]
+dev = ["documenteer[pipelines]"]
