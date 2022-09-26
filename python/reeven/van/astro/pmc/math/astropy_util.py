@@ -1,6 +1,7 @@
+from datetime import datetime
+
 from astropy import units as u
 from astropy.coordinates import AltAz, Angle, SkyCoord
-from astropy.time import Time
 
 from ..observing_location import ObservingLocation
 
@@ -14,9 +15,10 @@ __all__ = [
 
 
 def get_skycoord_from_alt_az(
-    alt: float, az: float, observing_location: ObservingLocation
+    alt: float, az: float, observing_location: ObservingLocation, time: datetime = None
 ) -> SkyCoord:
-    time = Time.now()
+    if time is None:
+        time = datetime.now()
     return SkyCoord(
         alt=Angle(alt * u.deg),
         az=Angle(az * u.deg),
@@ -27,9 +29,10 @@ def get_skycoord_from_alt_az(
 
 
 def get_altaz_from_radec(
-    ra_dec: SkyCoord, observing_location: ObservingLocation
+    ra_dec: SkyCoord, observing_location: ObservingLocation, time: datetime = None
 ) -> SkyCoord:
-    time = Time.now()
+    if time is None:
+        time = datetime.now()
     return ra_dec.transform_to(
         AltAz(obstime=time, location=observing_location.location)
     )
