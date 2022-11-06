@@ -1,9 +1,8 @@
 import asyncio
 import logging
 import socket
-from typing import Optional
 
-from .controller import REPLY_SEPARATOR, Lx200CommandResponder
+from reeven.van.astro.pmc.controller import REPLY_SEPARATOR, Lx200CommandResponder
 
 __all__ = ["SocketServer", "run_socket_server"]
 
@@ -16,15 +15,23 @@ COLON: str = ":"
 # Commands and replies are terminated by the hash symbol
 HASH: bytes = b"#"
 
+# Sleep time between sending replies that contain a newline character.
+SEND_COMMAND_SLEEP = 0.01
+
+logging.basicConfig(
+    format="%(asctime)s:%(levelname)s:%(name)s:%(message)s",
+    level=logging.INFO,
+)
+
 
 class SocketServer:
     def __init__(
         self,
     ) -> None:
         self.port: int = 11880
-        self._server: Optional[asyncio.AbstractServer] = None
-        self._writer: Optional[asyncio.StreamWriter] = None
-        self.responder: Lx200CommandResponder = Lx200CommandResponder()
+        self._server: asyncio.AbstractServer | None = None
+        self._writer: asyncio.StreamWriter | None = None
+        self.responder = Lx200CommandResponder(is_simulation_mode=False)
 
         self.log: logging.Logger = logging.getLogger(type(self).__name__)
 
@@ -66,6 +73,11 @@ class SocketServer:
         reply = st.encode() + HASH
         self.log.debug(f"Writing reply {st}")
         if self._writer is not None:
+            # After a :SC command, multiple replies need to be send which may
+            # lead to a broken pipe error because of the way SkySafari connects
+            # and disconnects from the SocketServer all the time. We will just
+            # simply ignore that here. It usually only happens once or twice
+            # when SkySafari connects and then it doesn't happen anymore.
             self._writer.write(reply)
             await self._writer.drain()
 
@@ -97,9 +109,9 @@ class SocketServer:
 
                     # Almost all LX200 commands are unique but don't have a fixed length.
                     # So we simply loop over all implemented commands until we find
-                    # the one that we have received. None of the implemented commands
-                    # are non-unique so this is a safe way to do this without having
-                    # to write too much boilerplate code.
+                    # the one that we have received. All of the implemented commands are
+                    # unique so this is a safe way to find the command without having to
+                    # write too much boilerplate code.
                     cmd = ""
                     for key in self.responder.dispatch_dict.keys():
                         if line.startswith(key):
@@ -125,10 +137,14 @@ class SocketServer:
                                 # dirty trick to be able to send two output
                                 # strings as is expected for e.g. "SC#"
                                 outputs = output.split(REPLY_SEPARATOR)
-                                for i in range(len(outputs) - 1):
-                                    await self.write(output[0])
-                                output = outputs[-1]
-                            await self.write(output)
+                                for i in range(len(outputs)):
+                                    await self.write(outputs[i])
+                                    self.log.info(
+                                        f"Sleeping for {SEND_COMMAND_SLEEP} sec."
+                                    )
+                                    await asyncio.sleep(SEND_COMMAND_SLEEP)
+                            else:
+                                await self.write(output)
 
         except ConnectionResetError:
             pass
@@ -140,3 +156,7 @@ async def run_socket_server() -> None:
         await socket_server.start()
     except (asyncio.CancelledError, KeyboardInterrupt):
         await socket_server.stop()
+
+
+if __name__ == "__main__":
+    asyncio.run(run_socket_server())

@@ -1,6 +1,6 @@
 import logging
 import math
-import typing
+from datetime import datetime
 
 import astropy.units as u
 from astropy.coordinates import (
@@ -11,7 +11,6 @@ from astropy.coordinates import (
     SkyCoord,
     SkyOffsetFrame,
 )
-from astropy.time import Time
 
 from ..observing_location import ObservingLocation
 
@@ -23,8 +22,8 @@ class AlignmentErrorUtil:
 
     def __init__(self) -> None:
         self.log = logging.getLogger(type(self).__name__)
-        self.delta_alt: typing.Optional[Angle] = None
-        self.delta_az: typing.Optional[Angle] = None
+        self.delta_alt: Angle | None = None
+        self.delta_az: Angle | None = None
 
     def compute_alignment_error(
         self, lat: Latitude, s1: SkyCoord, s2: SkyCoord, err_ra: Angle, err_dec: Angle
@@ -32,8 +31,8 @@ class AlignmentErrorUtil:
         """Compute the alignment error for the given latitdue, the given measured sky
         coordinates and the given errors in right ascentsion and declination.
 
-        This computation is based on the Two Star Polar Alignment paper by Ralph Pass in the
-        misc/docs directory of the source tree on GitHub.
+        This computation is based on the Two Star Polar Alignment paper by Ralph Pass in
+        the misc/docs directory of the source tree on GitHub.
 
         Parameters
         ----------
@@ -85,7 +84,7 @@ class AlignmentErrorUtil:
 
     def get_altaz_in_rotated_frame(
         self,
-        time: Time,
+        time: datetime,
         location: EarthLocation,
         altaz: SkyCoord,
     ) -> SkyCoord:
@@ -94,7 +93,7 @@ class AlignmentErrorUtil:
 
         Parameters
         ----------
-        time : `Time`
+        time : `datetime`
             The Time for which the AltAz coordinates are valid
         location : `EarthLocation`
             The observing_location for which the AltAz coordinates are valid
@@ -123,7 +122,7 @@ class AlignmentErrorUtil:
     ) -> None:
         # Prevent an astropy deprecation warning by explicitly testing for None here.
         if self.delta_alt is not None and self.delta_az is not None:
-            time = Time.now()
+            time = datetime.now().astimezone()
             alt_az_rot = self.get_altaz_in_rotated_frame(
                 time=time,
                 location=observing_location.location,

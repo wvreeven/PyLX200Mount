@@ -10,8 +10,8 @@ from Phidget22.PhidgetException import PhidgetException
 
 __all__ = ["MyStepper"]
 
-# The acceleration of the stepper motor [deg/sec].
-ACCELERATION = 100000
+# The maximum acceleration of the stepper motor [deg/sec].
+ACCELERATION = 20000
 # Time to wait for the stepper motor to report that it is attached.
 ATTACH_WAIT_TIME = 2000
 
@@ -114,6 +114,7 @@ class MyStepper:
         """
         # Compute the shortest path to the target position.
         current_position = Angle(self.stepper.getPosition(), u.deg)
+        self.log.debug(f"move from {current_position} to {target_position}")
         new_target_position = current_position + (
             target_position - current_position
         ).wrap_at(180.0 * u.deg)

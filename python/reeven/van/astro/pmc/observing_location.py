@@ -23,7 +23,7 @@ class ObservingLocation:
             height=0.0 * u.meter,
         )
         self.name: str = "La Serena"
-        self.tz: TimezoneInfo = TimezoneInfo(utc_offset=-4 * u.hour)
+        self.tz: TimezoneInfo = TimezoneInfo(tzname="America/Santiago")
 
     def set_longitude(self, longitude: Longitude) -> None:
         """

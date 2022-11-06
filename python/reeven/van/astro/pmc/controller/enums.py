@@ -21,9 +21,10 @@ TELESCOPE_REDUCTION_20INCH = 34.91
 class MountControllerState(enum.Enum):
     """State of the mount controller."""
 
-    STOPPED = 0
-    TRACKING = 1
-    SLEWING = 2
+    STOPPED = enum.auto()
+    TO_TRACKING = enum.auto()
+    TRACKING = enum.auto()
+    SLEWING = enum.auto()
 
 
 class SlewMode(enum.Enum):
@@ -44,9 +45,10 @@ class SlewDirection(enum.Enum):
     LEFT = "Left"
     DOWN = "Down"
     RIGHT = "Right"
+    NONE = "None"
 
 
-class SlewRate(enum.Enum):
+class SlewRate(float, enum.Enum):
     """Slew rate [deg/sec]."""
 
     CENTERING = 0.5
@@ -58,6 +60,6 @@ class SlewRate(enum.Enum):
 class AlignmentState(enum.IntEnum):
     """Alignment state."""
 
-    UNALIGNED = 0
-    STAR_ONE_ALIGNED = 1
-    ALIGNED = 2
+    UNALIGNED = enum.auto()
+    STAR_ONE_ALIGNED = enum.auto()
+    ALIGNED = enum.auto()

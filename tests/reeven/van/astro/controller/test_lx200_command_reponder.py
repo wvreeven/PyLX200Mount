@@ -11,7 +11,9 @@ logging.basicConfig(
 
 class Test(IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        self.responder = pmc.controller.lx200_command_reponder.Lx200CommandResponder()
+        self.responder = pmc.controller.lx200_command_reponder.Lx200CommandResponder(
+            is_simulation_mode=True
+        )
         await self.responder.start()
 
     async def asyncTearDown(self) -> None:

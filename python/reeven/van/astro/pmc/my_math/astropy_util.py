@@ -18,7 +18,7 @@ def get_skycoord_from_alt_az(
     alt: float, az: float, observing_location: ObservingLocation, time: datetime = None
 ) -> SkyCoord:
     if time is None:
-        time = datetime.now()
+        time = datetime.now().astimezone()
     return SkyCoord(
         alt=Angle(alt * u.deg),
         az=Angle(az * u.deg),
@@ -32,7 +32,7 @@ def get_altaz_from_radec(
     ra_dec: SkyCoord, observing_location: ObservingLocation, time: datetime = None
 ) -> SkyCoord:
     if time is None:
-        time = datetime.now()
+        time = datetime.now().astimezone()
     return ra_dec.transform_to(
         AltAz(obstime=time, location=observing_location.location)
     )
