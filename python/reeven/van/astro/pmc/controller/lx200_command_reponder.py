@@ -28,9 +28,7 @@ class Lx200CommandResponder:
     For more info, see the TelescopeProtocol PDF document in the misc/docs section.
     """
 
-    def __init__(
-        self,
-    ) -> None:
+    def __init__(self, is_simulation_mode: bool) -> None:
 
         self.log = logging.getLogger(type(self).__name__)
 
@@ -41,7 +39,7 @@ class Lx200CommandResponder:
         self.target_ra = "0.0"
         self.target_dec = "0.0"
 
-        self.mount_controller = MountController()
+        self.mount_controller = MountController(is_simulation_mode=is_simulation_mode)
 
         # The received command. This is kept as a reference for the slews.
         self.cmd: str = ""
@@ -168,7 +166,7 @@ class Lx200CommandResponder:
         of the number of hours that the local time is ahead or behind of UTC. The
         difference is a minus symbol.
         """
-        dt = datetime.now()
+        dt = datetime.now().astimezone()
         tz = self.mount_controller.observing_location.tz.utcoffset(dt=dt)
         utc_offset = tz.total_seconds() / 3600
         self.log.info(f"UTC Offset = {utc_offset}")
@@ -177,13 +175,13 @@ class Lx200CommandResponder:
     # noinspection PyMethodMayBeStatic
     async def get_local_time(self) -> str:
         """Get the local time at the observing site."""
-        current_dt = datetime.now()
+        current_dt = datetime.now().astimezone()
         return current_dt.strftime("%H:%M:%S")
 
     # noinspection PyMethodMayBeStatic
     async def get_current_date(self) -> str:
         """Get the local date at the observing site."""
-        current_dt = datetime.now()
+        current_dt = datetime.now().astimezone()
         return current_dt.strftime("%m/%d/%y")
 
     # noinspection PyMethodMayBeStatic
@@ -330,7 +328,13 @@ class Lx200CommandResponder:
         self.log.info(f"set_local_date received data {data}")
         # Two return strings are expected so here we separate them by a new
         # line character and will let the socket server deal with it.
-        return UPDATING_PLANETARY_DATA1 + REPLY_SEPARATOR + UPDATING_PLANETARY_DATA2
+        return (
+            DEFAULT_REPLY
+            + REPLY_SEPARATOR
+            + UPDATING_PLANETARY_DATA1
+            + REPLY_SEPARATOR
+            + UPDATING_PLANETARY_DATA2
+        )
 
     async def sync(self) -> str:
         self.log.info("sync received.")
