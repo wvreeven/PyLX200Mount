@@ -105,7 +105,7 @@ class SocketServer:
                     line_b = await reader.readuntil(HASH)
                     line = line_b.decode().strip()
                     if line not in ["GR#", "GD#"]:
-                        self.log.info(f"Read command line: {line!r}")
+                        self.log.debug(f"Read command line: {line!r}")
 
                     # Almost all LX200 commands are unique but don't have a fixed length.
                     # So we simply loop over all implemented commands until we find
@@ -139,14 +139,14 @@ class SocketServer:
                                 outputs = output.split(REPLY_SEPARATOR)
                                 for i in range(len(outputs)):
                                     await self.write(outputs[i])
-                                    self.log.info(
+                                    self.log.debug(
                                         f"Sleeping for {SEND_COMMAND_SLEEP} sec."
                                     )
                                     await asyncio.sleep(SEND_COMMAND_SLEEP)
                             else:
                                 await self.write(output)
 
-        except ConnectionResetError:
+        except (ConnectionResetError, BrokenPipeError):
             pass
 
 
