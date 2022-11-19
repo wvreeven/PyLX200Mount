@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 from astropy import units as u
 from astropy.coordinates import Angle, SkyCoord
 
-from ..my_math.alignment_error_util import AlignmentErrorUtil
 from ..my_math.astropy_util import (
     get_altaz_from_radec,
     get_radec_from_altaz,
@@ -30,6 +29,8 @@ __all__ = ["MountController"]
 ALTAZ_INTERVAL = 0.1
 # A limit to decide between slewing and tracking.
 TRACKING_LIMIT = Angle(1.0, u.arcmin)
+# The maximum tracking speed.
+TRACKING_SPEED = Angle(1.5, u.arcmin)
 
 
 class MountController:
@@ -38,19 +39,23 @@ class MountController:
     def __init__(self, is_simulation_mode: bool) -> None:
         self.log = logging.getLogger(type(self).__name__)
         self.observing_location = ObservingLocation()
-        self.alt_az = get_skycoord_from_alt_az(90.0, 0.0, self.observing_location)
+        # TODO Use a telescope ALTAZ frame and SkyOffSet frame.
+        self.telescope_alt_az = get_skycoord_from_alt_az(
+            90.0, 0.0, self.observing_location
+        )
+        self.skyoffset_frame = self.telescope_alt_az.skyoffset_frame()
         self.state = MountControllerState.STOPPED
         self.position_loop: asyncio.Task | None = None
-        self.ra_dec = get_radec_from_altaz(self.alt_az)
+        self.ra_dec = get_radec_from_altaz(self.telescope_alt_az)
         self.stepper_alt = MyStepper(
-            initial_position=self.alt_az.alt,
+            initial_position=self.telescope_alt_az.alt,
             telescope_reduction=TELESCOPE_REDUCTION_12INCH,
             log=self.log,
             hub_port=0,
             is_remote=True,
         )
         self.stepper_az = MyStepper(
-            initial_position=self.alt_az.az,
+            initial_position=self.telescope_alt_az.az,
             telescope_reduction=TELESCOPE_REDUCTION_12INCH,
             log=self.log,
             hub_port=1,
@@ -69,7 +74,6 @@ class MountController:
         self.alignment_state = AlignmentState.UNALIGNED
         self.position_one_alignment_data: SkyCoord | None = None
         self.position_two_alignment_data: SkyCoord | None = None
-        self.aeu = AlignmentErrorUtil()
 
     async def start(self) -> None:
         self.log.info("Start called.")
@@ -122,39 +126,30 @@ class MountController:
 
     async def _stopped(self) -> None:
         """Mount behavior in STOPPED state."""
-        self.ra_dec = get_radec_from_altaz(alt_az=self.alt_az)
+        self.ra_dec = get_radec_from_altaz(alt_az=self.telescope_alt_az)
 
     async def _track(self) -> None:
         """Mount behavior in TRACKING state."""
         self.log.debug(
-            f"Tracking at AltAz {self.alt_az.to_string()}"
+            f"Tracking at AltAz {self.telescope_alt_az.to_string()}"
             f" == RaDec {'None' if None else self.ra_dec.to_string('hmsdms')}."
         )
         if self.is_simulation_mode:
-            self.alt_az = get_altaz_from_radec(
+            self.telescope_alt_az = get_altaz_from_radec(
                 ra_dec=self.ra_dec, observing_location=self.observing_location
             )
         else:
-            now = datetime.now().astimezone()
+            # TODO Split tracking for the motors because one can still be
+            #  slewing while the other already is tracking.
             target_altaz = self._determine_target_altaz()
-            await self.stepper_alt.move(
-                target_altaz.alt,
-                Angle(self.stepper_alt.stepper.getMaxVelocityLimit(), u.deg),
-            )
-            await self.stepper_az.move(
-                target_altaz.az,
-                Angle(self.stepper_az.stepper.getMaxVelocityLimit(), u.deg),
-            )
-            self.alt_az = get_skycoord_from_alt_az(
+            await self.stepper_alt.move(target_altaz.alt, TRACKING_SPEED)
+            await self.stepper_az.move(target_altaz.az, TRACKING_SPEED)
+            self.telescope_alt_az = get_skycoord_from_alt_az(
                 alt=self.stepper_alt.stepper.getPosition(),
                 az=self.stepper_az.stepper.getPosition(),
                 observing_location=self.observing_location,
-                time=now,
             )
-            self.ra_dec = get_radec_from_altaz(alt_az=self.alt_az)
-        self.aeu.rotate_alt_az_if_necessary(
-            alt_az=self.alt_az, observing_location=self.observing_location
-        )
+            self.ra_dec = get_radec_from_altaz(alt_az=self.telescope_alt_az)
 
     async def _slew(self) -> None:
         """Dispatch slewing to the coroutine corresponding to the slew mode."""
@@ -205,26 +200,26 @@ class MountController:
             )
         elif self.slew_direction == SlewDirection.UP:
             target_altaz = get_skycoord_from_alt_az(
-                alt=90.0,
-                az=self.alt_az.az.value,
+                alt=self.telescope_alt_az.alt.value + 1.0,
+                az=self.telescope_alt_az.az.value,
                 observing_location=self.observing_location,
             )
         elif self.slew_direction == SlewDirection.LEFT:
             target_altaz = get_skycoord_from_alt_az(
-                alt=self.alt_az.alt.value,
-                az=self.alt_az.az.value - 1.0,
+                alt=self.telescope_alt_az.alt.value,
+                az=self.telescope_alt_az.az.value - 1.0,
                 observing_location=self.observing_location,
             )
         elif self.slew_direction == SlewDirection.DOWN:
             target_altaz = get_skycoord_from_alt_az(
-                alt=0.0,
-                az=self.alt_az.az.value,
+                alt=self.telescope_alt_az.alt.value - 1.0,
+                az=self.telescope_alt_az.az.value,
                 observing_location=self.observing_location,
             )
         else:
             target_altaz = get_skycoord_from_alt_az(
-                alt=self.alt_az.alt.value,
-                az=self.alt_az.az.value + 1.0,
+                alt=self.telescope_alt_az.alt.value,
+                az=self.telescope_alt_az.az.value + 1.0,
                 observing_location=self.observing_location,
             )
         return target_altaz
@@ -272,23 +267,24 @@ class MountController:
         now = datetime.now().astimezone()
         target_altaz = self._determine_target_altaz()
         self.log.debug(
-            f"Slewing from AltAz ({self.alt_az.to_string()}) "
+            f"Slewing from AltAz ({self.telescope_alt_az.to_string()}) "
             f"to AltAz ({target_altaz.to_string()})"
         )
         if self.is_simulation_mode:
             alt, diff_alt = self._determine_new_coord_value(
-                time=now, curr=self.alt_az.alt.value, target=target_altaz.alt.value
+                time=now,
+                curr=self.telescope_alt_az.alt.value,
+                target=target_altaz.alt.value,
             )
             az, diff_az = self._determine_new_coord_value(
-                time=now, curr=self.alt_az.az.value, target=target_altaz.az.value
+                time=now,
+                curr=self.telescope_alt_az.az.value,
+                target=target_altaz.az.value,
             )
-            self.alt_az = get_skycoord_from_alt_az(
+            self.telescope_alt_az = get_skycoord_from_alt_az(
                 alt=alt, az=az, observing_location=self.observing_location
             )
-            self.aeu.rotate_alt_az_if_necessary(
-                alt_az=self.alt_az, observing_location=self.observing_location
-            )
-            self.ra_dec = get_radec_from_altaz(alt_az=self.alt_az)
+            self.ra_dec = get_radec_from_altaz(alt_az=self.telescope_alt_az)
             if diff_alt == 0 and diff_az == 0:
                 self.state = MountControllerState.TRACKING
         else:
@@ -299,16 +295,16 @@ class MountController:
             )
             await self.stepper_alt.move(target_altaz.alt, Angle(max_velocity, u.deg))
             await self.stepper_az.move(target_altaz.az, Angle(max_velocity, u.deg))
-            self.alt_az = get_skycoord_from_alt_az(
+            self.telescope_alt_az = get_skycoord_from_alt_az(
                 alt=self.stepper_alt.stepper.getPosition(),
                 az=self.stepper_az.stepper.getPosition(),
                 observing_location=self.observing_location,
                 time=now,
             )
-            self.ra_dec = get_radec_from_altaz(alt_az=self.alt_az)
-            if self.alt_az.separation(target_altaz) <= TRACKING_LIMIT:
-                self.state = MountControllerState.TRACKING
 
+        self.ra_dec = get_radec_from_altaz(alt_az=self.telescope_alt_az)
+        if self.telescope_alt_az.separation(target_altaz) <= TRACKING_LIMIT:
+            self.state = MountControllerState.TRACKING
         self.slew_ref_time = now
 
     async def get_ra_dec(self) -> SkyCoord:
@@ -337,33 +333,9 @@ class MountController:
         dec_str: `str`
             The Declination of the mount in degrees. The format is "+dd*mm:ss".
         """
-        expected_ra_dec = self.ra_dec
         self.ra_dec = get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
-        self.alt_az = get_altaz_from_radec(
+        self.telescope_alt_az = get_altaz_from_radec(
             ra_dec=self.ra_dec, observing_location=self.observing_location
-        )
-
-        # TODO Make sure that alignment works and computing the offset as well.
-        #  Now, after aligning the second target, the motors stop rotating.
-        # If we use real motors, we need to add an offset so the motors think
-        # we are where we actually are.
-        if not self.is_simulation_mode:
-            now = datetime.now().astimezone()
-            alt_offset = self.alt_az.alt.value - self.stepper_alt.stepper.getPosition()
-            az_offset = self.alt_az.az.value - self.stepper_az.stepper.getPosition()
-            self.stepper_alt.stepper.addPositionOffset(alt_offset)
-            self.stepper_az.stepper.addPositionOffset(az_offset)
-            self.alt_az = get_skycoord_from_alt_az(
-                alt=self.stepper_alt.stepper.getPosition(),
-                az=self.stepper_az.stepper.getPosition(),
-                observing_location=self.observing_location,
-                time=now,
-            )
-            self.ra_dec = get_radec_from_altaz(alt_az=self.alt_az)
-            self.target_ra_dec = self.ra_dec
-
-        self.aeu.rotate_alt_az_if_necessary(
-            alt_az=self.alt_az, observing_location=self.observing_location
         )
 
         # Either the mount still is unaligned, or the mount is being aligned
@@ -374,6 +346,13 @@ class MountController:
             and self.position_one_alignment_data.ra == self.ra_dec.ra
             and self.position_one_alignment_data.dec == self.ra_dec.dec
         ):
+            # If we use real motors, we need to add an offset so the motors
+            # think we are where we actually are.
+            if not self.is_simulation_mode:
+                await self.stepper_alt.set_real_position(self.telescope_alt_az.alt)
+                await self.stepper_az.set_real_position(self.telescope_alt_az.az)
+                self.target_ra_dec = self.ra_dec
+
             self.position_one_alignment_data = self.ra_dec
             self.alignment_state = AlignmentState.STAR_ONE_ALIGNED
             self.log.info(
@@ -387,20 +366,29 @@ class MountController:
             and self.position_two_alignment_data.ra == self.ra_dec.ra
             and self.position_two_alignment_data.dec == self.ra_dec.dec
         ):
+            # TODO Use a SkyOffsetFrame to store the tilt in the telescope
+            #  plane w.r.t. the horizon.
+            self.skyoffset_frame = self.telescope_alt_az.skyoffset_frame()
+            alt_az = get_altaz_from_radec(self.ra_dec, self.observing_location)
+            alt_az = alt_az.transform_to(self.skyoffset_frame)
+            self.log.warning(
+                f"SkyOffsetFrame = ({self.skyoffset_frame.origin.az}, "
+                f"{self.skyoffset_frame.origin.alt}) == "
+                f"alt_az {alt_az.to_string()}"
+            )
+
+            alt_az = get_altaz_from_radec(self.ra_dec, self.observing_location)
+            self.log.warning(
+                f"RaDec = {self.ra_dec.to_string('hmsdms')} == "
+                f"alt_az {alt_az.to_string()}"
+            )
+
             self.position_two_alignment_data = self.ra_dec
             self.log.info(
                 f"Second position aligned at RaDec ({self.ra_dec.to_string('hmsdms')})."
             )
+            self.target_ra_dec = self.ra_dec
 
-            err_ra = self.ra_dec.ra - expected_ra_dec.ra
-            err_dec = self.ra_dec.dec - expected_ra_dec.dec
-            self.aeu.compute_alignment_error(
-                lat=self.observing_location.location.lat,
-                s1=self.position_one_alignment_data,
-                s2=self.position_two_alignment_data,
-                err_ra=err_ra,
-                err_dec=err_dec,
-            )
             self.alignment_state = AlignmentState.ALIGNED
 
         self.state = MountControllerState.TRACKING
@@ -435,7 +423,7 @@ class MountController:
         """
         ra_dec = get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
         alt_az = get_altaz_from_radec(
-            ra_dec=self.ra_dec, observing_location=self.observing_location
+            ra_dec=ra_dec, observing_location=self.observing_location
         )
         self.slew_direction = SlewDirection.NONE
         if alt_az.alt.value > 0:
@@ -477,17 +465,15 @@ class MountController:
             self.state = MountControllerState.TRACKING
             self.slew_direction = SlewDirection.NONE
         else:
-            now = datetime.now().astimezone()
             self.state = MountControllerState.TO_TRACKING
             self.stepper_alt.stepper.setVelocityLimit(0.0)
             self.stepper_az.stepper.setVelocityLimit(0.0)
-            self.alt_az = get_skycoord_from_alt_az(
+            self.telescope_alt_az = get_skycoord_from_alt_az(
                 alt=self.stepper_alt.stepper.getPosition(),
                 az=self.stepper_az.stepper.getPosition(),
                 observing_location=self.observing_location,
-                time=now,
             )
-            self.ra_dec = get_radec_from_altaz(alt_az=self.alt_az)
+            self.ra_dec = get_radec_from_altaz(alt_az=self.telescope_alt_az)
             if (
                 self.stepper_alt.stepper.getVelocity() == 0.0
                 and self.stepper_az.stepper.getVelocity() == 0.0
@@ -499,12 +485,9 @@ class MountController:
     async def location_updated(self) -> None:
         """Update the location but stay pointed at the same altitude and
         azimuth."""
-        alt = self.alt_az.alt.value
-        az = self.alt_az.az.value
-        self.alt_az = get_skycoord_from_alt_az(
+        alt = self.telescope_alt_az.alt.value
+        az = self.telescope_alt_az.az.value
+        self.telescope_alt_az = get_skycoord_from_alt_az(
             alt=alt, az=az, observing_location=self.observing_location
         )
-        self.aeu.rotate_alt_az_if_necessary(
-            alt_az=self.alt_az, observing_location=self.observing_location
-        )
-        self.ra_dec = get_radec_from_altaz(alt_az=self.alt_az)
+        self.ra_dec = get_radec_from_altaz(alt_az=self.telescope_alt_az)

@@ -105,14 +105,14 @@ class Test(IsolatedAsyncioTestCase):
 
     async def test_slew_down(self) -> None:
         await self.mount_controller.slew_in_direction("Ms")
-        alt = self.mount_controller.alt_az.alt.value
+        alt = self.mount_controller.telescope_alt_az.alt.value
         while alt >= 44:
             self.assertEqual(
                 self.mount_controller.state,
                 pmc.controller.enums.MountControllerState.SLEWING,
             )
             await asyncio.sleep(0.5)
-            alt = self.mount_controller.alt_az.alt.value
+            alt = self.mount_controller.telescope_alt_az.alt.value
         await self.mount_controller.stop_slew()
         self.assertEqual(
             self.mount_controller.state,
@@ -162,8 +162,6 @@ class Test(IsolatedAsyncioTestCase):
         )
         self.assertAlmostEqual(s2.ra.value, self.mount_controller.ra_dec.ra.value)
         self.assertAlmostEqual(s2.dec.value, self.mount_controller.ra_dec.dec.value)
-        self.assertAlmostEqual(0.0, self.mount_controller.aeu.delta_alt.arcmin)
-        self.assertAlmostEqual(0.0, self.mount_controller.aeu.delta_az.arcmin)
 
         self.mount_controller.alignment_state = (
             pmc.controller.enums.AlignmentState.STAR_ONE_ALIGNED
@@ -177,8 +175,6 @@ class Test(IsolatedAsyncioTestCase):
         )
         self.assertAlmostEqual(s2.ra.value, self.mount_controller.ra_dec.ra.value)
         self.assertAlmostEqual(s2.dec.value, self.mount_controller.ra_dec.dec.value)
-        self.assertAlmostEqual(7.3897, self.mount_controller.aeu.delta_alt.arcmin, 4)
-        self.assertAlmostEqual(32.2597, self.mount_controller.aeu.delta_az.arcmin, 4)
         self.assertEqual(
             pmc.controller.enums.MountControllerState.TRACKING,
             self.mount_controller.state,

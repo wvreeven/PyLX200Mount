@@ -117,7 +117,7 @@ class Lx200CommandResponder:
         DEFAULT_REPLY
             The default reply accoring to the LX200 command protocol.
         """
-        self.log.info(f"Setting RA to {data}")
+        self.log.debug(f"Setting RA to {data}")
         self.target_ra = data
         return DEFAULT_REPLY
 
@@ -144,7 +144,7 @@ class Lx200CommandResponder:
         DEFAULT_REPLY
             The default reply accoring to the LX200 command protocol.
         """
-        self.log.info(f"Setting DEC to {data}")
+        self.log.debug(f"Setting DEC to {data}")
         self.target_dec = data
         return DEFAULT_REPLY
 
@@ -169,7 +169,7 @@ class Lx200CommandResponder:
         dt = datetime.now().astimezone()
         tz = self.mount_controller.observing_location.tz.utcoffset(dt=dt)
         utc_offset = tz.total_seconds() / 3600
-        self.log.info(f"UTC Offset = {utc_offset}")
+        self.log.debug(f"UTC Offset = {utc_offset}")
         return f"{-utc_offset:.1f}"
 
     # noinspection PyMethodMayBeStatic
@@ -217,7 +217,7 @@ class Lx200CommandResponder:
 
     async def set_current_site_latitude(self, data: str) -> str:
         """Set the latitude of the obsering site."""
-        self.log.info(f"set_current_site_latitude received data {data}")
+        self.log.debug(f"set_current_site_latitude received data {data}")
         if "*" in data:
             # SkySafari sends the latitude in the form "deg*min"
             lat_deg, lat_min = data.split("*")
@@ -246,7 +246,7 @@ class Lx200CommandResponder:
             longitude = longitude[1:]
         else:
             longitude = "-" + longitude
-        self.log.info(
+        self.log.debug(
             f"Converted internal longitude "
             f"{self.mount_controller.observing_location.location.lon.to_string()} "
             f"to LX200 longitude {longitude}"
@@ -260,7 +260,7 @@ class Lx200CommandResponder:
         longitude positive, so we need to convert from the LX200 longitude to the
         astropy longitude.
         """
-        self.log.info(f"set_current_site_longitude received data {data}")
+        self.log.debug(f"set_current_site_longitude received data {data}")
         if data[0] == "-":
             longitude = data[1:]
         else:
@@ -277,7 +277,7 @@ class Lx200CommandResponder:
             self.mount_controller.observing_location.set_longitude(
                 Longitude(f"{longitude} degrees")
             )
-        self.log.info(
+        self.log.debug(
             f"Converted LX200 longitude {data} to internal longitude "
             f"{self.mount_controller.observing_location.location.lon.to_string()}"
         )
@@ -291,12 +291,12 @@ class Lx200CommandResponder:
     # noinspection PyMethodMayBeStatic
     async def set_slew_rate(self) -> None:
         """Set the slew rate at the commanded rate."""
-        self.log.info(f"Setting slew rate to value determined by command {self.cmd}")
+        self.log.debug(f"Setting slew rate to value determined by command {self.cmd}")
         await self.mount_controller.set_slew_rate(cmd=self.cmd)
 
     async def move_slew(self) -> str:
         """Move the telescope at slew rate to the target position."""
-        self.log.info(f"Slewing to RaDec ({self.target_ra}, {self.target_dec}).")
+        self.log.debug(f"Slewing to RaDec ({self.target_ra}, {self.target_dec}).")
         slew_possible = await self.mount_controller.slew_to(
             self.target_ra, self.target_dec
         )
@@ -304,28 +304,28 @@ class Lx200CommandResponder:
 
     async def move_slew_in_direction(self) -> str:
         """Move the telescope at slew rate in the commanded direction."""
-        self.log.info(f"Slewing in direction determined by cmd {self.cmd}")
+        self.log.debug(f"Slewing in direction determined by cmd {self.cmd}")
         await self.mount_controller.slew_in_direction(cmd=self.cmd)
         return SLEW_POSSIBLE
 
     async def stop_slew(self) -> None:
         """Stop the current slew."""
-        self.log.info("Stopping current slew.")
+        self.log.debug("Stopping current slew.")
         await self.mount_controller.stop_slew()
 
     async def set_utc_offset(self, data: str) -> str:
         """Set the UTC offset."""
-        self.log.info(f"set_utc_offset received data {data}")
+        self.log.debug(f"set_utc_offset received data {data}")
         return DEFAULT_REPLY
 
     async def set_local_time(self, data: str) -> str:
         """Set the local time."""
-        self.log.info(f"set_local_time received data {data}")
+        self.log.debug(f"set_local_time received data {data}")
         return DEFAULT_REPLY
 
     async def set_local_date(self, data: str) -> str:
         """Set the local date."""
-        self.log.info(f"set_local_date received data {data}")
+        self.log.debug(f"set_local_date received data {data}")
         # Two return strings are expected so here we separate them by a new
         # line character and will let the socket server deal with it.
         return (
@@ -337,7 +337,7 @@ class Lx200CommandResponder:
         )
 
     async def sync(self) -> str:
-        self.log.info("sync received.")
+        self.log.debug("sync received.")
         await self.mount_controller.set_ra_dec(
             ra_str=self.target_ra, dec_str=self.target_dec
         )

@@ -11,7 +11,7 @@ from Phidget22.PhidgetException import PhidgetException
 __all__ = ["MyStepper"]
 
 # The maximum acceleration of the stepper motor [deg/sec].
-ACCELERATION = 20000
+ACCELERATION = 60000
 # Time to wait for the stepper motor to report that it is attached.
 ATTACH_WAIT_TIME = 2000
 
@@ -52,6 +52,7 @@ class MyStepper:
         self.stepper.setOnDetachHandler(self.on_detach)
         self.stepper.setOnPositionChangeHandler(self.on_position_change)
         self.stepper.setOnVelocityChangeHandler(self.on_velocity_change)
+        self.stepper.setOnErrorHandler(self.on_error)
 
         self.telescope_step_size = GEARED_MICROSTEP_ANGLE / telescope_reduction
 
@@ -84,6 +85,9 @@ class MyStepper:
         """On velocity change callback."""
         cur_vel = Angle(current_velocity, u.deg)
         self.log.debug(f"self.current_velocity={cur_vel.to_string(u.deg)} / sec ")
+
+    def on_error(self, code: int, description: str) -> None:
+        self.log.error(f"{code=!s} -> {description=!s}")
 
     async def connect(self) -> None:
         """Connect the stepper motor."""
