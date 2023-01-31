@@ -57,7 +57,9 @@ class MyStepper:
         self.telescope_step_size = GEARED_MICROSTEP_ANGLE / telescope_reduction
 
         self.initial_position = initial_position
+        self.current_position = initial_position
         self.target_position = Angle(0.0, u.deg)
+        self.current_velocity = Angle(0.0, u.deg)
 
         self.attached = False
         self.hub_port = hub_port
@@ -74,17 +76,19 @@ class MyStepper:
 
     def on_position_change(self, _: typing.Any, current_position: float) -> None:
         """On position change callback."""
-        curr_pos = Angle(current_position, u.deg).wrap_at(360.0 * u.deg)
+        self.current_position = Angle(current_position, u.deg).wrap_at(360.0 * u.deg)
         self.log.debug(
-            f"current_position={curr_pos.to_string(u.deg)} "
+            f"current_position={self.current_position.to_string(u.deg)} "
             "and self.target_position="
             f"{self.target_position.wrap_at(360.0 * u.deg).to_string(u.deg)}"
         )
 
     def on_velocity_change(self, _: typing.Any, current_velocity: float) -> None:
         """On velocity change callback."""
-        cur_vel = Angle(current_velocity, u.deg)
-        self.log.debug(f"self.current_velocity={cur_vel.to_string(u.deg)} / sec ")
+        self.current_velocity = Angle(current_velocity, u.deg)
+        self.log.debug(
+            f"self.current_velocity={self.current_velocity.to_string(u.deg)} / sec "
+        )
 
     def on_error(self, code: int, description: str) -> None:
         self.log.error(f"{code=!s} -> {description=!s}")
@@ -117,10 +121,9 @@ class MyStepper:
             The velocity at which to move [deg /sec].
         """
         # Compute the shortest path to the target position.
-        current_position = Angle(self.stepper.getPosition(), u.deg)
-        self.log.debug(f"move from {current_position} to {target_position}")
-        new_target_position = current_position + (
-            target_position - current_position
+        self.log.debug(f"move from {self.current_position} to {target_position}")
+        new_target_position = self.current_position + (
+            target_position - self.current_position
         ).wrap_at(180.0 * u.deg)
         # Now move to this target position.
         self.target_position = new_target_position
