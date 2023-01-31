@@ -145,8 +145,8 @@ class MountController:
             await self.stepper_alt.move(target_altaz.alt, TRACKING_SPEED)
             await self.stepper_az.move(target_altaz.az, TRACKING_SPEED)
             self.telescope_alt_az = get_skycoord_from_alt_az(
-                alt=self.stepper_alt.stepper.getPosition(),
-                az=self.stepper_az.stepper.getPosition(),
+                alt=self.stepper_alt.current_position.deg,
+                az=self.stepper_az.current_position.deg,
                 observing_location=self.observing_location,
             )
             self.ra_dec = get_radec_from_altaz(alt_az=self.telescope_alt_az)
@@ -296,8 +296,8 @@ class MountController:
             await self.stepper_alt.move(target_altaz.alt, Angle(max_velocity, u.deg))
             await self.stepper_az.move(target_altaz.az, Angle(max_velocity, u.deg))
             self.telescope_alt_az = get_skycoord_from_alt_az(
-                alt=self.stepper_alt.stepper.getPosition(),
-                az=self.stepper_az.stepper.getPosition(),
+                alt=self.stepper_alt.current_position.deg,
+                az=self.stepper_az.current_position.deg,
                 observing_location=self.observing_location,
                 time=now,
             )
@@ -349,8 +349,12 @@ class MountController:
             # If we use real motors, we need to add an offset so the motors
             # think we are where we actually are.
             if not self.is_simulation_mode:
-                await self.stepper_alt.set_real_position(self.telescope_alt_az.alt)
-                await self.stepper_az.set_real_position(self.telescope_alt_az.az)
+                # await self.stepper_alt.set_real_position(
+                #     self.telescope_alt_az.alt
+                # )
+                # await self.stepper_az.set_real_position(
+                #     self.telescope_alt_az.az
+                # )
                 self.target_ra_dec = self.ra_dec
 
             self.position_one_alignment_data = self.ra_dec
@@ -469,14 +473,14 @@ class MountController:
             self.stepper_alt.stepper.setVelocityLimit(0.0)
             self.stepper_az.stepper.setVelocityLimit(0.0)
             self.telescope_alt_az = get_skycoord_from_alt_az(
-                alt=self.stepper_alt.stepper.getPosition(),
-                az=self.stepper_az.stepper.getPosition(),
+                alt=self.stepper_alt.current_position.deg,
+                az=self.stepper_az.current_position.deg,
                 observing_location=self.observing_location,
             )
             self.ra_dec = get_radec_from_altaz(alt_az=self.telescope_alt_az)
             if (
-                self.stepper_alt.stepper.getVelocity() == 0.0
-                and self.stepper_az.stepper.getVelocity() == 0.0
+                self.stepper_alt.current_velocity.deg == 0.0
+                and self.stepper_az.current_velocity.deg == 0.0
             ):
                 self.state = MountControllerState.TRACKING
                 self.slew_direction = SlewDirection.NONE

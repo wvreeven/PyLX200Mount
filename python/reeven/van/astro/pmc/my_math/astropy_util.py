@@ -15,7 +15,10 @@ __all__ = [
 
 
 def get_skycoord_from_alt_az(
-    alt: float, az: float, observing_location: ObservingLocation, time: datetime = None
+    alt: float,
+    az: float,
+    observing_location: ObservingLocation,
+    time: datetime | None = None,
 ) -> SkyCoord:
     if time is None:
         time = datetime.now().astimezone()
@@ -29,7 +32,9 @@ def get_skycoord_from_alt_az(
 
 
 def get_altaz_from_radec(
-    ra_dec: SkyCoord, observing_location: ObservingLocation, time: datetime = None
+    ra_dec: SkyCoord,
+    observing_location: ObservingLocation,
+    time: datetime | None = None,
 ) -> SkyCoord:
     if time is None:
         time = datetime.now().astimezone()
