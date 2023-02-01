@@ -29,7 +29,6 @@ class Lx200CommandResponder:
     """
 
     def __init__(self, is_simulation_mode: bool) -> None:
-
         self.log = logging.getLogger(type(self).__name__)
 
         # Variables holding the status of the mount
