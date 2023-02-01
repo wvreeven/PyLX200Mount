@@ -1,30 +1,32 @@
 import unittest
 
 import astropy.units as u
-import numpy as np
+import pytest
 from astropy.coordinates import AltAz
 from reeven.van.astro.pmc.coordinates import AffineTransformation
 
 
 class TestAffineTransformation(unittest.IsolatedAsyncioTestCase):
     async def test_skimage_transform(self) -> None:
-        altaz = np.array([[1.0, 1.0], [1.0, 2.0], [2.0, 1.0]])
-        telescope = np.array(
-            [
-                [2.4142135623730940, 5.732050807568877],
-                [2.7677669529663684, 6.665063509461097],
-                [2.7677669529663675, 5.665063509461096],
-            ]
+        altaz_coord1 = AltAz(az=1.0 * u.deg, alt=1.0 * u.deg)
+        altaz_coord2 = AltAz(az=1.0 * u.deg, alt=2.0 * u.deg)
+        altaz_coord3 = AltAz(az=2.0 * u.deg, alt=1.0 * u.deg)
+        telescope_coord1 = AltAz(az=2.4142135623 * u.deg, alt=5.732050807 * u.deg)
+        telescope_coord2 = AltAz(az=2.7677669529 * u.deg, alt=6.665063509 * u.deg)
+        telescope_coord3 = AltAz(az=2.7677669529 * u.deg, alt=5.665063509 * u.deg)
+        affine_transformation = AffineTransformation(
+            altaz_coord1,
+            altaz_coord2,
+            altaz_coord3,
+            telescope_coord1,
+            telescope_coord2,
+            telescope_coord3,
         )
-        affine_transformation = AffineTransformation(altaz, telescope)
 
-        altaz2 = altaz[0]
-        telescope2 = affine_transformation.matrix_transform(altaz2)
-        np.testing.assert_almost_equal(telescope2, telescope[0])
+        telescope2 = affine_transformation.matrix_transform(altaz_coord1)
+        assert telescope2.alt.deg == pytest.approx(telescope_coord1.alt.deg)
+        assert telescope2.az.deg == pytest.approx(telescope_coord1.az.deg)
 
-        altaz2 = telescope[0]
-        telescope2 = affine_transformation.reverse_matrix_transform(altaz2)
-        np.testing.assert_almost_equal(telescope2, altaz[0])
-
-        altaz = AltAz(az=1.0 * u.deg, alt=1.0 * u.deg)
-        telescope = AltAz(az=2.4142135623730940 * u.deg, alt=5.732050807568877 * u.deg)
+        altaz2 = affine_transformation.reverse_matrix_transform(telescope_coord1)
+        assert altaz2.alt.deg == pytest.approx(altaz_coord1.alt.deg)
+        assert altaz2.az.deg == pytest.approx(altaz_coord1.az.deg)
