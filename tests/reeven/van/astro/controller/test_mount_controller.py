@@ -1,16 +1,10 @@
 import asyncio
-import logging
 from typing import Tuple
 from unittest import IsolatedAsyncioTestCase
 
 import astropy.units as u
 from astropy.coordinates import Angle, Latitude, SkyCoord
 from reeven.van.astro import pmc
-
-logging.basicConfig(
-    format="%(asctime)s:%(levelname)s:%(name)s:%(message)s",
-    level=logging.DEBUG,
-)
 
 
 def format_ra_dec_str(ra_dec: SkyCoord) -> Tuple[str, str]:
