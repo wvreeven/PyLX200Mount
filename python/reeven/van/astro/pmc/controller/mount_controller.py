@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from astropy import units as u
 from astropy.coordinates import Angle, SkyCoord
@@ -103,7 +103,7 @@ class MountController:
 
     async def _start_position_loop(self) -> None:
         """Start the position loop."""
-        starttime = datetime.now().astimezone()
+        start_time = datetime.now().astimezone().timestamp()
         while True:
             if self.state == MountControllerState.STOPPED:
                 await self._stopped()
@@ -119,10 +119,8 @@ class MountController:
                 self.state = MountControllerState.STOPPED
                 raise NotImplementedError(msg)
 
-            now = datetime.now().astimezone()
-            dt = (now - starttime) % timedelta(seconds=ALTAZ_INTERVAL)
-            delay = ALTAZ_INTERVAL - dt.total_seconds()
-            await asyncio.sleep(delay)
+            remainder = (datetime.now().timestamp() - start_time) % ALTAZ_INTERVAL
+            await asyncio.sleep(ALTAZ_INTERVAL - remainder)
 
     async def _stopped(self) -> None:
         """Mount behavior in STOPPED state."""
@@ -323,7 +321,7 @@ class MountController:
         """Set the current RA and DEC of the mount.
 
         In case the mount has not been aligned yet, the AzAlt rotated frame of the
-        mount gets calclated as well.
+        mount gets calculated as well.
 
         Parameters
         ----------
