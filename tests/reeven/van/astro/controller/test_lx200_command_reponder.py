@@ -1,12 +1,6 @@
-import logging
 from unittest import IsolatedAsyncioTestCase
 
 from reeven.van.astro import pmc
-
-logging.basicConfig(
-    format="%(asctime)s:%(levelname)s:%(name)s:%(message)s",
-    level=logging.INFO,
-)
 
 
 class Test(IsolatedAsyncioTestCase):
