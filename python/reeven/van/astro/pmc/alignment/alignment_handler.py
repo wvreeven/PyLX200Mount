@@ -1,8 +1,9 @@
 from itertools import combinations
 
 import numpy as np
-from astropy.coordinates import AltAz
+from astropy.coordinates import SkyCoord
 
+from ..controller.enums import IDENTITY
 from .affine_transformation import (
     AlignmentPoint,
     AlignmentTriplet,
@@ -11,15 +12,13 @@ from .affine_transformation import (
 
 __all__ = ["AlignmentHandler"]
 
-IDENTITY = np.identity(3)
-
 
 class AlignmentHandler:
     def __init__(self) -> None:
         self._alignment_data: list[AlignmentPoint] = list()
         self.transformation_matrix = IDENTITY
 
-    def add_alignment_position(self, altaz: AltAz, telescope: AltAz) -> None:
+    def add_alignment_position(self, altaz: SkyCoord, telescope: SkyCoord) -> None:
         self._alignment_data.append(AlignmentPoint(altaz=altaz, telescope=telescope))
 
     async def compute_alignment_matrix(self) -> None:

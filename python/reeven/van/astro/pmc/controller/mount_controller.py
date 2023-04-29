@@ -5,6 +5,7 @@ from datetime import datetime
 from astropy import units as u
 from astropy.coordinates import Angle, SkyCoord
 
+from ..alignment.alignment_handler import AlignmentHandler
 from ..my_math.astropy_util import (
     get_altaz_from_radec,
     get_radec_from_altaz,
@@ -13,10 +14,9 @@ from ..my_math.astropy_util import (
     get_skycoord_from_ra_dec_str,
 )
 from ..observing_location import ObservingLocation
-from ..phidgets import MyStepper
+from ..phidgets.my_stepper import MyStepper
 from .enums import (
     TELESCOPE_REDUCTION_12INCH,
-    AlignmentState,
     MountControllerState,
     SlewDirection,
     SlewMode,
@@ -69,9 +69,7 @@ class MountController:
         self.slew_rate = SlewRate.HIGH
 
         # Alignment related variables
-        self.alignment_state = AlignmentState.UNALIGNED
-        self.position_one_alignment_data: SkyCoord | None = None
-        self.position_two_alignment_data: SkyCoord | None = None
+        self.alignment_handler = AlignmentHandler()
 
     async def start(self) -> None:
         self.log.info("Start called.")
@@ -329,47 +327,18 @@ class MountController:
         dec_str: `str`
             The Declination of the mount in degrees. The format is "+dd*mm:ss".
         """
+        actual_telescope_alt_az = get_altaz_from_radec(
+            self.ra_dec, self.observing_location
+        )
         self.ra_dec = get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
         self.telescope_alt_az = get_altaz_from_radec(
             ra_dec=self.ra_dec, observing_location=self.observing_location
         )
-
-        # Either the mount still is unaligned, or the mount is being aligned
-        # with the same position.
-        if self.alignment_state == AlignmentState.UNALIGNED or (
-            self.alignment_state == AlignmentState.STAR_ONE_ALIGNED
-            and self.position_one_alignment_data is not None
-            and self.position_one_alignment_data.ra == self.ra_dec.ra
-            and self.position_one_alignment_data.dec == self.ra_dec.dec
-        ):
-            self.target_ra_dec = self.ra_dec
-            self.position_one_alignment_data = self.ra_dec
-            self.alignment_state = AlignmentState.STAR_ONE_ALIGNED
-            self.log.info(
-                f"First position aligned at RaDec ({self.ra_dec.to_string('hmsdms')})."
-            )
-        # Either the mount is aligned with the first position only, or the mount is
-        # being aligned with the same, second, position.
-        elif self.alignment_state == AlignmentState.STAR_ONE_ALIGNED or (
-            self.alignment_state == AlignmentState.ALIGNED
-            and self.position_two_alignment_data is not None
-            and self.position_two_alignment_data.ra == self.ra_dec.ra
-            and self.position_two_alignment_data.dec == self.ra_dec.dec
-        ):
-            alt_az = get_altaz_from_radec(self.ra_dec, self.observing_location)
-            self.log.warning(
-                f"RaDec = {self.ra_dec.to_string('hmsdms')} == "
-                f"alt_az {alt_az.to_string()}"
-            )
-
-            self.position_two_alignment_data = self.ra_dec
-            self.log.info(
-                f"Second position aligned at RaDec ({self.ra_dec.to_string('hmsdms')})."
-            )
-            self.target_ra_dec = self.ra_dec
-
-            self.alignment_state = AlignmentState.ALIGNED
-
+        self.alignment_handler.add_alignment_position(
+            self.telescope_alt_az, actual_telescope_alt_az
+        )
+        await self.alignment_handler.compute_alignment_matrix()
+        self.target_ra_dec = self.ra_dec
         self.state = MountControllerState.TRACKING
 
     async def set_slew_rate(self, cmd: str) -> None:

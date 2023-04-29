@@ -3,7 +3,8 @@ from typing import Tuple
 from unittest import IsolatedAsyncioTestCase
 
 import astropy.units as u
-from astropy.coordinates import Angle, Latitude, SkyCoord
+from astropy.coordinates import Latitude, SkyCoord
+from numpy import testing as np_testing
 from reeven.van.astro import pmc
 
 
@@ -133,42 +134,32 @@ class Test(IsolatedAsyncioTestCase):
         s2 = pmc.my_math.get_skycoord_from_ra_dec_str(
             ra_str="23:00:00", dec_str="+45*00:00"
         )
-        # s2_real = 23h00m48s, +45d21m00s
-        s2_real_ra = s2.ra + Angle(12 * u.arcmin)
-        s2_real_dec = s2.dec + Angle(21 * u.arcmin)
-        s2_real = SkyCoord(ra=s2_real_ra, dec=s2_real_dec, frame="icrs")
 
         s1_ra_str, s1_dec_str = format_ra_dec_str(s1)
         await self.mount_controller.set_ra_dec(ra_str=s1_ra_str, dec_str=s1_dec_str)
-        self.assertEqual(
-            pmc.controller.enums.AlignmentState.STAR_ONE_ALIGNED,
-            self.mount_controller.alignment_state,
-        )
         self.assertAlmostEqual(s1.ra.value, self.mount_controller.ra_dec.ra.value)
         self.assertAlmostEqual(s1.dec.value, self.mount_controller.ra_dec.dec.value)
+        np_testing.assert_array_equal(
+            self.mount_controller.alignment_handler.transformation_matrix,
+            pmc.controller.IDENTITY,
+        )
+        self.assertEqual(
+            pmc.controller.enums.MountControllerState.TRACKING,
+            self.mount_controller.state,
+        )
 
         s2_ra_str, s2_dec_str = format_ra_dec_str(s2)
         self.mount_controller.ra_dec = s2
         await self.mount_controller.set_ra_dec(ra_str=s2_ra_str, dec_str=s2_dec_str)
-        self.assertEqual(
-            pmc.controller.enums.AlignmentState.ALIGNED,
-            self.mount_controller.alignment_state,
-        )
         self.assertAlmostEqual(s2.ra.value, self.mount_controller.ra_dec.ra.value)
         self.assertAlmostEqual(s2.dec.value, self.mount_controller.ra_dec.dec.value)
 
-        self.mount_controller.alignment_state = (
-            pmc.controller.enums.AlignmentState.STAR_ONE_ALIGNED
-        )
-        self.mount_controller.position_two_alignment_data = None
-        self.mount_controller.ra_dec = s2_real
-        await self.mount_controller.set_ra_dec(ra_str=s2_ra_str, dec_str=s2_dec_str)
-        self.assertEqual(
-            pmc.controller.enums.AlignmentState.ALIGNED,
-            self.mount_controller.alignment_state,
-        )
-        self.assertAlmostEqual(s2.ra.value, self.mount_controller.ra_dec.ra.value)
-        self.assertAlmostEqual(s2.dec.value, self.mount_controller.ra_dec.dec.value)
+        # Three alignment points have been added so the transformation matrix has been computed.
+        with np_testing.assert_raises(AssertionError):
+            np_testing.assert_array_equal(
+                self.mount_controller.alignment_handler.transformation_matrix,
+                pmc.controller.IDENTITY,
+            )
         self.assertEqual(
             pmc.controller.enums.MountControllerState.TRACKING,
             self.mount_controller.state,

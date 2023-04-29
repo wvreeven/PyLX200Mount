@@ -1,9 +1,11 @@
 from dataclasses import dataclass
 
-import astropy.units as u
 import numpy as np
-from astropy.coordinates import AltAz
+from astropy.coordinates import SkyCoord
 from skimage import transform
+
+from ..my_math.astropy_util import get_skycoord_from_alt_az
+from ..observing_location import ObservingLocation
 
 __all__ = [
     "AffineTransformation",
@@ -13,18 +15,22 @@ __all__ = [
 ]
 
 
-def _altaz_to_ndarray(altaz: AltAz) -> np.ndarray:
+def _altaz_to_ndarray(altaz: SkyCoord) -> np.ndarray:
     return np.array([altaz.az.deg, altaz.alt.deg])
 
 
-def _ndarray_to_altaz(array: np.ndarray) -> AltAz:
-    return AltAz(az=array[0] * u.deg, alt=array[1] * u.deg)
+def _ndarray_to_altaz(
+    array: np.ndarray, observing_location: ObservingLocation
+) -> SkyCoord:
+    return get_skycoord_from_alt_az(
+        az=array[0], alt=array[1], observing_location=observing_location
+    )
 
 
 @dataclass
 class AlignmentPoint:
-    altaz: AltAz
-    telescope: AltAz
+    altaz: SkyCoord
+    telescope: SkyCoord
 
     def __str__(self) -> str:
         return (
@@ -83,13 +89,13 @@ class AffineTransformation:
     def __init__(self, matrix: np.ndarray) -> None:
         self.matrix = matrix
 
-    def matrix_transform(self, altaz_coord: AltAz) -> AltAz:
+    def matrix_transform(self, altaz_coord: SkyCoord) -> SkyCoord:
         """Perform an affine transformation of the computed AltAz coordinates
         to the observed telescope frame coordinates.
 
         Parameters
         ----------
-        altaz_coord : `AltAz`
+        altaz_coord : `SkyCoord`
             The computed AltAz coordinates to transform to telescope frame
             coordinates.
 
@@ -99,11 +105,13 @@ class AffineTransformation:
             The telescope frame coordinates after performing the affine
             transformation.
         """
+        observing_location = ObservingLocation()
+        observing_location.location = altaz_coord.location
         altaz = _altaz_to_ndarray(altaz_coord)
         telescope = transform.matrix_transform(altaz, self.matrix)[0]
-        return _ndarray_to_altaz(telescope)
+        return _ndarray_to_altaz(telescope, observing_location)
 
-    def reverse_matrix_transform(self, telescope_coord: AltAz) -> AltAz:
+    def reverse_matrix_transform(self, telescope_coord: SkyCoord) -> SkyCoord:
         """Perform an affine transformation of the observed telescope frame
         coordinates to AltAz coordinates.
 
@@ -118,6 +126,8 @@ class AffineTransformation:
         AltAz
             The AltAz coordinates after performing the affine transformation.
         """
+        observing_location = ObservingLocation()
+        observing_location.location = telescope_coord.location
         telescope = _altaz_to_ndarray(telescope_coord)
         altaz = transform.matrix_transform(telescope, np.linalg.inv(self.matrix))[0]
-        return _ndarray_to_altaz(altaz)
+        return _ndarray_to_altaz(altaz, observing_location)

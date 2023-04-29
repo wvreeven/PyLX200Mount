@@ -1,6 +1,9 @@
 import enum
 
+import numpy as np
+
 __all__ = [
+    "IDENTITY",
     "TELESCOPE_REDUCTION_06INCH",
     "TELESCOPE_REDUCTION_12INCH",
     "TELESCOPE_REDUCTION_20INCH",
@@ -16,6 +19,9 @@ __all__ = [
 TELESCOPE_REDUCTION_06INCH = 10.82
 TELESCOPE_REDUCTION_12INCH = 20.95
 TELESCOPE_REDUCTION_20INCH = 34.91
+
+# Identity (transformation) matrix.
+IDENTITY = np.identity(3)
 
 
 class MountControllerState(enum.Enum):
