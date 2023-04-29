@@ -39,11 +39,9 @@ class MountController:
     def __init__(self, is_simulation_mode: bool) -> None:
         self.log = logging.getLogger(type(self).__name__)
         self.observing_location = ObservingLocation()
-        # TODO Use a telescope ALTAZ frame and SkyOffSet frame.
         self.telescope_alt_az = get_skycoord_from_alt_az(
             90.0, 0.0, self.observing_location
         )
-        self.skyoffset_frame = self.telescope_alt_az.skyoffset_frame()
         self.state = MountControllerState.STOPPED
         self.position_loop: asyncio.Task | None = None
         self.ra_dec = get_radec_from_altaz(self.telescope_alt_az)
@@ -344,17 +342,7 @@ class MountController:
             and self.position_one_alignment_data.ra == self.ra_dec.ra
             and self.position_one_alignment_data.dec == self.ra_dec.dec
         ):
-            # If we use real motors, we need to add an offset so the motors
-            # think we are where we actually are.
-            if not self.is_simulation_mode:
-                # await self.stepper_alt.set_real_position(
-                #     self.telescope_alt_az.alt
-                # )
-                # await self.stepper_az.set_real_position(
-                #     self.telescope_alt_az.az
-                # )
-                self.target_ra_dec = self.ra_dec
-
+            self.target_ra_dec = self.ra_dec
             self.position_one_alignment_data = self.ra_dec
             self.alignment_state = AlignmentState.STAR_ONE_ALIGNED
             self.log.info(
@@ -368,17 +356,6 @@ class MountController:
             and self.position_two_alignment_data.ra == self.ra_dec.ra
             and self.position_two_alignment_data.dec == self.ra_dec.dec
         ):
-            # TODO Use a SkyOffsetFrame to store the tilt in the telescope
-            #  plane w.r.t. the horizon.
-            self.skyoffset_frame = self.telescope_alt_az.skyoffset_frame()
-            alt_az = get_altaz_from_radec(self.ra_dec, self.observing_location)
-            alt_az = alt_az.transform_to(self.skyoffset_frame)
-            self.log.warning(
-                f"SkyOffsetFrame = ({self.skyoffset_frame.origin.az}, "
-                f"{self.skyoffset_frame.origin.alt}) == "
-                f"alt_az {alt_az.to_string()}"
-            )
-
             alt_az = get_altaz_from_radec(self.ra_dec, self.observing_location)
             self.log.warning(
                 f"RaDec = {self.ra_dec.to_string('hmsdms')} == "
