@@ -1,9 +1,16 @@
+from dataclasses import dataclass
+
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import AltAz
 from skimage import transform
 
-__all__ = ["AffineTransformation"]
+__all__ = [
+    "AffineTransformation",
+    "AlignmentPoint",
+    "AlignmentTriplet",
+    "compute_transformation_matrix",
+]
 
 
 def _altaz_to_ndarray(altaz: AltAz) -> np.ndarray:
@@ -14,26 +21,53 @@ def _ndarray_to_altaz(array: np.ndarray) -> AltAz:
     return AltAz(az=array[0] * u.deg, alt=array[1] * u.deg)
 
 
+@dataclass
+class AlignmentPoint:
+    altaz: AltAz
+    telescope: AltAz
+
+    def __str__(self) -> str:
+        return (
+            f"AltAz[az={self.altaz.az.deg}, alt={self.altaz.alt.deg}], "
+            f"Telescope[az={self.telescope.az.deg}, alt={self.telescope.alt.deg}]"
+        )
+
+    def __repr__(self) -> str:
+        return f"AlignmentPoint[{self}]"
+
+
+@dataclass
+class AlignmentTriplet:
+    one: AlignmentPoint
+    two: AlignmentPoint
+    three: AlignmentPoint
+
+    def as_ndarrays(self) -> tuple[np.ndarray, np.ndarray]:
+        return np.array(
+            (
+                _altaz_to_ndarray(self.one.altaz),
+                _altaz_to_ndarray(self.two.altaz),
+                _altaz_to_ndarray(self.three.altaz),
+            )
+        ), np.array(
+            (
+                _altaz_to_ndarray(self.one.telescope),
+                _altaz_to_ndarray(self.two.telescope),
+                _altaz_to_ndarray(self.three.telescope),
+            )
+        )
+
+
+def compute_transformation_matrix(coords: AlignmentTriplet) -> np.ndarray:
+    altaz_coords, telescope_coords = coords.as_ndarrays()
+    return transform.estimate_transform("affine", altaz_coords, telescope_coords).params
+
+
 class AffineTransformation:
     """Utility class for performing coordinate transformations from AltAz to
     telescope frame coordinates and back.
 
     Parameters
-    ----------
-    altaz_coord1 : `AltAz`
-        The first computed AltAz altitude and azimuth coordinates.
-    altaz_coord2 : `AltAz`
-        The second computed AltAz altitude and azimuth coordinates.
-    altaz_coord3 : `AltAz`
-        The third computed AltAz altitude and azimuth coordinates.
-    telescope_coord1 : `AltAz`
-        The first observed telescope frame altitude and azimuth coordinates.
-    telescope_coord2 : `AltAz`
-        The first observed telescope frame altitude and azimuth coordinates.
-    telescope_coord3 : `AltAz`
-        The first observed telescope frame altitude and azimuth coordinates.
-
-    Attributes
     ----------
     matrix : `np.ndarray`
         The estimated affine transformation matrix based on the computed AltAz
@@ -46,32 +80,8 @@ class AffineTransformation:
     use case of performing a three star alignment with an AltAz telescope.
     """
 
-    def __init__(
-        self,
-        altaz_coord1: AltAz,
-        altaz_coord2: AltAz,
-        altaz_coord3: AltAz,
-        telescope_coord1: AltAz,
-        telescope_coord2: AltAz,
-        telescope_coord3: AltAz,
-    ) -> None:
-        altaz_coords = np.array(
-            (
-                _altaz_to_ndarray(altaz_coord1),
-                _altaz_to_ndarray(altaz_coord2),
-                _altaz_to_ndarray(altaz_coord3),
-            )
-        )
-        telescope_coords = np.array(
-            (
-                _altaz_to_ndarray(telescope_coord1),
-                _altaz_to_ndarray(telescope_coord2),
-                _altaz_to_ndarray(telescope_coord3),
-            )
-        )
-        self.matrix = transform.estimate_transform(
-            "affine", altaz_coords, telescope_coords
-        ).params
+    def __init__(self, matrix: np.ndarray) -> None:
+        self.matrix = matrix
 
     def matrix_transform(self, altaz_coord: AltAz) -> AltAz:
         """Perform an affine transformation of the computed AltAz coordinates
