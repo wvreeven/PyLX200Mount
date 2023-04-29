@@ -1,40 +1,50 @@
 import unittest
 
-import numpy as np
 import pytest
-import astropy.units as u
-from astropy.coordinates import AltAz
-from numpy import testing
-from reeven.van.astro.pmc.alignment import AffineTransformation, AlignmentHandler
+from numpy import testing as np_testing
+from reeven.van.astro import pmc
 
 
 class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
-    async def test_alignment_handler_with_tree_alignment_points(self):
-        alignment_handler = AlignmentHandler()
-        testing.assert_array_equal(
-            alignment_handler.transformation_matrix, np.identity(3)
+    async def test_alignment_handler_with_tree_alignment_points(self) -> None:
+        observing_location = pmc.observing_location.ObservingLocation()
+        alignment_handler = pmc.alignment.AlignmentHandler()
+        np_testing.assert_array_equal(
+            alignment_handler.transformation_matrix, pmc.controller.IDENTITY
         )
         await alignment_handler.compute_alignment_matrix()
-        testing.assert_array_equal(
-            alignment_handler.transformation_matrix, np.identity(3)
+        np_testing.assert_array_equal(
+            alignment_handler.transformation_matrix, pmc.controller.IDENTITY
         )
 
-        altaz = AltAz(az=1.0 * u.deg, alt=1.0 * u.deg)
-        telescope = AltAz(az=2.4142135623 * u.deg, alt=5.732050807 * u.deg)
+        altaz = pmc.my_math.get_skycoord_from_alt_az(
+            az=1.0, alt=1.0, observing_location=observing_location
+        )
+        telescope = pmc.my_math.get_skycoord_from_alt_az(
+            az=2.4142135623, alt=5.732050807, observing_location=observing_location
+        )
         alignment_handler.add_alignment_position(
             altaz=altaz,
             telescope=telescope,
         )
         alignment_handler.add_alignment_position(
-            altaz=AltAz(az=1.0 * u.deg, alt=2.0 * u.deg),
-            telescope=AltAz(az=2.7677669529 * u.deg, alt=6.665063509 * u.deg),
+            altaz=pmc.my_math.get_skycoord_from_alt_az(
+                az=1.0, alt=2.0, observing_location=observing_location
+            ),
+            telescope=pmc.my_math.get_skycoord_from_alt_az(
+                az=2.7677669529, alt=6.665063509, observing_location=observing_location
+            ),
         )
         alignment_handler.add_alignment_position(
-            altaz=AltAz(az=2.0 * u.deg, alt=1.0 * u.deg),
-            telescope=AltAz(az=2.7677669529 * u.deg, alt=5.665063509 * u.deg),
+            altaz=pmc.my_math.get_skycoord_from_alt_az(
+                az=2.0, alt=1.0, observing_location=observing_location
+            ),
+            telescope=pmc.my_math.get_skycoord_from_alt_az(
+                az=2.7677669529, alt=5.665063509, observing_location=observing_location
+            ),
         )
         await alignment_handler.compute_alignment_matrix()
-        affine_transformation = AffineTransformation(
+        affine_transformation = pmc.alignment.AffineTransformation(
             alignment_handler.transformation_matrix
         )
 
@@ -46,28 +56,45 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
         assert altaz2.alt.deg == pytest.approx(altaz.alt.deg)
         assert altaz2.az.deg == pytest.approx(altaz.az.deg)
 
-    async def test_alignment_handler_with_four_alignment_points(self):
-        altaz = AltAz(az=1.0 * u.deg, alt=1.0 * u.deg)
-        telescope = AltAz(az=2.4142135623 * u.deg, alt=5.732050807 * u.deg)
-        alignment_handler = AlignmentHandler()
+    async def test_alignment_handler_with_four_alignment_points(self) -> None:
+        observing_location = pmc.observing_location.ObservingLocation()
+        altaz = pmc.my_math.get_skycoord_from_alt_az(
+            az=1.0, alt=1.0, observing_location=observing_location
+        )
+        telescope = pmc.my_math.get_skycoord_from_alt_az(
+            az=2.4142135623, alt=5.732050807, observing_location=observing_location
+        )
+        alignment_handler = pmc.alignment.AlignmentHandler()
         alignment_handler.add_alignment_position(
             altaz=altaz,
             telescope=telescope,
         )
         alignment_handler.add_alignment_position(
-            altaz=AltAz(az=1.0 * u.deg, alt=2.0 * u.deg),
-            telescope=AltAz(az=2.7677669529 * u.deg, alt=6.665063509 * u.deg),
+            altaz=pmc.my_math.get_skycoord_from_alt_az(
+                az=1.0, alt=2.0, observing_location=observing_location
+            ),
+            telescope=pmc.my_math.get_skycoord_from_alt_az(
+                az=2.7677669529, alt=6.665063509, observing_location=observing_location
+            ),
         )
         alignment_handler.add_alignment_position(
-            altaz=AltAz(az=2.0 * u.deg, alt=1.0 * u.deg),
-            telescope=AltAz(az=2.7677669529 * u.deg, alt=5.665063509 * u.deg),
+            altaz=pmc.my_math.get_skycoord_from_alt_az(
+                az=2.0, alt=1.0, observing_location=observing_location
+            ),
+            telescope=pmc.my_math.get_skycoord_from_alt_az(
+                az=2.7677669529, alt=5.665063509, observing_location=observing_location
+            ),
         )
         alignment_handler.add_alignment_position(
-            altaz=AltAz(az=2.1 * u.deg, alt=0.9 * u.deg),
-            telescope=AltAz(az=2.7777669529 * u.deg, alt=5.565063509 * u.deg),
+            altaz=pmc.my_math.get_skycoord_from_alt_az(
+                az=2.1, alt=0.9, observing_location=observing_location
+            ),
+            telescope=pmc.my_math.get_skycoord_from_alt_az(
+                az=2.7777669529, alt=5.565063509, observing_location=observing_location
+            ),
         )
         await alignment_handler.compute_alignment_matrix()
-        affine_transformation = AffineTransformation(
+        affine_transformation = pmc.alignment.AffineTransformation(
             alignment_handler.transformation_matrix
         )
 
