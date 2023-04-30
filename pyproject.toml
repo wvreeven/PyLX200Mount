@@ -19,7 +19,7 @@ version = { attr = "setuptools_scm.get_version" }
 where = [ "python" ]
 
 [project.scripts]
-run_socket_server = "pylx200.socket_server:run_socket_server"
+run_lx200 = "pylx200.lx200:run_lx200"
 
 [tool.setuptools_scm]
 write_to = "python/pylx200/version.py"
