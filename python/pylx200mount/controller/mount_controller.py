@@ -39,6 +39,7 @@ class MountController:
     def __init__(self, is_simulation_mode: bool) -> None:
         self.log = logging.getLogger(type(self).__name__)
         self.observing_location = ObservingLocation()
+        # TODO Distinguish between northern and southern hemispheres.
         self.telescope_alt_az = get_skycoord_from_alt_az(
             90.0, 0.0, self.observing_location
         )
@@ -69,10 +70,13 @@ class MountController:
         self.slew_rate = SlewRate.HIGH
 
         # Alignment related variables
+        # TODO Actually use the AlignmentHandler to compute the telescope frame and convert coordinated
+        #  between AltAz and the telescope frame.
         self.alignment_handler = AlignmentHandler()
 
     async def start(self) -> None:
         self.log.info("Start called.")
+        # TODO Remove simulatio mode and add mount interfaces.
         if not self.is_simulation_mode:
             try:
                 await self.attach_steppers()
@@ -90,6 +94,7 @@ class MountController:
         self.log.info("Stop called.")
         if self.position_loop:
             self.position_loop.cancel()
+        # TODO Remove simulatio mode and add mount interfaces.
         if not self.is_simulation_mode:
             await self.detach_steppers()
 
@@ -128,6 +133,7 @@ class MountController:
             f"Tracking at AltAz {self.telescope_alt_az.to_string()}"
             f" == RaDec {'None' if None else self.ra_dec.to_string('hmsdms')}."
         )
+        # TODO Remove simulatio mode and add mount interfaces.
         if self.is_simulation_mode:
             self.telescope_alt_az = get_altaz_from_radec(
                 ra_dec=self.ra_dec, observing_location=self.observing_location
@@ -264,6 +270,7 @@ class MountController:
             f"Slewing from AltAz ({self.telescope_alt_az.to_string()}) "
             f"to AltAz ({target_altaz.to_string()})"
         )
+        # TODO Remove simulatio mode and add mount interfaces.
         if self.is_simulation_mode:
             alt, diff_alt = self._determine_new_coord_value(
                 time=now,
@@ -409,6 +416,7 @@ class MountController:
 
     async def stop_slew(self) -> None:
         """Stop the slew and start tracking where the mount is pointing at."""
+        # TODO Remove simulatio mode and add mount interfaces.
         if self.is_simulation_mode:
             self.state = MountControllerState.TRACKING
             self.slew_direction = SlewDirection.NONE
