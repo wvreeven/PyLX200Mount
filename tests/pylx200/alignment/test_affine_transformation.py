@@ -1,17 +1,17 @@
 import unittest
 
+import pylx200
 import pytest
-from reeven.van.astro import pmc
 
 
 class TestAffineTransformation(unittest.IsolatedAsyncioTestCase):
     async def test_skimage_transform_identity(self) -> None:
-        observing_location = pmc.observing_location.ObservingLocation()
-        telescope = pmc.my_math.get_skycoord_from_alt_az(
+        observing_location = pylx200.observing_location.ObservingLocation()
+        telescope = pylx200.my_math.get_skycoord_from_alt_az(
             alt=5.732050807, az=2.4142135623, observing_location=observing_location
         )
-        affine_transformation = pmc.alignment.AffineTransformation(
-            pmc.controller.IDENTITY
+        affine_transformation = pylx200.alignment.AffineTransformation(
+            pylx200.enums.IDENTITY
         )
 
         telescope2 = affine_transformation.matrix_transform(telescope)
@@ -19,41 +19,41 @@ class TestAffineTransformation(unittest.IsolatedAsyncioTestCase):
         assert telescope2.az.deg == pytest.approx(telescope.az.deg)
 
     async def test_skimage_transform(self) -> None:
-        observing_location = pmc.observing_location.ObservingLocation()
-        coords = pmc.alignment.AlignmentTriplet(
-            pmc.alignment.AlignmentPoint(
-                altaz=pmc.my_math.get_skycoord_from_alt_az(
+        observing_location = pylx200.observing_location.ObservingLocation()
+        coords = pylx200.alignment.AlignmentTriplet(
+            pylx200.alignment.AlignmentPoint(
+                altaz=pylx200.my_math.get_skycoord_from_alt_az(
                     az=1.0, alt=1.0, observing_location=observing_location
                 ),
-                telescope=pmc.my_math.get_skycoord_from_alt_az(
+                telescope=pylx200.my_math.get_skycoord_from_alt_az(
                     az=2.4142135623,
                     alt=5.732050807,
                     observing_location=observing_location,
                 ),
             ),
-            pmc.alignment.AlignmentPoint(
-                altaz=pmc.my_math.get_skycoord_from_alt_az(
+            pylx200.alignment.AlignmentPoint(
+                altaz=pylx200.my_math.get_skycoord_from_alt_az(
                     az=1.0, alt=2.0, observing_location=observing_location
                 ),
-                telescope=pmc.my_math.get_skycoord_from_alt_az(
+                telescope=pylx200.my_math.get_skycoord_from_alt_az(
                     az=2.7677669529,
                     alt=6.665063509,
                     observing_location=observing_location,
                 ),
             ),
-            pmc.alignment.AlignmentPoint(
-                altaz=pmc.my_math.get_skycoord_from_alt_az(
+            pylx200.alignment.AlignmentPoint(
+                altaz=pylx200.my_math.get_skycoord_from_alt_az(
                     az=2.0, alt=1.0, observing_location=observing_location
                 ),
-                telescope=pmc.my_math.get_skycoord_from_alt_az(
+                telescope=pylx200.my_math.get_skycoord_from_alt_az(
                     az=2.7677669529,
                     alt=5.665063509,
                     observing_location=observing_location,
                 ),
             ),
         )
-        matrix = pmc.alignment.compute_transformation_matrix(coords)
-        affine_transformation = pmc.alignment.AffineTransformation(matrix)
+        matrix = pylx200.alignment.compute_transformation_matrix(coords)
+        affine_transformation = pylx200.alignment.AffineTransformation(matrix)
 
         telescope2 = affine_transformation.matrix_transform(coords.one.altaz)
         assert telescope2.alt.deg == pytest.approx(coords.one.telescope.alt.deg)

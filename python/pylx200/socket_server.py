@@ -2,7 +2,7 @@ import asyncio
 import logging
 import socket
 
-from reeven.van.astro.pmc.controller import REPLY_SEPARATOR, Lx200CommandResponder
+from pylx200.controller import REPLY_SEPARATOR, Lx200CommandResponder
 
 __all__ = ["SocketServer", "run_socket_server"]
 
@@ -77,7 +77,7 @@ class SocketServer:
             # lead to a broken pipe error because of the way SkySafari connects
             # and disconnects from the SocketServer all the time. We will just
             # simply ignore that here. It usually only happens once or twice
-            # when SkySafari connects and then it doesn't happen anymore.
+            # when SkySafari connects, and then it doesn't happen anymore.
             self._writer.write(reply)
             await self._writer.drain()
 
@@ -109,7 +109,7 @@ class SocketServer:
 
                     # Almost all LX200 commands are unique but don't have a fixed length.
                     # So we simply loop over all implemented commands until we find
-                    # the one that we have received. All of the implemented commands are
+                    # the one that we have received. All the implemented commands are
                     # unique so this is a safe way to find the command without having to
                     # write too much boilerplate code.
                     cmd = ""
