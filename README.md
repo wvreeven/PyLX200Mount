@@ -1,5 +1,5 @@
-# PhidgetMountController
-A mount controller commanding Phidgets-driven stepper motors.
+# PyLx200
+A mount controller implementing the Meade LX200 protocol and commanding stepper motors.
 
 To run the code, cd into the python directory and issue
 
