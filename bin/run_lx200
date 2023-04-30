@@ -1,7 +1,0 @@
-#!/usr/bin/env python
-
-import asyncio
-
-from pylx200 import run_lx200
-
-asyncio.run(run_lx200())
