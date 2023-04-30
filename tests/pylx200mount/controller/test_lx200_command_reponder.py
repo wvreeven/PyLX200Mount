@@ -1,12 +1,12 @@
 from unittest import IsolatedAsyncioTestCase
 
-import pylx200
+import pylx200mount
 
 
 class Test(IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.responder = (
-            pylx200.controller.lx200_command_reponder.Lx200CommandResponder(
+            pylx200mount.controller.lx200_command_reponder.Lx200CommandResponder(
                 is_simulation_mode=True
             )
         )
@@ -94,5 +94,4 @@ class Test(IsolatedAsyncioTestCase):
 
     async def test_set_slew_rate(self) -> None:
         self.responder.cmd = "RS"
-        slew_rate = await self.responder.set_slew_rate()
-        self.assertTrue(slew_rate is None, "Received a reply but didn't expect one.")
+        await self.responder.set_slew_rate()

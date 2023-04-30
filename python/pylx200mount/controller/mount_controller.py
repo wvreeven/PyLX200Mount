@@ -6,6 +6,13 @@ from astropy import units as u
 from astropy.coordinates import Angle, SkyCoord
 
 from ..alignment.alignment_handler import AlignmentHandler
+from ..enums import (
+    TELESCOPE_REDUCTION_12INCH,
+    MountControllerState,
+    SlewDirection,
+    SlewMode,
+    SlewRate,
+)
 from ..my_math.astropy_util import (
     get_altaz_from_radec,
     get_radec_from_altaz,
@@ -15,13 +22,6 @@ from ..my_math.astropy_util import (
 )
 from ..observing_location import ObservingLocation
 from ..phidgets.my_stepper import MyStepper
-from ..enums import (
-    TELESCOPE_REDUCTION_12INCH,
-    MountControllerState,
-    SlewDirection,
-    SlewMode,
-    SlewRate,
-)
 
 __all__ = ["MountController"]
 

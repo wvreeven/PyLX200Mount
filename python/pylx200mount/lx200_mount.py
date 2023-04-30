@@ -2,9 +2,9 @@ import asyncio
 import logging
 import socket
 
-from pylx200.controller import REPLY_SEPARATOR, Lx200CommandResponder
+from pylx200mount.controller import REPLY_SEPARATOR, Lx200CommandResponder
 
-__all__ = ["Lx200", "run_lx200"]
+__all__ = ["LX200Mount", "run_lx200_mount"]
 
 # ACK symbol sent by Ekos
 ACK: bytes = b"\x06"
@@ -24,7 +24,7 @@ logging.basicConfig(
 )
 
 
-class Lx200:
+class LX200Mount:
     def __init__(
         self,
     ) -> None:
@@ -150,13 +150,13 @@ class Lx200:
             pass
 
 
-async def run_lx200() -> None:
-    lx200 = Lx200()
+async def run_lx200_mount() -> None:
+    lx200_mount = LX200Mount()
     try:
-        await lx200.start()
+        await lx200_mount.start()
     except (asyncio.CancelledError, KeyboardInterrupt):
-        await lx200.stop()
+        await lx200_mount.stop()
 
 
 if __name__ == "__main__":
-    asyncio.run(run_lx200())
+    asyncio.run(run_lx200_mount())
