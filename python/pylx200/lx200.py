@@ -4,7 +4,7 @@ import socket
 
 from pylx200.controller import REPLY_SEPARATOR, Lx200CommandResponder
 
-__all__ = ["SocketServer", "run_socket_server"]
+__all__ = ["Lx200", "run_lx200"]
 
 # ACK symbol sent by Ekos
 ACK: bytes = b"\x06"
@@ -24,7 +24,7 @@ logging.basicConfig(
 )
 
 
-class SocketServer:
+class Lx200:
     def __init__(
         self,
     ) -> None:
@@ -150,13 +150,13 @@ class SocketServer:
             pass
 
 
-async def run_socket_server() -> None:
-    socket_server = SocketServer()
+async def run_lx200() -> None:
+    lx200 = Lx200()
     try:
-        await socket_server.start()
+        await lx200.start()
     except (asyncio.CancelledError, KeyboardInterrupt):
-        await socket_server.stop()
+        await lx200.stop()
 
 
 if __name__ == "__main__":
-    asyncio.run(run_socket_server())
+    asyncio.run(run_lx200())
