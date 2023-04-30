@@ -15,7 +15,7 @@ from ..my_math.astropy_util import (
 )
 from ..observing_location import ObservingLocation
 from ..phidgets.my_stepper import MyStepper
-from .enums import (
+from ..enums import (
     TELESCOPE_REDUCTION_12INCH,
     MountControllerState,
     SlewDirection,

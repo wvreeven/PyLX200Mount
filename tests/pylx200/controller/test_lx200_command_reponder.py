@@ -1,12 +1,14 @@
 from unittest import IsolatedAsyncioTestCase
 
-from reeven.van.astro import pmc
+import pylx200
 
 
 class Test(IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        self.responder = pmc.controller.lx200_command_reponder.Lx200CommandResponder(
-            is_simulation_mode=True
+        self.responder = (
+            pylx200.controller.lx200_command_reponder.Lx200CommandResponder(
+                is_simulation_mode=True
+            )
         )
         await self.responder.start()
 
