@@ -8,7 +8,7 @@ from Phidget22.Devices.Stepper import Stepper
 from Phidget22.Net import Net, PhidgetServerType
 from Phidget22.PhidgetException import PhidgetException
 
-__all__ = ["MyStepper"]
+__all__ = ["PhidgetsStepper"]
 
 # The maximum acceleration of the stepper motor [deg/sec].
 ACCELERATION = 60000
@@ -29,7 +29,7 @@ MICROSTEP_ANGLE = STEP_ANGLE / 16.0
 GEARED_MICROSTEP_ANGLE = MICROSTEP_ANGLE / GEAR_RATIO
 
 
-class MyStepper:
+class PhidgetsStepper:
     def __init__(
         self,
         initial_position: Angle,

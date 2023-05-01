@@ -19,11 +19,7 @@ def format_ra_dec_str(ra_dec: SkyCoord) -> Tuple[str, str]:
 
 class Test(IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        self.mount_controller = (
-            pylx200mount.controller.mount_controller.MountController(
-                is_simulation_mode=True
-            )
-        )
+        self.mount_controller = pylx200mount.controller.DemoMountController()
         alt_az = pylx200mount.my_math.get_skycoord_from_alt_az(
             alt=45.0,
             az=175.0,
@@ -112,7 +108,7 @@ class Test(IsolatedAsyncioTestCase):
             )
             await asyncio.sleep(0.5)
             alt = self.mount_controller.telescope_alt_az.alt.value
-        await self.mount_controller.stop_slew()
+        await self.mount_controller.stop_slew_mount()
         self.assertEqual(
             self.mount_controller.state,
             pylx200mount.enums.MountControllerState.TRACKING,
