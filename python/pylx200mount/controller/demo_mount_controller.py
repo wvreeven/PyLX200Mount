@@ -27,7 +27,7 @@ class DemoMountController(BaseMountController):
             ra_dec=self.ra_dec, observing_location=self.observing_location
         )
 
-    async def slew_mount_altaz(self, target_altaz: SkyCoord, now: datetime) -> None:
+    async def slew_mount_altaz(self, now: datetime, target_altaz: SkyCoord) -> None:
         alt, diff_alt = self._determine_new_coord_value(
             time=now,
             curr=self.telescope_alt_az.alt.value,
