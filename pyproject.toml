@@ -19,6 +19,7 @@ version = { attr = "setuptools_scm.get_version" }
 where = [ "python" ]
 
 [project.scripts]
+run_demo_lx200_mount = "pylx200mount.lx200_mount:run_demo_lx200_mount"
 run_lx200_mount = "pylx200mount.lx200_mount:run_lx200_mount"
 
 [tool.setuptools_scm]
