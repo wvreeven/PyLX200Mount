@@ -60,7 +60,7 @@ class PhidgetsMountController(BaseMountController):
         )
         self.ra_dec = get_radec_from_altaz(alt_az=self.telescope_alt_az)
 
-    async def slew_mount_altaz(self, target_altaz: SkyCoord, now: datetime) -> None:
+    async def slew_mount_altaz(self, now: datetime, target_altaz: SkyCoord) -> None:
         max_velocity = (
             self.stepper_alt.stepper.getMaxVelocityLimit()
             * self.slew_rate

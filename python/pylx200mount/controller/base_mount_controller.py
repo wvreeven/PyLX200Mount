@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import math
 from abc import ABC, abstractmethod
 from datetime import datetime
 
@@ -31,8 +32,6 @@ class BaseMountController(ABC):
     def __init__(self) -> None:
         self.log = logging.getLogger(type(self).__name__)
         self.observing_location = ObservingLocation()
-        # TODO Add configuration to distinguish between the northern and southern hemisphere and other
-        #  settings.
         self.telescope_alt_az = get_skycoord_from_alt_az(
             90.0, 0.0, self.observing_location
         )
@@ -355,6 +354,17 @@ class BaseMountController(ABC):
         azimuth."""
         alt = self.telescope_alt_az.alt.value
         az = self.telescope_alt_az.az.value
+        if (
+            math.isclose(az, 0.0, abs_tol=1e-9)
+            and math.isclose(alt, 90.0, abs_tol=1e-9)
+            and self.observing_location.location.lat < 0.0
+        ):
+            self.log.info(
+                f"{self.observing_location.location.lat} so setting az to 180.0º."
+            )
+            az = 180.0
+        else:
+            self.log.info(f"Leaving az at {az}.")
         self.telescope_alt_az = get_skycoord_from_alt_az(
             alt=alt, az=az, observing_location=self.observing_location
         )
