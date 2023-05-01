@@ -7,7 +7,6 @@ __all__ = [
     "TELESCOPE_REDUCTION_06INCH",
     "TELESCOPE_REDUCTION_12INCH",
     "TELESCOPE_REDUCTION_20INCH",
-    "AlignmentState",
     "MountControllerState",
     "SlewDirection",
     "SlewMode",
@@ -61,11 +60,3 @@ class SlewRate(float, enum.Enum):
     GUIDING = 1.0
     FIND = 2.0
     HIGH = 3.0
-
-
-class AlignmentState(enum.IntEnum):
-    """Alignment state."""
-
-    UNALIGNED = enum.auto()
-    STAR_ONE_ALIGNED = enum.auto()
-    ALIGNED = enum.auto()
