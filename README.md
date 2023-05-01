@@ -4,14 +4,20 @@ PyLX200Mount
 A mount controller implementing the Meade LX200 protocol and commanding stepper motors.
 This allows for any dobson telescope to present itself as an AltAz LX200 mount.
 
-To run the code, clone the repo and then issue
+To control a mount, clone the repo, install via pip and then issue
 
 ```
-pip install pylx200mount
 run_lx200_mount
 ```
 
-Then, on the xomputer from which you want to command the mount,  set up an Ekos profile with a simulator CCD, and an Autostar mount.
+To run the demo mount controller, issue instead
+
+```
+run_demo_lx200_mount
+```
+
+
+Then, on the computer from which you want to command the mount, set up an Ekos profile with a simulator CCD, and an Autostar mount.
 It is also possible to set up a Meade LX200 Classic or a Meade LX200 GPS/ACF, LX600 mount in SkySafari.
 In both cases, the connection must be set to Wi-Fi/Ethernet using the IP address of the computer running PyLX200Mount, and port 11880.
 

@@ -4,7 +4,7 @@ import socket
 
 from pylx200mount.controller import REPLY_SEPARATOR, Lx200CommandResponder
 
-__all__ = ["LX200Mount", "run_lx200_mount"]
+__all__ = ["LX200Mount", "run_demo_lx200_mount", "run_lx200_mount"]
 
 # ACK symbol sent by Ekos
 ACK: bytes = b"\x06"
@@ -25,14 +25,12 @@ logging.basicConfig(
 
 
 class LX200Mount:
-    def __init__(
-        self,
-    ) -> None:
+    def __init__(self, is_simulation_mode: bool) -> None:
         self.port: int = 11880
         self._server: asyncio.AbstractServer | None = None
         self._writer: asyncio.StreamWriter | None = None
         # TODO Add configuration to select simulation mode and other settings.
-        self.responder = Lx200CommandResponder(is_simulation_mode=True)
+        self.responder = Lx200CommandResponder(is_simulation_mode=is_simulation_mode)
 
         self.log: logging.Logger = logging.getLogger(type(self).__name__)
 
@@ -152,7 +150,15 @@ class LX200Mount:
 
 
 async def run_lx200_mount() -> None:
-    lx200_mount = LX200Mount()
+    lx200_mount = LX200Mount(is_simulation_mode=False)
+    try:
+        await lx200_mount.start()
+    except (asyncio.CancelledError, KeyboardInterrupt):
+        await lx200_mount.stop()
+
+
+async def run_demo_lx200_mount() -> None:
+    lx200_mount = LX200Mount(is_simulation_mode=True)
     try:
         await lx200_mount.start()
     except (asyncio.CancelledError, KeyboardInterrupt):
