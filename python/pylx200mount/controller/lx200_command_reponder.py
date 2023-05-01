@@ -4,7 +4,9 @@ from datetime import datetime
 from astropy import units as u
 from astropy.coordinates import Latitude, Longitude, SkyCoord
 
-from .mount_controller import MountController
+from ..phidgets.phidgets_mount_controller import PhidgetsMountController
+from .base_mount_controller import BaseMountController
+from .demo_mount_controller import DemoMountController
 
 _all__ = ["Lx200CommandResponder", "REPLY_SEPARATOR"]
 
@@ -38,7 +40,12 @@ class Lx200CommandResponder:
         self.target_ra = "0.0"
         self.target_dec = "0.0"
 
-        self.mount_controller = MountController(is_simulation_mode=is_simulation_mode)
+        # TODO Add configuration to select which mount controller to use when not in simulation mode and other
+        #  settings.
+        if not is_simulation_mode:
+            self.mount_controller: BaseMountController = PhidgetsMountController()
+        else:
+            self.mount_controller = DemoMountController()
 
         # The received command. This is kept as a reference for the slews.
         self.cmd: str = ""
@@ -309,7 +316,7 @@ class Lx200CommandResponder:
     async def stop_slew(self) -> None:
         """Stop the current slew."""
         self.log.debug("Stopping current slew.")
-        await self.mount_controller.stop_slew()
+        await self.mount_controller.stop_slew_mount()
 
     async def set_utc_offset(self, data: str) -> str:
         """Set the UTC offset."""
