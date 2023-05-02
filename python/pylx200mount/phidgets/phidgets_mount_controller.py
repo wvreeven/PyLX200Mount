@@ -1,16 +1,13 @@
+import asyncio
+import math
 from datetime import datetime
 
 import astropy.units as u
 from astropy.coordinates import Angle, SkyCoord
 
 from ..controller.base_mount_controller import BaseMountController
-from ..enums import (
-    TELESCOPE_REDUCTION_12INCH,
-    MountControllerState,
-    SlewDirection,
-    SlewRate,
-)
-from ..my_math.astropy_util import get_radec_from_altaz, get_skycoord_from_alt_az
+from ..enums import TELESCOPE_REDUCTION_12INCH, SlewRate
+from ..my_math.astropy_util import get_skycoord_from_alt_az
 from .phidgets_stepper import PhidgetsStepper
 
 # The maximum tracking speed.
@@ -47,10 +44,9 @@ class PhidgetsMountController(BaseMountController):
         await self.stepper_alt.disconnect()
         await self.stepper_az.disconnect()
 
-    async def track_mount(self) -> None:
+    async def track_mount(self, target_altaz: SkyCoord) -> None:
         # TODO Split tracking for the motors because one can still be
         #  slewing while the other already is tracking.
-        target_altaz = self._determine_target_altaz()
         await self.stepper_alt.move(target_altaz.alt, TRACKING_SPEED)
         await self.stepper_az.move(target_altaz.az, TRACKING_SPEED)
         self.telescope_alt_az = get_skycoord_from_alt_az(
@@ -58,7 +54,6 @@ class PhidgetsMountController(BaseMountController):
             az=self.stepper_az.current_position.deg,
             observing_location=self.observing_location,
         )
-        self.ra_dec = get_radec_from_altaz(alt_az=self.telescope_alt_az)
 
     async def slew_mount_altaz(self, now: datetime, target_altaz: SkyCoord) -> None:
         max_velocity = (
@@ -76,19 +71,14 @@ class PhidgetsMountController(BaseMountController):
         )
 
     async def stop_slew_mount(self) -> None:
-        self.state = MountControllerState.TO_TRACKING
         self.stepper_alt.stepper.setVelocityLimit(0.0)
         self.stepper_az.stepper.setVelocityLimit(0.0)
+        while not math.isclose(
+            self.stepper_alt.current_velocity, 0.0
+        ) and not math.isclose(self.stepper_az.current_velocity, 0.0):
+            await asyncio.sleep(0.1)
         self.telescope_alt_az = get_skycoord_from_alt_az(
             alt=self.stepper_alt.current_position.deg,
             az=self.stepper_az.current_position.deg,
             observing_location=self.observing_location,
         )
-        self.ra_dec = get_radec_from_altaz(alt_az=self.telescope_alt_az)
-        if (
-            self.stepper_alt.current_velocity.deg == 0.0
-            and self.stepper_az.current_velocity.deg == 0.0
-        ):
-            self.state = MountControllerState.TRACKING
-            self.slew_direction = SlewDirection.NONE
-            self.target_ra_dec = self.ra_dec

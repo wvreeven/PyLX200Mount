@@ -13,7 +13,6 @@ from ..my_math.astropy_util import (
     get_altaz_from_radec,
     get_radec_from_altaz,
     get_skycoord_from_alt_az,
-    get_skycoord_from_ra_dec,
     get_skycoord_from_ra_dec_str,
 )
 from ..observing_location import ObservingLocation
@@ -47,8 +46,8 @@ class BaseMountController(ABC):
         self.slew_rate = SlewRate.HIGH
 
         # Alignment related variables
-        # TODO Actually use the AlignmentHandler to compute the telescope frame and convert coordinated
-        #  between AltAz and the telescope frame.
+        # TODO Actually use the AlignmentHandler to compute the telescope frame and convert between AltAz and
+        #  the telescope frame.
         self.alignment_handler = AlignmentHandler()
 
     async def start(self) -> None:
@@ -78,7 +77,7 @@ class BaseMountController(ABC):
             if self.state == MountControllerState.STOPPED:
                 await self._stopped()
             elif self.state == MountControllerState.TO_TRACKING:
-                await self.stop_slew_mount()
+                await self._stop_slew()
             elif self.state == MountControllerState.TRACKING:
                 await self._track()
             elif self.state == MountControllerState.SLEWING:
@@ -89,7 +88,9 @@ class BaseMountController(ABC):
                 self.state = MountControllerState.STOPPED
                 raise NotImplementedError(msg)
 
-            remainder = (datetime.now().timestamp() - start_time) % ALTAZ_INTERVAL
+            remainder = (
+                datetime.now().astimezone().timestamp() - start_time
+            ) % ALTAZ_INTERVAL
             await asyncio.sleep(ALTAZ_INTERVAL - remainder)
 
     async def _stopped(self) -> None:
@@ -102,46 +103,23 @@ class BaseMountController(ABC):
             f"Tracking at AltAz {self.telescope_alt_az.to_string()}"
             f" == RaDec {'None' if None else self.ra_dec.to_string('hmsdms')}."
         )
-        await self.track_mount()
+        target_altaz = self._determine_target_altaz()
+        await self.track_mount(target_altaz=target_altaz)
+        self.ra_dec = get_radec_from_altaz(alt_az=self.telescope_alt_az)
 
     @abstractmethod
-    async def track_mount(self) -> None:
+    async def track_mount(self, target_altaz: SkyCoord) -> None:
         raise NotImplementedError()
 
     async def _slew(self) -> None:
         """Dispatch slewing to the coroutine corresponding to the slew mode."""
         if self.slew_mode == SlewMode.ALT_AZ:
             await self._slew_altaz()
-        elif self.slew_mode == SlewMode.RA_DEC:
-            await self._slew_radec()
         else:
             msg = f"Invalid slew mode encountered: {self.slew_mode}"
             self.log.error(msg)
             self.state = MountControllerState.STOPPED
             raise NotImplementedError(msg)
-
-    async def _slew_radec(self) -> None:
-        """RaDec mount behavior in SLEWING state."""
-        if self.target_ra_dec is None:
-            raise ValueError("self.target_ra_dec is None.")
-        self.log.debug(
-            f"Slewing from RaDec ({self.ra_dec.to_string('hmsdms')}) "
-            f"to RaDec ({self.target_ra_dec.to_string('hmsdms')})"
-        )
-        now = datetime.now().astimezone()
-        ra, diff_ra = self._determine_new_coord_value(
-            time=now, curr=self.ra_dec.ra.value, target=self.target_ra_dec.ra.value
-        )
-        dec, diff_dec = self._determine_new_coord_value(
-            time=now,
-            curr=self.ra_dec.dec.value,
-            target=self.target_ra_dec.dec.value,
-        )
-        self.ra_dec = get_skycoord_from_ra_dec(ra=ra, dec=dec)
-        if diff_ra == 0 and diff_dec == 0:
-            self.state = MountControllerState.TRACKING
-
-        self.slew_ref_time = now
 
     def _determine_target_altaz(self) -> SkyCoord:
         """Determine the target AltAz for the slew that currently is being
@@ -183,7 +161,7 @@ class BaseMountController(ABC):
 
     def _determine_new_coord_value(
         self, time: datetime, curr: float, target: float
-    ) -> tuple[float, float]:
+    ) -> float:
         """Determine the new value of a coordinate during a slew.
 
         This function works for RA, Dec, Alt and Az equally well and the new
@@ -202,8 +180,6 @@ class BaseMountController(ABC):
         -------
         new_coord_value: `float`
             The new value of the coordinate.
-        diff: `float`
-            The difference between the new value and the target.
         """
         diff = target - curr
         diff_angle = Angle(diff * u.deg)
@@ -214,10 +190,9 @@ class BaseMountController(ABC):
             step = -step
         if abs(diff) < abs(step):
             new_coord_value = target
-            diff = 0
         else:
             new_coord_value = curr + step
-        return new_coord_value, diff
+        return new_coord_value
 
     async def _slew_altaz(self) -> None:
         """AltAz mount behavior in SLEWING state."""
@@ -349,6 +324,13 @@ class BaseMountController(ABC):
         """Stop the slew and start tracking where the mount is pointing at."""
         raise NotImplementedError()
 
+    async def _stop_slew(self) -> None:
+        await self.stop_slew_mount()
+        self.state = MountControllerState.TRACKING
+        self.slew_direction = SlewDirection.NONE
+        self.ra_dec = get_radec_from_altaz(alt_az=self.telescope_alt_az)
+        self.target_ra_dec = self.ra_dec
+
     async def location_updated(self) -> None:
         """Update the location but stay pointed at the same altitude and
         azimuth."""
@@ -363,8 +345,6 @@ class BaseMountController(ABC):
                 f"{self.observing_location.location.lat} so setting az to 180.0º."
             )
             az = 180.0
-        else:
-            self.log.info(f"Leaving az at {az}.")
         self.telescope_alt_az = get_skycoord_from_alt_az(
             alt=alt, az=az, observing_location=self.observing_location
         )
