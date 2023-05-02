@@ -316,7 +316,7 @@ class Lx200CommandResponder:
     async def stop_slew(self) -> None:
         """Stop the current slew."""
         self.log.debug("Stopping current slew.")
-        await self.mount_controller.stop_slew_mount()
+        await self.mount_controller.stop_slew()
 
     async def set_utc_offset(self, data: str) -> str:
         """Set the UTC offset."""

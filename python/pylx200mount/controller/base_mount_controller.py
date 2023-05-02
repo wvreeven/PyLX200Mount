@@ -51,6 +51,11 @@ class BaseMountController(ABC):
         self.alignment_handler = AlignmentHandler()
 
     async def start(self) -> None:
+        """Start the mount controller.
+
+        The main actions are to start the position loop, to connect the motors and to perform other start up
+        actions.
+        """
         self.log.info("Start called.")
         await self.attach_motors()
         self.position_loop = asyncio.create_task(self._start_position_loop())
@@ -58,9 +63,19 @@ class BaseMountController(ABC):
 
     @abstractmethod
     async def attach_motors(self) -> None:
+        """Attach the motors.
+
+        Subclasses will need to implement this method. If any other start up actions need to be performed,
+        they can be implemented in this method as well.
+        """
         raise NotImplementedError()
 
     async def stop(self) -> None:
+        """Stop the mount controller.
+
+        The main actions are to stop the position loop, to disconnect the motors and to perform other shut
+        down actions.
+        """
         self.log.info("Stop called.")
         if self.position_loop:
             self.position_loop.cancel()
@@ -68,25 +83,37 @@ class BaseMountController(ABC):
 
     @abstractmethod
     async def detach_motors(self) -> None:
+        """Detach the motors.
+
+        Subclasses will need to implement this method. If any other show down actions need to be performed,
+        they can be implemented in this method as well.
+        """
         raise NotImplementedError()
 
     async def _start_position_loop(self) -> None:
-        """Start the position loop."""
+        """Start the position loop.
+
+        The loop checks the mount controller state and calls the associated methods to make the mount behave
+        as intended. The timing of the loop is such that it executed a mulitple of almost exactly
+        `ALTAZ_INTERVAL` seconds after the loop was started. If one execution of the loop takes longer than
+        `ALTAZ_INTERVAL` seconds, it will skip one or more executions, so it doesn't drift.
+        """
         start_time = datetime.now().astimezone().timestamp()
         while True:
-            if self.state == MountControllerState.STOPPED:
-                await self._stopped()
-            elif self.state == MountControllerState.TO_TRACKING:
-                await self._stop_slew()
-            elif self.state == MountControllerState.TRACKING:
-                await self._track()
-            elif self.state == MountControllerState.SLEWING:
-                await self._slew()
-            else:
-                msg = f"Invalid state encountered: {self.state}"
-                self.log.error(msg)
-                self.state = MountControllerState.STOPPED
-                raise NotImplementedError(msg)
+            match self.state:
+                case MountControllerState.STOPPED:
+                    await self._stopped()
+                case MountControllerState.TO_TRACKING:
+                    await self.stop_slew()
+                case MountControllerState.TRACKING:
+                    await self._track()
+                case MountControllerState.SLEWING:
+                    await self._slew()
+                case _:
+                    msg = f"Invalid state encountered: {self.state}"
+                    self.log.error(msg)
+                    self.state = MountControllerState.STOPPED
+                    raise NotImplementedError(msg)
 
             remainder = (
                 datetime.now().astimezone().timestamp() - start_time
@@ -109,6 +136,10 @@ class BaseMountController(ABC):
 
     @abstractmethod
     async def track_mount(self, target_altaz: SkyCoord) -> None:
+        """Mount specific track behavior.
+
+        Subclasses need to implement this method.
+        """
         raise NotImplementedError()
 
     async def _slew(self) -> None:
@@ -122,12 +153,10 @@ class BaseMountController(ABC):
             raise NotImplementedError(msg)
 
     def _determine_target_altaz(self) -> SkyCoord:
-        """Determine the target AltAz for the slew that currently is being
-        performed.
+        """Determine the target AltAz for the slew that currently is being performed.
 
-        For a normal slew, the target AltAz is determined by the RaDec of the
-        target object. For directional slews, the target AltAz is determined by
-        the direction that the slew is performed in.
+        For a normal slew, the target AltAz is determined by the RaDec of the target object. For directional
+        slews, the target AltAz is determined by the direction that the slew is performed in.
         """
         if self.slew_direction == SlewDirection.NONE:
             target_altaz = get_altaz_from_radec(
@@ -164,8 +193,8 @@ class BaseMountController(ABC):
     ) -> float:
         """Determine the new value of a coordinate during a slew.
 
-        This function works for RA, Dec, Alt and Az equally well and the new
-        value is determined for the provided Time.
+        This function works for RA, Dec, Alt and Az equally well and the new value is determined for the
+        provided time.
 
         Parameters
         ----------
@@ -211,6 +240,10 @@ class BaseMountController(ABC):
 
     @abstractmethod
     async def slew_mount_altaz(self, now: datetime, target_altaz: SkyCoord) -> None:
+        """Mount specific slew behavior.
+
+        Subclasses need to implement this method.
+        """
         raise NotImplementedError()
 
     async def get_ra_dec(self) -> SkyCoord:
@@ -249,18 +282,27 @@ class BaseMountController(ABC):
         self.alignment_handler.add_alignment_position(
             self.telescope_alt_az, actual_telescope_alt_az
         )
-        await self.alignment_handler.compute_alignment_matrix()
+        await self.alignment_handler.compute_transformation_matrix()
         self.target_ra_dec = self.ra_dec
         self.state = MountControllerState.TRACKING
 
     async def set_slew_rate(self, cmd: str) -> None:
+        """Set the slew rate.
+
+        The command is part of the LX200 protocol.
+
+        Parameters
+        ----------
+        cmd : `str`
+            A set slew rate command.
+        """
         if cmd not in ["RC", "RG", "RM", "RS"]:
             raise ValueError(f"Received unknown slew rate command {cmd}.")
         if cmd == "RC":
             self.slew_rate = SlewRate.CENTERING
         elif cmd == "RG":
             self.slew_rate = SlewRate.GUIDING
-        elif cmd == "RG":
+        elif cmd == "RM":
             self.slew_rate = SlewRate.FIND
         else:
             self.slew_rate = SlewRate.HIGH
@@ -321,10 +363,14 @@ class BaseMountController(ABC):
 
     @abstractmethod
     async def stop_slew_mount(self) -> None:
-        """Stop the slew and start tracking where the mount is pointing at."""
+        """Mount specific track behavior regarding stopping the slew and start tracking where the mount is
+        pointing at.
+
+        Subclasses need to implement this method.
+        """
         raise NotImplementedError()
 
-    async def _stop_slew(self) -> None:
+    async def stop_slew(self) -> None:
         await self.stop_slew_mount()
         self.state = MountControllerState.TRACKING
         self.slew_direction = SlewDirection.NONE
