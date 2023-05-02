@@ -86,7 +86,7 @@ class TestMountController(IsolatedAsyncioTestCase):
             )
             await asyncio.sleep(0.5)
             alt = self.mount_controller.telescope_alt_az.alt.value
-        await self.mount_controller._stop_slew()
+        await self.mount_controller.stop_slew()
         assert (
             self.mount_controller.state
             == pylx200mount.enums.MountControllerState.TRACKING

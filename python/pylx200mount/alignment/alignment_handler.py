@@ -14,14 +14,45 @@ __all__ = ["AlignmentHandler"]
 
 
 class AlignmentHandler:
+    """Utility class for handling the alignment of a telescope.
+
+    A three-star alignment is assumed to be done. The observer is free to select the three stars to perform
+    the alignment with. If after the three-star alignment the telescope is synced with more objects, they get
+    added to the alignment handler so an improved transformation matrix can be computed.
+
+    Attributes
+    ----------
+    transformation_matrix : `np.ndarray`
+        The Numpy array representing the transformation matrix.
+    """
+
     def __init__(self) -> None:
         self._alignment_data: list[AlignmentPoint] = list()
         self.transformation_matrix = IDENTITY
 
     def add_alignment_position(self, altaz: SkyCoord, telescope: SkyCoord) -> None:
+        """Add an alignment point.
+
+        Parameters
+        ----------
+        altaz : `SkyCoord`
+            The actual [azimuth, altitude].
+        telescope : `SkyCoord`
+            The telescope [azimuth, altitude].
+        """
         self._alignment_data.append(AlignmentPoint(altaz=altaz, telescope=telescope))
 
-    async def compute_alignment_matrix(self) -> None:
+    async def compute_transformation_matrix(self) -> None:
+        """Compute the transformation matrix between the altaz and telescope coordinates.
+
+        The transformation matrix only is computed if at least three alignment points have been added. If more
+        thatn three alignment points have been added, the transformation matrix is computed for all unique
+        combinations of three alignment points.
+
+        If two or more alignment points are very close together, the resulting transformation matrix will
+        contain one or more NaN values. In that case, the transformation matrix gets discarded. The mean
+        matrix then is computed over the remaining matrices.
+        """
         transformation_matrices: list[np.ndarray] = []
         alignment_triplets = [
             AlignmentTriplet(one=triplet[0], two=triplet[1], three=triplet[2])

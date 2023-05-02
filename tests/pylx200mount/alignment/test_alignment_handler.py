@@ -12,7 +12,7 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
         np_testing.assert_array_equal(
             alignment_handler.transformation_matrix, pylx200mount.enums.IDENTITY
         )
-        await alignment_handler.compute_alignment_matrix()
+        await alignment_handler.compute_transformation_matrix()
         np_testing.assert_array_equal(
             alignment_handler.transformation_matrix, pylx200mount.enums.IDENTITY
         )
@@ -43,7 +43,7 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
                 az=2.7677669529, alt=5.665063509, observing_location=observing_location
             ),
         )
-        await alignment_handler.compute_alignment_matrix()
+        await alignment_handler.compute_transformation_matrix()
         affine_transformation = pylx200mount.alignment.AffineTransformation(
             alignment_handler.transformation_matrix
         )
@@ -93,7 +93,7 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
                 az=2.7777669529, alt=5.565063509, observing_location=observing_location
             ),
         )
-        await alignment_handler.compute_alignment_matrix()
+        await alignment_handler.compute_transformation_matrix()
         affine_transformation = pylx200mount.alignment.AffineTransformation(
             alignment_handler.transformation_matrix
         )
