@@ -21,12 +21,12 @@ class DemoMountController(BaseMountController):
         self.telescope_alt_az = target_altaz
 
     async def slew_mount_altaz(self, now: datetime, target_altaz: SkyCoord) -> None:
-        alt = self._determine_new_coord_value(
+        alt = self.determine_new_coord_value(
             time=now,
             curr=self.telescope_alt_az.alt.value,
             target=target_altaz.alt.value,
         )
-        az = self._determine_new_coord_value(
+        az = self.determine_new_coord_value(
             time=now,
             curr=self.telescope_alt_az.az.value,
             target=target_altaz.az.value,

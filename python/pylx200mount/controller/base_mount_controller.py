@@ -58,7 +58,7 @@ class BaseMountController(ABC):
         """
         self.log.info("Start called.")
         await self.attach_motors()
-        self.position_loop = asyncio.create_task(self._start_position_loop())
+        self.position_loop = asyncio.create_task(self.start_position_loop())
         self.log.info("Started.")
 
     @abstractmethod
@@ -90,7 +90,7 @@ class BaseMountController(ABC):
         """
         raise NotImplementedError()
 
-    async def _start_position_loop(self) -> None:
+    async def start_position_loop(self) -> None:
         """Start the position loop.
 
         The loop checks the mount controller state and calls the associated methods to make the mount behave
@@ -102,13 +102,13 @@ class BaseMountController(ABC):
         while True:
             match self.state:
                 case MountControllerState.STOPPED:
-                    await self._stopped()
+                    await self.stopped()
                 case MountControllerState.TO_TRACKING:
                     await self.stop_slew()
                 case MountControllerState.TRACKING:
-                    await self._track()
+                    await self.track()
                 case MountControllerState.SLEWING:
-                    await self._slew()
+                    await self.slew()
                 case _:
                     msg = f"Invalid state encountered: {self.state}"
                     self.log.error(msg)
@@ -120,17 +120,17 @@ class BaseMountController(ABC):
             ) % ALTAZ_INTERVAL
             await asyncio.sleep(ALTAZ_INTERVAL - remainder)
 
-    async def _stopped(self) -> None:
+    async def stopped(self) -> None:
         """Mount behavior in STOPPED state."""
         self.ra_dec = get_radec_from_altaz(alt_az=self.telescope_alt_az)
 
-    async def _track(self) -> None:
+    async def track(self) -> None:
         """Mount behavior in TRACKING state."""
         self.log.debug(
             f"Tracking at AltAz {self.telescope_alt_az.to_string()}"
             f" == RaDec {'None' if None else self.ra_dec.to_string('hmsdms')}."
         )
-        target_altaz = self._determine_target_altaz()
+        target_altaz = self.determine_target_altaz()
         await self.track_mount(target_altaz=target_altaz)
         self.ra_dec = get_radec_from_altaz(alt_az=self.telescope_alt_az)
 
@@ -142,17 +142,17 @@ class BaseMountController(ABC):
         """
         raise NotImplementedError()
 
-    async def _slew(self) -> None:
+    async def slew(self) -> None:
         """Dispatch slewing to the coroutine corresponding to the slew mode."""
         if self.slew_mode == SlewMode.ALT_AZ:
-            await self._slew_altaz()
+            await self.slew_altaz()
         else:
             msg = f"Invalid slew mode encountered: {self.slew_mode}"
             self.log.error(msg)
             self.state = MountControllerState.STOPPED
             raise NotImplementedError(msg)
 
-    def _determine_target_altaz(self) -> SkyCoord:
+    def determine_target_altaz(self) -> SkyCoord:
         """Determine the target AltAz for the slew that currently is being performed.
 
         For a normal slew, the target AltAz is determined by the RaDec of the target object. For directional
@@ -188,7 +188,7 @@ class BaseMountController(ABC):
             )
         return target_altaz
 
-    def _determine_new_coord_value(
+    def determine_new_coord_value(
         self, time: datetime, curr: float, target: float
     ) -> float:
         """Determine the new value of a coordinate during a slew.
@@ -223,10 +223,10 @@ class BaseMountController(ABC):
             new_coord_value = curr + step
         return new_coord_value
 
-    async def _slew_altaz(self) -> None:
+    async def slew_altaz(self) -> None:
         """AltAz mount behavior in SLEWING state."""
         now = datetime.now().astimezone()
-        target_altaz = self._determine_target_altaz()
+        target_altaz = self.determine_target_altaz()
         self.log.debug(
             f"Slewing from AltAz ({self.telescope_alt_az.to_string()}) "
             f"to AltAz ({target_altaz.to_string()})"
