@@ -3,7 +3,7 @@ from unittest import IsolatedAsyncioTestCase
 import pylx200mount
 
 
-class Test(IsolatedAsyncioTestCase):
+class TestLx200CommandResponder(IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.responder = (
             pylx200mount.controller.lx200_command_reponder.Lx200CommandResponder(
@@ -16,9 +16,7 @@ class Test(IsolatedAsyncioTestCase):
         await self.responder.stop()
 
     def assertDoesNotEndInHash(self, s: str) -> None:
-        self.assertFalse(
-            s.endswith("#"), "This reply is expected to end in a hash symbol."
-        )
+        assert not s.endswith("#")
 
     async def test_get_ra(self) -> None:
         ra = await self.responder.get_ra()
