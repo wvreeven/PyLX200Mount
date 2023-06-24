@@ -1,10 +1,10 @@
+__all__ = ["LX200Mount", "run_demo_lx200_mount", "run_lx200_mount"]
+
 import asyncio
 import logging
 import socket
 
 from pylx200mount.controller import REPLY_SEPARATOR, Lx200CommandResponder
-
-__all__ = ["LX200Mount", "run_demo_lx200_mount", "run_lx200_mount"]
 
 # ACK symbol sent by Ekos
 ACK: bytes = b"\x06"
@@ -166,4 +166,4 @@ async def run_demo_lx200_mount() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(run_lx200_mount())
+    asyncio.run(run_demo_lx200_mount())

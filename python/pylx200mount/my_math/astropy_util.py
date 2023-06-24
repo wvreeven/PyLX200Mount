@@ -1,10 +1,3 @@
-from datetime import datetime
-
-from astropy import units as u
-from astropy.coordinates import AltAz, Angle, SkyCoord
-
-from ..observing_location import ObservingLocation
-
 __all__ = [
     "get_skycoord_from_alt_az",
     "get_altaz_from_radec",
@@ -12,6 +5,13 @@ __all__ = [
     "get_skycoord_from_ra_dec_str",
     "get_radec_from_altaz",
 ]
+
+from datetime import datetime
+
+from astropy import units as u
+from astropy.coordinates import AltAz, Angle, SkyCoord
+
+from ..observing_location import ObservingLocation
 
 
 def get_skycoord_from_alt_az(

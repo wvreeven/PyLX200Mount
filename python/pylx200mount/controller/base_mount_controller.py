@@ -1,3 +1,5 @@
+__all__ = ["BaseMountController"]
+
 import asyncio
 import logging
 import math
@@ -16,8 +18,6 @@ from ..my_math.astropy_util import (
     get_skycoord_from_ra_dec_str,
 )
 from ..observing_location import ObservingLocation
-
-__all__ = ["BaseMountController"]
 
 # AltAz task interval [sec].
 ALTAZ_INTERVAL = 0.1

@@ -1,3 +1,5 @@
+__all__ = ["AlignmentHandler"]
+
 from itertools import combinations
 
 import numpy as np
@@ -9,8 +11,6 @@ from .affine_transformation import (
     AlignmentTriplet,
     compute_transformation_matrix,
 )
-
-__all__ = ["AlignmentHandler"]
 
 
 class AlignmentHandler:

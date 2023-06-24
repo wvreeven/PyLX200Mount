@@ -1,11 +1,11 @@
+__all__ = ["DemoMountController"]
+
 from datetime import datetime
 
 from astropy.coordinates import SkyCoord
 
 from ..my_math.astropy_util import get_radec_from_altaz, get_skycoord_from_alt_az
 from .base_mount_controller import BaseMountController
-
-__all__ = ["DemoMountController"]
 
 
 class DemoMountController(BaseMountController):

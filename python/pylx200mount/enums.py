@@ -1,7 +1,3 @@
-import enum
-
-import numpy as np
-
 __all__ = [
     "IDENTITY",
     "TELESCOPE_REDUCTION_06INCH",
@@ -13,6 +9,9 @@ __all__ = [
     "SlewRate",
 ]
 
+import enum
+
+import numpy as np
 
 # Reduction of the telescope gear additional to the motor gear reduction.
 TELESCOPE_REDUCTION_06INCH = 10.82

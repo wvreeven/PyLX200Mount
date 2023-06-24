@@ -1,8 +1,8 @@
+__all__ = ["ObservingLocation"]
+
 from astropy import units as u
 from astropy.coordinates import EarthLocation, Latitude, Longitude
 from astropy.time import TimezoneInfo
-
-__all__ = ["ObservingLocation"]
 
 
 class ObservingLocation:
