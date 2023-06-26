@@ -1,4 +1,4 @@
-__all__ = ["LX200Mount", "run_demo_lx200_mount", "run_lx200_mount"]
+__all__ = ["LX200Mount", "run_lx200_mount"]
 
 import asyncio
 import logging
@@ -20,17 +20,17 @@ SEND_COMMAND_SLEEP = 0.01
 
 logging.basicConfig(
     format="%(asctime)s:%(levelname)s:%(name)s:%(message)s",
-    level=logging.INFO,
+    level=logging.DEBUG,
 )
 
 
 class LX200Mount:
-    def __init__(self, is_simulation_mode: bool) -> None:
+    def __init__(self) -> None:
         self.port: int = 11880
         self._server: asyncio.AbstractServer | None = None
         self._writer: asyncio.StreamWriter | None = None
         # TODO Add configuration to select simulation mode and other settings.
-        self.responder = Lx200CommandResponder(is_simulation_mode=is_simulation_mode)
+        self.responder = Lx200CommandResponder()
 
         self.log: logging.Logger = logging.getLogger(type(self).__name__)
 
@@ -70,7 +70,7 @@ class LX200Mount:
             The string to append a HASH character to and then write.
         """
         reply = st.encode() + HASH
-        self.log.debug(f"Writing reply {st}")
+        # self.log.debug(f"Writing reply {st}")
         if self._writer is not None:
             # After a :SC command, multiple replies need to be send which may
             # lead to a broken pipe error because of the way SkySafari connects
@@ -93,72 +93,68 @@ class LX200Mount:
             while True:
                 # First read only one character and see if it is 0x06
                 c = (await reader.read(1)).decode()
-                self.log.debug(f"Read char {c!r}.")
+                # self.log.debug(f"Read char {c!r}.")
                 if c != ":":
-                    self.log.debug(f"Writing ACK {c!r}.")
+                    # self.log.debug(f"Writing ACK {c!r}.")
                     await self.write("A")
                 else:
-                    # All the next commands end in a # so we simply read all incoming
-                    # strings up to # and
-                    # parse them.
-                    line_b = await reader.readuntil(HASH)
-                    line = line_b.decode().strip()
-                    if line not in ["GR#", "GD#"]:
-                        self.log.debug(f"Read command line: {line!r}")
-
-                    # Almost all LX200 commands are unique but don't have a fixed length.
-                    # So we simply loop over all implemented commands until we find
-                    # the one that we have received. All the implemented commands are
-                    # unique so this is a safe way to find the command without having to
-                    # write too much boilerplate code.
-                    cmd = ""
-                    for key in self.responder.dispatch_dict.keys():
-                        if line.startswith(key):
-                            cmd = key
-
-                    # Log a message if the command wasn't found.
-                    if cmd not in self.responder.dispatch_dict:
-                        self.log.error(f"Unknown command {cmd!r}.")
-
-                    # Otherwise, process the command.
-                    else:
-                        self.responder.cmd = cmd
-                        (func, has_arg) = self.responder.dispatch_dict[cmd]
-                        kwargs = {}
-                        if has_arg:
-                            # Read the function argument from the incoming command line
-                            # and pass it on to the function.
-                            data_start = len(cmd)
-                            kwargs["data"] = line[data_start:-1]
-                        output = await func(**kwargs)  # type: ignore
-                        if output:
-                            if REPLY_SEPARATOR in output:
-                                # dirty trick to be able to send two output
-                                # strings as is expected for e.g. "SC#"
-                                outputs = output.split(REPLY_SEPARATOR)
-                                for i in range(len(outputs)):
-                                    await self.write(outputs[i])
-                                    self.log.debug(
-                                        f"Sleeping for {SEND_COMMAND_SLEEP} sec."
-                                    )
-                                    await asyncio.sleep(SEND_COMMAND_SLEEP)
-                            else:
-                                await self.write(output)
+                    await self._read_and_process_line(reader)
 
         except (ConnectionResetError, BrokenPipeError):
             pass
 
+    async def _read_and_process_line(self, reader: asyncio.StreamReader) -> None:
+        # All the next commands end in a # so we simply read all incoming
+        # strings up to # and parse them.
+        line_b = await reader.readuntil(HASH)
+        line = line_b.decode().strip()
+        if line not in ["GR#", "GD#"]:
+            self.log.debug(f"Read command line: {line!r}")
+
+        # Almost all LX200 commands are unique but don't have a fixed length.
+        # So we simply loop over all implemented commands until we find
+        # the one that we have received. All the implemented commands are
+        # unique so this is a safe way to find the command without having to
+        # write too much boilerplate code.
+        cmd = ""
+        for key in self.responder.dispatch_dict.keys():
+            if line.startswith(key):
+                cmd = key
+                break
+
+        # Log a message if the command wasn't found.
+        if cmd not in self.responder.dispatch_dict:
+            self.log.error(f"Unknown command {cmd!r}.")
+
+        # Otherwise, process the command.
+        else:
+            await self._process_command(cmd, line)
+
+    async def _process_command(self, cmd: str, line: str) -> None:
+        self.responder.cmd = cmd
+        (func, has_arg) = self.responder.dispatch_dict[cmd]
+        kwargs = {}
+        if has_arg:
+            # Read the function argument from the incoming command line
+            # and pass it on to the function.
+            data_start = len(cmd)
+            kwargs["data"] = line[data_start:-1]
+        output = await func(**kwargs)  # type: ignore
+        if output:
+            if REPLY_SEPARATOR in output:
+                # dirty trick to be able to send two output
+                # strings as is expected for e.g. "SC#"
+                outputs = output.split(REPLY_SEPARATOR)
+                for i in range(len(outputs)):
+                    await self.write(outputs[i])
+                    self.log.debug(f"Sleeping for {SEND_COMMAND_SLEEP} sec.")
+                    await asyncio.sleep(SEND_COMMAND_SLEEP)
+            else:
+                await self.write(output)
+
 
 async def run_lx200_mount() -> None:
-    lx200_mount = LX200Mount(is_simulation_mode=False)
-    try:
-        await lx200_mount.start()
-    except (asyncio.CancelledError, KeyboardInterrupt):
-        await lx200_mount.stop()
-
-
-async def run_demo_lx200_mount() -> None:
-    lx200_mount = LX200Mount(is_simulation_mode=True)
+    lx200_mount = LX200Mount()
     try:
         await lx200_mount.start()
     except (asyncio.CancelledError, KeyboardInterrupt):
@@ -166,4 +162,4 @@ async def run_demo_lx200_mount() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(run_demo_lx200_mount())
+    asyncio.run(run_lx200_mount())

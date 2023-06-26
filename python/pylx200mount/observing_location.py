@@ -18,12 +18,12 @@ class ObservingLocation:
     ) -> None:
         # Variables holding the site information
         self.location: EarthLocation = EarthLocation.from_geodetic(
-            lon=Longitude("00d00m00.0s"),
-            lat=Latitude("00d00m00.0s"),
-            height=0.0 * u.meter,
+            lon=Longitude("-3d53m06.3s"),
+            lat=Latitude("40d30m04.7s"),
+            height=710.0 * u.meter,
         )
-        self.name: str = "La Serena"
-        self.tz: TimezoneInfo = TimezoneInfo(tzname="America/Santiago")
+        self.name: str = "Las Rozas de Madrid"
+        self.tz: TimezoneInfo = TimezoneInfo(tzname="CET")
 
     def set_longitude(self, longitude: Longitude) -> None:
         """

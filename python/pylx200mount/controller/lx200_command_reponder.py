@@ -4,9 +4,7 @@ from datetime import datetime
 from astropy import units as u
 from astropy.coordinates import Latitude, Longitude, SkyCoord
 
-from ..phidgets.phidgets_mount_controller import PhidgetsMountController
-from .base_mount_controller import BaseMountController
-from .demo_mount_controller import DemoMountController
+from .mount_controller import MountController
 
 _all__ = ["Lx200CommandResponder", "REPLY_SEPARATOR"]
 
@@ -30,7 +28,7 @@ class Lx200CommandResponder:
     For more info, see the TelescopeProtocol PDF document in the misc/docs section.
     """
 
-    def __init__(self, is_simulation_mode: bool) -> None:
+    def __init__(self) -> None:
         self.log = logging.getLogger(type(self).__name__)
 
         # Variables holding the status of the mount
@@ -40,12 +38,7 @@ class Lx200CommandResponder:
         self.target_ra = "0.0"
         self.target_dec = "0.0"
 
-        # TODO Add configuration to select which mount controller to use when not in simulation mode and other
-        #  settings.
-        if not is_simulation_mode:
-            self.mount_controller: BaseMountController = PhidgetsMountController()
-        else:
-            self.mount_controller = DemoMountController()
+        self.mount_controller = MountController()
 
         # The received command. This is kept as a reference for the slews.
         self.cmd: str = ""

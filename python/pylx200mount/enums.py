@@ -3,9 +3,8 @@ __all__ = [
     "TELESCOPE_REDUCTION_06INCH",
     "TELESCOPE_REDUCTION_12INCH",
     "TELESCOPE_REDUCTION_20INCH",
-    "MountControllerState",
+    "MotorControllerState",
     "SlewDirection",
-    "SlewMode",
     "SlewRate",
 ]
 
@@ -22,29 +21,18 @@ TELESCOPE_REDUCTION_20INCH = 34.91
 IDENTITY = np.identity(3)
 
 
-class MountControllerState(enum.Enum):
-    """State of the mount controller."""
+class MotorControllerState(enum.Enum):
+    """State of a motor controller."""
 
     STOPPED = enum.auto()
-    TO_TRACKING = enum.auto()
+    STOPPING = enum.auto()
     TRACKING = enum.auto()
     SLEWING = enum.auto()
-
-
-class SlewMode(enum.Enum):
-    """Slew mode."""
-
-    ALT_AZ = "AltAz"
-    RA_DEC = "RaDec"
 
 
 class SlewDirection(enum.Enum):
     """Slew direction."""
 
-    NORTH = "North"
-    EAST = "East"
-    SOUTH = "South"
-    WEST = "West"
     UP = "Up"
     LEFT = "Left"
     DOWN = "Down"
@@ -55,7 +43,7 @@ class SlewDirection(enum.Enum):
 class SlewRate(float, enum.Enum):
     """Slew rate [deg/sec]."""
 
-    CENTERING = 0.5
-    GUIDING = 1.0
-    FIND = 2.0
-    HIGH = 3.0
+    CENTERING = 0.01
+    GUIDING = 0.1
+    FIND = 0.5
+    HIGH = 1.0

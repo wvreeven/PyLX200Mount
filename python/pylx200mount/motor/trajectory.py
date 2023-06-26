@@ -1,0 +1,352 @@
+__all__ = ["Trajectory", "TrajectorySegment", "accelerated_pos_and_vel"]
+
+import math
+from dataclasses import dataclass
+
+import numpy as np
+
+
+@dataclass
+class TrajectorySegment:
+    start_time: float
+    position0: float
+    velocity0: float
+    acceleration: float
+
+
+def accelerated_pos_and_vel(
+    start_position: float, start_velocity: float, acceleration: float, time: float
+) -> tuple[float, float]:
+    """Compute the position and velocity for accelerated motion defined by the provided parameters at the
+    provided time.
+
+    Parameters
+    ----------
+    start_position : `float`
+        The position [steps] at t = 0s.
+    start_velocity : `float`
+        The velocity [steps/s] at t = 0s.
+    acceleration : `float`
+        The acceleration [steps/s**2]
+    time : `float`
+        The time [s] for which the position and velocity are calculated.
+
+    Returns
+    -------
+    p, v : `tuple`[`float`]
+        The position and velocity at the provided time.
+
+    """
+    velocity = start_velocity + acceleration * time
+    position = start_position + (velocity + start_velocity) * time / 2.0
+    return position, velocity
+
+
+class Trajectory:
+    """Class representing the trajectory.
+
+    The trajectory starts at the current position with the current velocity and acceleration and ends at the
+    target position with both velocity and acceleraiton 0.0.
+    """
+
+    def __init__(self, max_acceleration: float) -> None:
+        self.segments: list[TrajectorySegment] = []
+        self._max_acceleration = max_acceleration
+
+    def set_target_position_and_velocity(
+        self,
+        curr_pos: float,
+        curr_vel: float,
+        target_position: float,
+        max_velocity: float,
+    ) -> None:
+        self.segments = []
+        if target_position == curr_pos:
+            self.handle_target_same_as_pos(
+                curr_pos, curr_vel, target_position, max_velocity
+            )
+        else:
+            self.handle_target_not_same_as_pos(
+                curr_pos, curr_vel, target_position, max_velocity
+            )
+
+        self.consolidate_segments()
+
+    def handle_target_same_as_pos(
+        self,
+        curr_pos: float,
+        curr_vel: float,
+        target_position: float,
+        max_velocity: float,
+    ) -> None:
+        if math.isclose(curr_vel, 0.0):
+            # We are where we need to be and are not moving, so we're done.
+            self.segments = [
+                TrajectorySegment(
+                    start_time=0.0,
+                    position0=curr_pos,
+                    velocity0=curr_vel,
+                    acceleration=0.0,
+                )
+            ]
+        else:
+            # We are where we need to be, but we are moving, so we need to slow down and then return here.
+            time_to_stop = abs(curr_vel / self._max_acceleration)
+            if curr_vel > 0.0:
+                max_vel = -max_velocity
+                accel = -self._max_acceleration
+            else:
+                max_vel = max_velocity
+                accel = self._max_acceleration
+            pos_when_stopped, vel_when_stopped = accelerated_pos_and_vel(
+                curr_pos, curr_vel, accel, time_to_stop
+            )
+            self.segments = [
+                TrajectorySegment(
+                    start_time=0.0,
+                    position0=curr_pos,
+                    velocity0=curr_vel,
+                    acceleration=accel,
+                )
+            ] + self._determine_trajectory_segments(
+                start_time=time_to_stop,
+                curr_pos=pos_when_stopped,
+                curr_vel=vel_when_stopped,
+                target_position=target_position,
+                max_vel=max_vel,
+                accel=accel,
+            )
+
+    def handle_target_not_same_as_pos(
+        self,
+        curr_pos: float,
+        curr_vel: float,
+        target_position: float,
+        max_velocity: float,
+    ) -> None:
+        sign_pos = math.copysign(1, target_position - curr_pos)
+        sign_vel = math.copysign(1, curr_vel)
+        if sign_pos == sign_vel or math.isclose(curr_vel, 0.0):
+            if target_position > curr_pos:
+                max_vel = max_velocity
+                accel = self._max_acceleration
+            else:
+                max_vel = -max_velocity
+                accel = -self._max_acceleration
+            self.segments = self._determine_trajectory_segments(
+                start_time=0.0,
+                curr_pos=curr_pos,
+                curr_vel=curr_vel,
+                target_position=target_position,
+                max_vel=max_vel,
+                accel=accel,
+            )
+        else:
+            time_to_stop = abs(curr_vel / self._max_acceleration)
+            if curr_vel > 0.0:
+                max_vel = -max_velocity
+                accel = -self._max_acceleration
+            else:
+                max_vel = max_velocity
+                accel = self._max_acceleration
+            pos_when_stopped, vel_when_stopped = accelerated_pos_and_vel(
+                curr_pos, curr_vel, accel, time_to_stop
+            )
+            self.segments = [
+                TrajectorySegment(
+                    start_time=0.0,
+                    position0=curr_pos,
+                    velocity0=curr_vel,
+                    acceleration=accel,
+                )
+            ] + self._determine_trajectory_segments(
+                start_time=time_to_stop,
+                curr_pos=pos_when_stopped,
+                curr_vel=vel_when_stopped,
+                target_position=target_position,
+                max_vel=max_vel,
+                accel=accel,
+            )
+
+    def _determine_trajectory_segments(
+        self,
+        start_time: float,
+        curr_pos: float,
+        curr_vel: float,
+        target_position: float,
+        max_vel: float,
+        accel: float,
+    ) -> list[TrajectorySegment]:
+        segments = self._determine_trajectory_segments_with_max_velocity(
+            start_time=start_time,
+            curr_pos=curr_pos,
+            curr_vel=curr_vel,
+            target_position=target_position,
+            max_vel=max_vel,
+            accel=accel,
+        )
+
+        if segments[2].start_time <= segments[1].start_time:
+            segments = self._determine_trajectory_segments_without_max_velocity(
+                start_time=start_time,
+                curr_pos=curr_pos,
+                curr_vel=curr_vel,
+                target_position=target_position,
+                accel=accel,
+            )
+
+        return segments
+
+    def _determine_trajectory_segments_with_max_velocity(
+        self,
+        start_time: float,
+        curr_pos: float,
+        curr_vel: float,
+        target_position: float,
+        max_vel: float,
+        accel: float,
+    ) -> list[TrajectorySegment]:
+        time_to_max_vel = (max_vel - curr_vel) / accel
+        pos_at_max_vel, vel_at_max_vel = accelerated_pos_and_vel(
+            curr_pos, curr_vel, accel, time_to_max_vel
+        )
+        time_needed_to_stop_from_max_vel = max_vel / accel
+        position_to_start_stopping, _ = accelerated_pos_and_vel(
+            target_position, 0.0, -accel, time_needed_to_stop_from_max_vel
+        )
+        time_to_start_stopping = (
+            time_to_max_vel + (position_to_start_stopping - pos_at_max_vel) / max_vel
+        )
+
+        return [
+            TrajectorySegment(
+                start_time=start_time,
+                position0=curr_pos,
+                velocity0=curr_vel,
+                acceleration=accel,
+            ),
+            TrajectorySegment(
+                start_time=start_time + time_to_max_vel,
+                position0=pos_at_max_vel,
+                velocity0=vel_at_max_vel,
+                acceleration=0.0,
+            ),
+            TrajectorySegment(
+                start_time=start_time + time_to_start_stopping,
+                position0=position_to_start_stopping,
+                velocity0=vel_at_max_vel,
+                acceleration=-accel,
+            ),
+            TrajectorySegment(
+                start_time=start_time
+                + time_to_start_stopping
+                + time_needed_to_stop_from_max_vel,
+                position0=target_position,
+                velocity0=0.0,
+                acceleration=0.0,
+            ),
+        ]
+
+    def _determine_trajectory_segments_without_max_velocity(
+        self,
+        start_time: float,
+        curr_pos: float,
+        curr_vel: float,
+        target_position: float,
+        accel: float,
+    ) -> list[TrajectorySegment]:
+        # Compute the time at which the velocity for the current motion is zero.
+        # v0 + a*t = 0 <=> t = -v0/a
+        t_zero_speed = -curr_vel / accel
+
+        if t_zero_speed >= 0.0:
+            # Compute the position at t_zero_speed.
+            # p_zero_speed = p0 + v0*t_zero_speed + a*t_zero_speed**2/2.0
+            p_zero_speed, _ = accelerated_pos_and_vel(
+                curr_pos, curr_vel, accel, t_zero_speed
+            )
+
+            # Halfway between p_zero_speed and target is where the velocity needs to start decreasing.
+            p_halfway = (p_zero_speed + target_position) / 2.0
+
+            # Compute the time of p_halfway using numpy.
+            # p_halfway = p0 + v0*t + a*t**2/2.0 <=> (a/2.0)*t**2 + (v0)*t + (p0 - p_halfway) = 0
+            roots = np.roots([accel / 2.0, curr_vel, curr_pos - p_halfway])
+
+            # If more than one root is found, take the largest one since the smallest one is usually negative,
+            # and we are only interested in events in the future.
+            t0 = max(roots)
+
+            max_vel = curr_vel + t0 * accel
+
+            return [
+                TrajectorySegment(
+                    start_time=start_time,
+                    position0=curr_pos,
+                    velocity0=curr_vel,
+                    acceleration=accel,
+                ),
+                TrajectorySegment(
+                    start_time=start_time + t0,
+                    position0=p_halfway,
+                    velocity0=max_vel,
+                    acceleration=-accel,
+                ),
+                TrajectorySegment(
+                    start_time=start_time + t0 + t0,
+                    position0=target_position,
+                    velocity0=0.0,
+                    acceleration=0.0,
+                ),
+            ]
+        else:
+            time_needed_to_stop_from_v0 = abs(curr_vel / accel)
+            position_to_start_stopping, _ = accelerated_pos_and_vel(
+                target_position, 0.0, -accel, time_needed_to_stop_from_v0
+            )
+
+            # Halfway between p_zero_speed and target is where the velocity needs to start decreasing.
+            p_halfway = (position_to_start_stopping + curr_pos) / 2.0
+
+            # Compute the time of p_halfway using numpy.
+            # p_halfway = p0 + v0*t + a*t**2/2.0 <=> (a/2.0)*t**2 + (v0)*t + (p0 - p_halfway) = 0
+            roots = np.roots([accel / 2.0, curr_vel, curr_pos - p_halfway])
+
+            # print(f"WOUTER {accel=}, {curr_vel=}, {curr_pos=}, {p_halfway=}, {roots=}")
+
+            # If more than one root is found, take the largest one since the smallest one is usually negative,
+            # and we are only interested in events in the future.
+            t0 = max(roots)
+
+            max_vel = curr_vel + t0 * accel
+
+            return [
+                TrajectorySegment(
+                    start_time=start_time,
+                    position0=curr_pos,
+                    velocity0=curr_vel,
+                    acceleration=accel,
+                ),
+                TrajectorySegment(
+                    start_time=start_time + t0,
+                    position0=p_halfway,
+                    velocity0=max_vel,
+                    acceleration=-accel,
+                ),
+                TrajectorySegment(
+                    start_time=start_time + t0 + t0 + time_needed_to_stop_from_v0,
+                    position0=target_position,
+                    velocity0=0.0,
+                    acceleration=0.0,
+                ),
+            ]
+
+    def consolidate_segments(self) -> None:
+        accel = self.segments[0].acceleration
+        indices_of_segments_to_remove: list[int] = []
+        for i in range(1, len(self.segments)):
+            if math.isclose(self.segments[i].acceleration, accel):
+                indices_of_segments_to_remove.append(i)
+                accel = self.segments[i].acceleration
+        for i in reversed(indices_of_segments_to_remove):
+            self.segments.pop(i)
