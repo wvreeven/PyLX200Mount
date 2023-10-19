@@ -1,3 +1,5 @@
+__all__ = ["PhidgetsStepper"]
+
 import logging
 import math
 import typing
@@ -7,8 +9,6 @@ from astropy.coordinates import Angle
 from Phidget22.Devices.Stepper import Stepper
 from Phidget22.Net import Net, PhidgetServerType
 from Phidget22.PhidgetException import PhidgetException
-
-__all__ = ["PhidgetsStepper"]
 
 # The maximum acceleration of the stepper motor [deg/sec].
 ACCELERATION = 60000

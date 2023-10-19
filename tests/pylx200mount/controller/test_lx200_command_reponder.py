@@ -6,9 +6,7 @@ import pylx200mount
 class TestLx200CommandResponder(IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.responder = (
-            pylx200mount.controller.lx200_command_reponder.Lx200CommandResponder(
-                is_simulation_mode=True
-            )
+            pylx200mount.controller.lx200_command_reponder.Lx200CommandResponder()
         )
         await self.responder.start()
 

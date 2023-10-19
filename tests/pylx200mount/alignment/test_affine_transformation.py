@@ -8,7 +8,10 @@ class TestAffineTransformation(unittest.IsolatedAsyncioTestCase):
     async def test_skimage_transform_identity(self) -> None:
         observing_location = pylx200mount.observing_location.ObservingLocation()
         telescope = pylx200mount.my_math.get_skycoord_from_alt_az(
-            alt=5.732050807, az=2.4142135623, observing_location=observing_location
+            alt=5.732050807,
+            az=2.4142135623,
+            observing_location=observing_location,
+            timestamp=pylx200mount.get_time(),
         )
         affine_transformation = pylx200mount.alignment.AffineTransformation(
             pylx200mount.enums.IDENTITY
@@ -23,32 +26,44 @@ class TestAffineTransformation(unittest.IsolatedAsyncioTestCase):
         coords = pylx200mount.alignment.AlignmentTriplet(
             pylx200mount.alignment.AlignmentPoint(
                 altaz=pylx200mount.my_math.get_skycoord_from_alt_az(
-                    az=1.0, alt=1.0, observing_location=observing_location
+                    az=1.0,
+                    alt=1.0,
+                    observing_location=observing_location,
+                    timestamp=pylx200mount.get_time(),
                 ),
                 telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
                     az=2.4142135623,
                     alt=5.732050807,
                     observing_location=observing_location,
+                    timestamp=pylx200mount.get_time(),
                 ),
             ),
             pylx200mount.alignment.AlignmentPoint(
                 altaz=pylx200mount.my_math.get_skycoord_from_alt_az(
-                    az=1.0, alt=2.0, observing_location=observing_location
+                    az=1.0,
+                    alt=2.0,
+                    observing_location=observing_location,
+                    timestamp=pylx200mount.get_time(),
                 ),
                 telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
                     az=2.7677669529,
                     alt=6.665063509,
                     observing_location=observing_location,
+                    timestamp=pylx200mount.get_time(),
                 ),
             ),
             pylx200mount.alignment.AlignmentPoint(
                 altaz=pylx200mount.my_math.get_skycoord_from_alt_az(
-                    az=2.0, alt=1.0, observing_location=observing_location
+                    az=2.0,
+                    alt=1.0,
+                    observing_location=observing_location,
+                    timestamp=pylx200mount.get_time(),
                 ),
                 telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
                     az=2.7677669529,
                     alt=5.665063509,
                     observing_location=observing_location,
+                    timestamp=pylx200mount.get_time(),
                 ),
             ),
         )

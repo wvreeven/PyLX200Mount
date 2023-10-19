@@ -1,3 +1,10 @@
+__all__ = [
+    "AffineTransformation",
+    "AlignmentPoint",
+    "AlignmentTriplet",
+    "compute_transformation_matrix",
+]
+
 from dataclasses import dataclass
 
 import numpy as np
@@ -6,13 +13,7 @@ from skimage import transform
 
 from ..my_math.astropy_util import get_skycoord_from_alt_az
 from ..observing_location import ObservingLocation
-
-__all__ = [
-    "AffineTransformation",
-    "AlignmentPoint",
-    "AlignmentTriplet",
-    "compute_transformation_matrix",
-]
+from ..utils import get_time
 
 
 def _altaz_to_ndarray(altaz: SkyCoord) -> np.ndarray:
@@ -23,7 +24,10 @@ def _ndarray_to_altaz(
     array: np.ndarray, observing_location: ObservingLocation
 ) -> SkyCoord:
     return get_skycoord_from_alt_az(
-        az=array[0], alt=array[1], observing_location=observing_location
+        az=array[0],
+        alt=array[1],
+        observing_location=observing_location,
+        timestamp=get_time(),
     )
 
 
