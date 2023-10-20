@@ -176,10 +176,6 @@ class BaseMotorController(ABC):
     async def track(self, target_position: Angle, timediff: float) -> None:
         target_position_in_steps = self.get_target_position_in_steps(target_position)
         max_velocity_in_steps = (self._position - target_position_in_steps) / timediff
-        if not self.is_alt:
-            self.log.debug(
-                f"tracking from {self._position=} to {target_position_in_steps=} at {max_velocity_in_steps}"
-            )
         await self.set_target_position_and_velocity(
             target_position_in_steps, max_velocity_in_steps
         )

@@ -61,15 +61,19 @@ class LX200Mount:
         server.close()
         self.log.info("Done closing.")
 
-    async def write(self, st: str) -> None:
+    async def write(self, st: str, append_hash: bool = True) -> None:
         """Write the string st appended with a HASH character.
 
         Parameters
         ----------
         st: `str`
             The string to append a HASH character to and then write.
+        append_hash: `bool`
+            Append a HASH to the reply or not? Defaults to True.
         """
-        reply = st.encode() + HASH
+        reply = st.encode()
+        if append_hash:
+            reply = reply + HASH
         # self.log.debug(f"Writing reply {st}")
         if self._writer is not None:
             # After a :SC command, multiple replies need to be send which may
@@ -84,21 +88,26 @@ class LX200Mount:
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ) -> None:
         """Execute commands and output replies."""
-        # self.log.info("Waiting for client to connect.")
         self._writer = writer
 
         # Just keep waiting for commands to arrive and then just process them and send a
         # reply.
         try:
             while True:
-                # First read only one character and see if it is 0x06
+                # First read only one character.
                 c = (await reader.read(1)).decode()
-                # self.log.debug(f"Read char {c!r}.")
-                if c != ":":
-                    # self.log.debug(f"Writing ACK {c!r}.")
+                # SkySafari connects and disconnects all the time and expects a reply when it does.
+                if c == "":
                     await self.write("A")
-                else:
+                # AstroPlanner appends all commands with a HASH that can safely be ignored.
+                elif c == "#":
+                    pass
+                # A colon indicates a command so process that.
+                elif c == ":":
                     await self._read_and_process_line(reader)
+                # Not sure what to do in this case, so long the character and do nothing else.
+                else:
+                    self.log.debug(f"{c=}")
 
         except (ConnectionResetError, BrokenPipeError):
             pass
@@ -108,8 +117,7 @@ class LX200Mount:
         # strings up to # and parse them.
         line_b = await reader.readuntil(HASH)
         line = line_b.decode().strip()
-        if line not in ["GR#", "GD#"]:
-            self.log.debug(f"Read command line: {line!r}")
+        self.log.debug(f"Read command line: {line!r}")
 
         # Almost all LX200 commands are unique but don't have a fixed length.
         # So we simply loop over all implemented commands until we find
@@ -150,7 +158,8 @@ class LX200Mount:
                     self.log.debug(f"Sleeping for {SEND_COMMAND_SLEEP} sec.")
                     await asyncio.sleep(SEND_COMMAND_SLEEP)
             else:
-                await self.write(output)
+                append_hash = cmd not in ["MS"]
+                await self.write(output, append_hash)
 
 
 async def run_lx200_mount() -> None:

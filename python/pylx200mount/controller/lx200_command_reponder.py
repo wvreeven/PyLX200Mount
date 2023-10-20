@@ -84,6 +84,7 @@ class Lx200CommandResponder:
             "SL": (self.set_local_time, True),
             "Sr": (self.set_ra, True),
             "St": (self.set_current_site_latitude, True),
+            "U": (self.set_coordinate_precision, False),
         }
 
     async def start(self) -> None:
@@ -333,6 +334,10 @@ class Lx200CommandResponder:
             + REPLY_SEPARATOR
             + UPDATING_PLANETARY_DATA2
         )
+
+    async def set_coordinate_precision(self) -> None:
+        """Set the precision of coordinates. This method deliberately has been left empty."""
+        self.log.debug("set_coordinate_precision")
 
     async def sync(self) -> str:
         self.log.debug("sync received.")
