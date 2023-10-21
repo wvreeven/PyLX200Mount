@@ -76,10 +76,16 @@ class TestMountController(IsolatedAsyncioTestCase):
 
         s1_ra_str, s1_dec_str = format_ra_dec_str(s1)
         await self.mount_controller.set_ra_dec(ra_str=s1_ra_str, dec_str=s1_dec_str)
-        assert s1.ra.value == pytest.approx(self.mount_controller.ra_dec.ra.value)
-        assert s1.dec.value == pytest.approx(self.mount_controller.ra_dec.dec.value)
+        ra_dec = pylx200mount.my_math.get_radec_from_altaz(
+            self.mount_controller.telescope_alt_az
+        )
+        assert s1.ra.value == pytest.approx(ra_dec.ra.value)
+        assert s1.dec.value == pytest.approx(ra_dec.dec.value)
 
         s2_ra_str, s2_dec_str = format_ra_dec_str(s2)
         await self.mount_controller.set_ra_dec(ra_str=s2_ra_str, dec_str=s2_dec_str)
-        assert s2.ra.value == pytest.approx(self.mount_controller.ra_dec.ra.value)
-        assert s2.dec.value == pytest.approx(self.mount_controller.ra_dec.dec.value)
+        ra_dec = pylx200mount.my_math.get_radec_from_altaz(
+            self.mount_controller.telescope_alt_az
+        )
+        assert s2.ra.value == pytest.approx(ra_dec.ra.value)
+        assert s2.dec.value == pytest.approx(ra_dec.dec.value)

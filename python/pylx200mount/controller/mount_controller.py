@@ -77,11 +77,6 @@ class MountController:
         )
         return alt_az
 
-    @property
-    def ra_dec(self) -> SkyCoord:
-        ra_dec = get_radec_from_altaz(alt_az=self.telescope_alt_az)
-        return ra_dec
-
     async def start(self) -> None:
         """Start the mount controller.
 
@@ -158,7 +153,8 @@ class MountController:
         -------
         The right ascention and declination.
         """
-        return self.ra_dec
+        ra_dec = get_radec_from_altaz(alt_az=self.telescope_alt_az)
+        return ra_dec
 
     async def set_ra_dec(self, ra_str: str, dec_str: str) -> None:
         """Set the current RA and DEC of the mount.

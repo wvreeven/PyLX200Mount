@@ -105,7 +105,7 @@ class LX200Mount:
                 # A colon indicates a command so process that.
                 elif c == ":":
                     await self._read_and_process_line(reader)
-                # Not sure what to do in this case, so long the character and do nothing else.
+                # Not sure what to do in this case, so log the character and do nothing else.
                 else:
                     self.log.debug(f"{c=}")
 
@@ -117,7 +117,8 @@ class LX200Mount:
         # strings up to # and parse them.
         line_b = await reader.readuntil(HASH)
         line = line_b.decode().strip()
-        self.log.debug(f"Read command line: {line!r}")
+        if line not in ["GD#", "GR#"]:
+            self.log.debug(f"Read command line: {line!r}")
 
         # Almost all LX200 commands are unique but don't have a fixed length.
         # So we simply loop over all implemented commands until we find
