@@ -4,6 +4,7 @@ from datetime import datetime
 from astropy import units as u
 from astropy.coordinates import Latitude, Longitude, SkyCoord
 
+from ..enums import CoordinatePrecision
 from .mount_controller import MountController
 
 _all__ = ["Lx200CommandResponder", "REPLY_SEPARATOR"]
@@ -86,6 +87,8 @@ class Lx200CommandResponder:
             "St": (self.set_current_site_latitude, True),
             "U": (self.set_coordinate_precision, False),
         }
+        # The coordinate precision.
+        self.coordinate_precision = CoordinatePrecision.LOW
 
     async def start(self) -> None:
         """Start the responder."""
@@ -101,7 +104,13 @@ class Lx200CommandResponder:
         """Get the RA that the mount currently is pointing at."""
         ra_dec: SkyCoord = await self.mount_controller.get_ra_dec()
         ra = ra_dec.ra
-        ra_str = ra.to_string(unit=u.hour, sep=":", precision=2, pad=True)
+        hms = ra.hms
+        if self.coordinate_precision == CoordinatePrecision.HIGH:
+            ra_str = f"{hms.h:02.0f}*{hms.m:02.0f}:{hms.s:02.2f}"
+        else:
+            m = hms.m + (hms.s / 60.0)
+            ra_str = f"{hms.h:02.0f}*{m:02.1f}"
+        self.log.debug(f"{ra_str=}")
         return ra_str
 
     async def set_ra(self, data: str) -> str:
@@ -127,8 +136,14 @@ class Lx200CommandResponder:
         dec = ra_dec.dec
         # Use signed_dms here because dms will have negative minutes and seconds!!!
         dec_dms = dec.signed_dms
-        # LX200 specific format
-        dec_str = f"{dec_dms.sign*dec_dms.d:2.0f}*{dec_dms.m:2.0f}'{dec_dms.s:2.2f}"
+        if self.coordinate_precision == CoordinatePrecision.HIGH:
+            dec_str = (
+                f"{dec_dms.sign*dec_dms.d:02.0f}*{dec_dms.m:02.0f}:{dec_dms.s:02.2f}"
+            )
+        else:
+            m = dec_dms.m + (dec_dms.s / 60.0)
+            dec_str = f"{dec_dms.sign*dec_dms.d:02.0f}*{m:02.1f}"
+        self.log.debug(f"{dec_str=}")
         return dec_str
 
     async def set_dec(self, data: str) -> str:
@@ -336,8 +351,13 @@ class Lx200CommandResponder:
         )
 
     async def set_coordinate_precision(self) -> None:
-        """Set the precision of coordinates. This method deliberately has been left empty."""
+        """Set the coordinate precision."""
         self.log.debug("set_coordinate_precision")
+        self.coordinate_precision = (
+            CoordinatePrecision.LOW
+            if self.coordinate_precision == CoordinatePrecision.HIGH
+            else CoordinatePrecision.HIGH
+        )
 
     async def sync(self) -> str:
         self.log.debug("sync received.")

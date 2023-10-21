@@ -3,6 +3,7 @@ __all__ = [
     "TELESCOPE_REDUCTION_06INCH",
     "TELESCOPE_REDUCTION_12INCH",
     "TELESCOPE_REDUCTION_20INCH",
+    "CoordinatePrecision",
     "MotorControllerState",
     "SlewDirection",
     "SlewRate",
@@ -21,7 +22,14 @@ TELESCOPE_REDUCTION_20INCH = 34.91
 IDENTITY = np.identity(3)
 
 
-class MotorControllerState(enum.Enum):
+class CoordinatePrecision(enum.IntEnum):
+    """Coordinate precision."""
+
+    LOW = enum.auto()
+    HIGH = enum.auto()
+
+
+class MotorControllerState(enum.IntEnum):
     """State of a motor controller."""
 
     STOPPED = enum.auto()
@@ -30,7 +38,7 @@ class MotorControllerState(enum.Enum):
     SLEWING = enum.auto()
 
 
-class SlewDirection(enum.Enum):
+class SlewDirection(enum.StrEnum):
     """Slew direction."""
 
     UP = "Up"
