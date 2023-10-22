@@ -110,6 +110,7 @@ class Lx200CommandResponder:
         else:
             m = hms.m + (hms.s / 60.0)
             ra_str = f"{hms.h:02.0f}:{m:02.1f}"
+        # self.log.debug(f"{ra_str=}")
         return ra_str
 
     async def set_ra(self, data: str) -> str:
@@ -142,6 +143,7 @@ class Lx200CommandResponder:
         else:
             m = dec_dms.m + (dec_dms.s / 60.0)
             dec_str = f"{dec_dms.sign*dec_dms.d:02.0f}*{m:02.0f}"
+        # self.log.debug(f"{dec_str=}")
         return dec_str
 
     async def set_dec(self, data: str) -> str:
