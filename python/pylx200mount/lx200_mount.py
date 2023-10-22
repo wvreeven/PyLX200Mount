@@ -34,6 +34,8 @@ class LX200Mount:
 
         self.log: logging.Logger = logging.getLogger(type(self).__name__)
 
+        self.previous_command = ""
+
     async def start(self) -> None:
         """Start the TCP/IP server."""
         self.log.info("Start called.")
@@ -140,27 +142,34 @@ class LX200Mount:
             await self._process_command(cmd, line)
 
     async def _process_command(self, cmd: str, line: str) -> None:
-        self.responder.cmd = cmd
-        (func, has_arg) = self.responder.dispatch_dict[cmd]
-        kwargs = {}
-        if has_arg:
-            # Read the function argument from the incoming command line
-            # and pass it on to the function.
-            data_start = len(cmd)
-            kwargs["data"] = line[data_start:-1]
-        output = await func(**kwargs)  # type: ignore
-        if output:
-            if REPLY_SEPARATOR in output:
-                # dirty trick to be able to send two output
-                # strings as is expected for e.g. "SC#"
-                outputs = output.split(REPLY_SEPARATOR)
-                for i in range(len(outputs)):
-                    await self.write(outputs[i])
-                    self.log.debug(f"Sleeping for {SEND_COMMAND_SLEEP} sec.")
-                    await asyncio.sleep(SEND_COMMAND_SLEEP)
-            else:
-                append_hash = cmd not in ["MS"]
-                await self.write(output, append_hash)
+        # On 22 Oct 2023 I found that INDI sends a duplicate GR command after issuing an MS (goto) command
+        # causing INDI to swap RA and DEC. If the duplicate command is ignored, all works well, so that's
+        # what's being done here.
+        if cmd != self.previous_command:
+            self.responder.cmd = cmd
+            (func, has_arg) = self.responder.dispatch_dict[cmd]
+            kwargs = {}
+            if has_arg:
+                # Read the function argument from the incoming command line
+                # and pass it on to the function.
+                data_start = len(cmd)
+                kwargs["data"] = line[data_start:-1]
+            output = await func(**kwargs)  # type: ignore
+            if output:
+                if REPLY_SEPARATOR in output:
+                    # dirty trick to be able to send two output
+                    # strings as is expected for e.g. "SC#"
+                    outputs = output.split(REPLY_SEPARATOR)
+                    for i in range(len(outputs)):
+                        await self.write(outputs[i])
+                        self.log.debug(f"Sleeping for {SEND_COMMAND_SLEEP} sec.")
+                        await asyncio.sleep(SEND_COMMAND_SLEEP)
+                else:
+                    append_hash = cmd not in ["MS"]
+                    await self.write(output, append_hash)
+        else:
+            self.log.debug(f"Ignoring duplicate {cmd=}")
+        self.previous_command = cmd
 
 
 async def run_lx200_mount() -> None:
