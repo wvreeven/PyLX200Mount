@@ -106,11 +106,10 @@ class Lx200CommandResponder:
         ra = ra_dec.ra
         hms = ra.hms
         if self.coordinate_precision == CoordinatePrecision.HIGH:
-            ra_str = f"{hms.h:02.0f}*{hms.m:02.0f}:{hms.s:02.2f}"
+            ra_str = f"{hms.h:02.0f}:{hms.m:02.0f}:{hms.s:02.2f}"
         else:
             m = hms.m + (hms.s / 60.0)
-            ra_str = f"{hms.h:02.0f}*{m:02.1f}"
-        self.log.debug(f"{ra_str=}")
+            ra_str = f"{hms.h:02.0f}:{m:02.1f}"
         return ra_str
 
     async def set_ra(self, data: str) -> str:
@@ -138,12 +137,11 @@ class Lx200CommandResponder:
         dec_dms = dec.signed_dms
         if self.coordinate_precision == CoordinatePrecision.HIGH:
             dec_str = (
-                f"{dec_dms.sign*dec_dms.d:02.0f}*{dec_dms.m:02.0f}:{dec_dms.s:02.2f}"
+                f"{dec_dms.sign*dec_dms.d:02.0f}*{dec_dms.m:02.0f}'{dec_dms.s:02.2f}"
             )
         else:
             m = dec_dms.m + (dec_dms.s / 60.0)
-            dec_str = f"{dec_dms.sign*dec_dms.d:02.0f}*{m:02.1f}"
-        self.log.debug(f"{dec_str=}")
+            dec_str = f"{dec_dms.sign*dec_dms.d:02.0f}*{m:02.0f}"
         return dec_str
 
     async def set_dec(self, data: str) -> str:
@@ -234,13 +232,13 @@ class Lx200CommandResponder:
         """Set the latitude of the obsering site."""
         self.log.debug(f"set_current_site_latitude received data {data}")
         if "*" in data:
-            # SkySafari sends the latitude in the form "deg*min"
+            # SkySafari and AstroPlanner send the latitude in the form "deg*min".
             lat_deg, lat_min = data.split("*")
             self.mount_controller.observing_location.set_latitude(
                 Latitude(f"{lat_deg}d{lat_min}m")
             )
         else:
-            # Ekos sends the latitude in the form of a decimal value
+            # INDI sends the latitude in the form of a decimal value.
             self.mount_controller.observing_location.set_latitude(
                 Latitude(f"{data} degrees")
             )
@@ -282,13 +280,13 @@ class Lx200CommandResponder:
             longitude = "-" + data
 
         if "*" in data:
-            # SkySafari sends the longitude in the form "deg*min"
+            # SkySafari and AstroPlanner send the longitude in the form "deg*min".
             lon_deg, lon_min = longitude.split("*")
             self.mount_controller.observing_location.set_longitude(
                 Latitude(f"{lon_deg}d{lon_min}m")
             )
         else:
-            # Ekos sends the longitude in the form of a decimal value
+            # INDI sends the longitude in the form of a decimal value.
             self.mount_controller.observing_location.set_longitude(
                 Longitude(f"{longitude} degrees")
             )
