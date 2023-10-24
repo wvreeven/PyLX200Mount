@@ -19,7 +19,7 @@ from ..my_math.astropy_util import (
 )
 from ..observing_location import ObservingLocation
 
-# from ..phidgets.phidgets_stepper import PhidgetsStepper
+# from ..phidgets.phidgets_motor_controller import PhidgetsMotorController
 from ..utils import get_time
 
 # AltAz task interval [sec].
@@ -47,14 +47,14 @@ class MountController:
 
         # The motor controllers.
         self.motor_controller_alt: BaseMotorController = EmulatedMotorController(
-            # self.motor_controller_alt: BaseMotorController = PhidgetsStepper(
+            # self.motor_controller_alt: BaseMotorController = PhidgetsMotorController(
             initial_position=Angle(0.0, u.deg),
             log=self.log,
             conversion_factor=Angle(0.0001 * u.deg),
             hub_port=0,
         )
         self.motor_controller_az: BaseMotorController = EmulatedMotorController(
-            # self.motor_controller_az: BaseMotorController = PhidgetsStepper(
+            # self.motor_controller_az: BaseMotorController = PhidgetsMotorController(
             initial_position=Angle(0.0, u.deg),
             log=self.log,
             conversion_factor=Angle(0.0001 * u.deg),
