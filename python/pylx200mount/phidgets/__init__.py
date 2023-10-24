@@ -1,2 +1,1 @@
-# TODO Extract to another GitHub repo to not have a dependency on the Phidgets library for the base project.
-from .phidgets_stepper import *
+from .phidgets_motor_controller import *

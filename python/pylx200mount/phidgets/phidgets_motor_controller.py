@@ -1,4 +1,4 @@
-__all__ = ["PhidgetsStepper"]
+__all__ = ["PhidgetsMotorController"]
 
 import logging
 import typing
@@ -29,7 +29,7 @@ MICROSTEP_ANGLE = STEP_ANGLE / 16.0
 GEARED_MICROSTEP_ANGLE = MICROSTEP_ANGLE / GEAR_RATIO
 
 
-class PhidgetsStepper(BaseMotorController):
+class PhidgetsMotorController(BaseMotorController):
     def __init__(
         self,
         initial_position: Angle,
