@@ -1,14 +1,14 @@
 __all__ = ["PhidgetsStepper"]
 
 import logging
-import math
 import typing
 
-import astropy.units as u
 from astropy.coordinates import Angle
 from Phidget22.Devices.Stepper import Stepper
 from Phidget22.Net import Net, PhidgetServerType
 from Phidget22.PhidgetException import PhidgetException
+
+from ..motor.base_motor_controller import BaseMotorController
 
 # The maximum acceleration of the stepper motor [deg/sec].
 ACCELERATION = 60000
@@ -29,21 +29,23 @@ MICROSTEP_ANGLE = STEP_ANGLE / 16.0
 GEARED_MICROSTEP_ANGLE = MICROSTEP_ANGLE / GEAR_RATIO
 
 
-class PhidgetsStepper:
+class PhidgetsStepper(BaseMotorController):
     def __init__(
         self,
         initial_position: Angle,
-        telescope_reduction: float,
         log: logging.Logger,
+        conversion_factor: Angle,
         hub_port: int,
-        is_remote: bool = False,
+        is_remote: bool = True,
     ) -> None:
-        self.log = log.getChild(
-            f"{type(self).__name__} {'Alt' if hub_port==0 else 'Az'}"
-        )
+        is_alt = hub_port == 0
+        super().__init__(log=log, is_alt=is_alt, conversion_factor=conversion_factor)
 
         if is_remote:
             Net.enableServerDiscovery(PhidgetServerType.PHIDGETSERVER_DEVICEREMOTE)
+
+        self._max_velocity = ACCELERATION
+        self._max_acceleration = ACCELERATION
 
         self.stepper = Stepper()
         self.stepper.setHubPort(hub_port)
@@ -54,15 +56,11 @@ class PhidgetsStepper:
         self.stepper.setOnVelocityChangeHandler(self.on_velocity_change)
         self.stepper.setOnErrorHandler(self.on_error)
 
-        self.telescope_step_size = GEARED_MICROSTEP_ANGLE / telescope_reduction
-
-        self.initial_position = initial_position
-        self.current_position = initial_position
-        self.target_position = Angle(0.0, u.deg)
-        self.current_velocity = Angle(0.0, u.deg)
+        self._position_offset = round(
+            (initial_position / self._conversion_factor).value
+        )
 
         self.attached = False
-        self.hub_port = hub_port
 
     def on_attach(self, _: typing.Any) -> None:
         """On attach callback."""
@@ -76,19 +74,11 @@ class PhidgetsStepper:
 
     def on_position_change(self, _: typing.Any, current_position: float) -> None:
         """On position change callback."""
-        self.current_position = Angle(current_position, u.deg).wrap_at(360.0 * u.deg)
-        self.log.debug(
-            f"current_position={self.current_position.to_string(u.deg)} "
-            "and self.target_position="
-            f"{self.target_position.wrap_at(360.0 * u.deg).to_string(u.deg)}"
-        )
+        self._position = current_position
 
     def on_velocity_change(self, _: typing.Any, current_velocity: float) -> None:
         """On velocity change callback."""
-        self.current_velocity = Angle(current_velocity, u.deg)
-        self.log.debug(
-            f"self.current_velocity={self.current_velocity.to_string(u.deg)} / sec "
-        )
+        self._velocity = current_velocity
 
     def on_error(self, code: int, description: str) -> None:
         self.log.error(f"{code=!s} -> {description=!s}")
@@ -101,31 +91,16 @@ class PhidgetsStepper:
             raise RuntimeError(e)
         self.stepper.setEngaged(True)
         self.stepper.setAcceleration(ACCELERATION)
-        self.stepper.setRescaleFactor(self.telescope_step_size)
         self.stepper.setDataInterval(self.stepper.getMinDataInterval())
-        self.stepper.addPositionOffset(self.initial_position.deg)
 
     async def disconnect(self) -> None:
         """Disconnect the stepper motor."""
         self.stepper.setEngaged(False)
         self.stepper.close()
 
-    async def move(self, target_position: Angle, velocity: Angle) -> None:
-        """Move to the indicated target position at the indicated velocity.
-
-        Parameters
-        ----------
-        target_position: `Angle`
-            The target position to slew to [deg].
-        velocity: `Angle`
-            The velocity at which to move [deg /sec].
-        """
-        # Compute the shortest path to the target position.
-        self.log.debug(f"move from {self.current_position} to {target_position}")
-        new_target_position = self.current_position + (
-            target_position - self.current_position
-        ).wrap_at(180.0 * u.deg)
-        # Now move to this target position.
-        self.target_position = new_target_position
-        self.stepper.setVelocityLimit(math.fabs(velocity.deg))
-        self.stepper.setTargetPosition(self.target_position.deg)
+    async def set_target_position_and_velocity(
+        self, target_position_in_steps: float, max_velocity_in_steps: float
+    ) -> None:
+        assert self.stepper is not None
+        self.stepper.setVelocityLimit(abs(max_velocity_in_steps))
+        self.stepper.setTargetPosition(target_position_in_steps)

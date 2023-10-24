@@ -68,9 +68,9 @@ class EmulatedStepper:
 
             # Call change handlers if necessary.
             if old_position != self._position and self._on_position_change_handler:
-                self._on_position_change_handler(self._position)
+                self._on_position_change_handler(self, self._position)
             if old_velocity != self._velocity and self._on_velocity_change_handler:
-                self._on_velocity_change_handler(self._velocity)
+                self._on_velocity_change_handler(self, self._velocity)
 
             # Compute the remainder of the wait time to avoid drift.
             remainder = (get_time() - start_time) % self._data_interval
@@ -102,7 +102,7 @@ class EmulatedStepper:
     def close(self) -> None:
         self.log.debug("Setting is_open = False")
         if self._on_detach_handler:
-            self._on_detach_handler()
+            self._on_detach_handler(self)
 
     def get_min_data_interval(self) -> float:
         return 0.1
@@ -110,7 +110,7 @@ class EmulatedStepper:
     def open_wait_for_attachment(self, timeout: float) -> None:
         self.log.debug(f"Setting is_open = True and ignoring {timeout=}")
         if self._on_attach_handler:
-            self._on_attach_handler()
+            self._on_attach_handler(self)
 
     def set_acceleration(self, acceleration: float) -> None:
         self._acceleration = acceleration
@@ -204,32 +204,36 @@ class EmulatedMotorController(BaseMotorController):
 
         self.attached = False
 
-    def on_attach(self) -> None:
+    def on_attach(self, _: typing.Any) -> None:
         """On attach callback."""
         self.log.info("Attach stepper!")
         self.attached = True
 
-    def on_detach(self) -> None:
+    def on_detach(self, _: typing.Any) -> None:
         """On detach callback."""
         self.log.info("Detach stepper!")
         self.attached = False
 
-    def on_position_change(self, current_position: float) -> None:
+    def on_position_change(self, _: typing.Any, current_position: float) -> None:
         """On position change callback.
 
         Parameters
         ----------
+        _: `typing.Any`
+            An instance of the stepper class.
         current_position: `int`
             The current position of the stepper motor [steps].
         """
         # self.log.debug(f"time={get_time()}, {current_position=} steps.")
         self._position = current_position
 
-    def on_velocity_change(self, current_velocity: float) -> None:
+    def on_velocity_change(self, _: typing.Any, current_velocity: float) -> None:
         """On velocity change callback.
 
         Parameters
         ----------
+        _: `typing.Any`
+            An instance of the stepper class.
         current_velocity: `int`
             The current velocity of the stepper motor [steps/sec].
         """
