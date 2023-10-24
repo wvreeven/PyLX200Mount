@@ -4,6 +4,7 @@ __all__ = ["BaseMotorController"]
 
 import logging
 import types
+import typing
 from abc import ABC, abstractmethod
 
 import astropy.units as u
@@ -83,31 +84,35 @@ class BaseMotorController(ABC):
         return target_position_in_steps
 
     @abstractmethod
-    def on_attach(self) -> None:
+    def on_attach(self, _: typing.Any) -> None:
         """On attach callback."""
         raise NotImplementedError
 
     @abstractmethod
-    def on_detach(self) -> None:
+    def on_detach(self, _: typing.Any) -> None:
         """On detach callback."""
         raise NotImplementedError
 
-    def on_position_change(self, current_position: int) -> None:
+    def on_position_change(self, _: typing.Any, current_position: int) -> None:
         """On position change callback.
 
         Parameters
         ----------
+        _: `typing.Any`
+            An instance of the stepper class.
         current_position: `int`
             The current position of the stepper motor [steps].
         """
         raise NotImplementedError
 
     @abstractmethod
-    def on_velocity_change(self, current_velocity: int) -> None:
+    def on_velocity_change(self, _: typing.Any, current_velocity: int) -> None:
         """On velocity change callback.
 
         Parameters
         ----------
+        _: `typing.Any`
+            An instance of the stepper class.
         current_velocity: `int`
             The current velocity of the stepper motor [steps/sec].
         """
