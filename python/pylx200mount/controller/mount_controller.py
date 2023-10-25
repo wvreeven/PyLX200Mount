@@ -1,12 +1,15 @@
 __all__ = ["MountController"]
 
 import asyncio
+import importlib
+import json
 import logging
+import pathlib
 
+import jsonschema
 from astropy import units as u
 from astropy.coordinates import Angle, SkyCoord
 
-from ..emulation.emulated_motor_controller import EmulatedMotorController
 from ..enums import MotorControllerState, SlewDirection, SlewRate
 from ..motor.base_motor_controller import BaseMotorController
 from ..my_math.astropy_util import (
@@ -18,8 +21,6 @@ from ..my_math.astropy_util import (
     get_skycoord_from_ra_dec_str,
 )
 from ..observing_location import ObservingLocation
-
-# from ..phidgets.phidgets_motor_controller import PhidgetsMotorController
 from ..utils import get_time
 
 # AltAz task interval [sec].
@@ -37,6 +38,9 @@ ZERO = Angle(0.0, u.deg)
 # Position loop task interval [sec].
 POSITION_INTERVAL = 2.0
 
+JSON_SCHEMA_FILE = pathlib.Path(__file__).parents[0] / "configuration_schema.json"
+CONFIG_FILE = pathlib.Path.home() / ".config" / "pylx200mount" / "config.json"
+
 
 class MountController:
     """Control the Mount."""
@@ -45,20 +49,50 @@ class MountController:
         self.log = logging.getLogger(type(self).__name__)
         self.observing_location = ObservingLocation()
 
+        with open(JSON_SCHEMA_FILE, "r") as f:
+            json_schema = json.load(f)
+        self.validator = jsonschema.Draft7Validator(schema=json_schema)
+
+        if CONFIG_FILE.exists():
+            with open(CONFIG_FILE, "r") as f:
+                config = json.load(f)
+            self.validator.validate(config)
+            alt_module_name = config["alt"]["module"]
+            alt_class_name = config["alt"]["class_name"]
+            alt_hub_port = config["alt"]["hub_port"]
+            alt_gear_reduction = config["alt"]["gear_reduction"]
+            az_module_name = config["az"]["module"]
+            az_class_name = config["az"]["class_name"]
+            az_hub_port = config["az"]["hub_port"]
+            az_gear_reduction = config["az"]["gear_reduction"]
+        else:
+            alt_module_name = "pylx200mount.emulation.emulated_motor_controller"
+            alt_class_name = "EmulatedMotorController"
+            alt_hub_port = 0
+            # 200 steps per revolution, 16 microsteps per step and a gear reduction of 2000x.
+            alt_gear_reduction = 360 / 200 / 16 / 2000
+            az_module_name = "pylx200mount.emulation.emulated_motor_controller"
+            az_class_name = "EmulatedMotorController"
+            az_hub_port = 1
+            # 200 steps per revolution, 16 microsteps per step and a gear reduction of 2000x.
+            az_gear_reduction = 360 / 200 / 16 / 2000
+        alt_motor_module = importlib.import_module(alt_module_name)
+        alt_motor_class = getattr(alt_motor_module, alt_class_name)
+        az_motor_module = importlib.import_module(az_module_name)
+        az_motor_class = getattr(az_motor_module, az_class_name)
+
         # The motor controllers.
-        self.motor_controller_alt: BaseMotorController = EmulatedMotorController(
-            # self.motor_controller_alt: BaseMotorController = PhidgetsMotorController(
+        self.motor_controller_alt: BaseMotorController = alt_motor_class(
             initial_position=Angle(0.0, u.deg),
             log=self.log,
-            conversion_factor=Angle(0.0001 * u.deg),
-            hub_port=0,
+            conversion_factor=Angle(alt_gear_reduction * u.deg),
+            hub_port=alt_hub_port,
         )
-        self.motor_controller_az: BaseMotorController = EmulatedMotorController(
-            # self.motor_controller_az: BaseMotorController = PhidgetsMotorController(
+        self.motor_controller_az: BaseMotorController = az_motor_class(
             initial_position=Angle(0.0, u.deg),
             log=self.log,
-            conversion_factor=Angle(0.0001 * u.deg),
-            hub_port=1,
+            conversion_factor=Angle(az_gear_reduction * u.deg),
+            hub_port=az_hub_port,
         )
 
         # Slew related variables
