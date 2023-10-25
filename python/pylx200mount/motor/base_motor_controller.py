@@ -37,6 +37,9 @@ class BaseMotorController(ABC):
         self._max_velocity = 0.0
         self._max_acceleration = 0.0
         self._conversion_factor = conversion_factor
+        self.log.info(
+            f'Conversion factor set to {conversion_factor.deg}º == {conversion_factor.deg * 3600.0:.4f}".'
+        )
         self._position_offset = 0.0
         self.state = MotorControllerState.STOPPED
 

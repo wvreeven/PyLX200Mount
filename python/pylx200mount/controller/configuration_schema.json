@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "PyLX200Mount configuration schema.",
+  "type": "object",
+  "properties": {
+    "alt": {
+      "description": "The configuration for the altitude motor.",
+      "$ref": "#/$defs/motor"
+    },
+    "az": {
+      "description": "The configuration for the azimuth motor.",
+      "$ref": "#/$defs/motor"
+    }
+  },
+  "$defs": {
+    "motor": {
+      "type": "object",
+      "properties": {
+        "class_name": {
+          "type": "string",
+          "description": "The name of the motor class."
+        },
+        "module": {
+          "type": "string",
+          "description": "The Python module for the motor class."
+        },
+        "hub_port": {
+          "type": "integer",
+          "description": "The hub port motor. This defines in the Python code whether this is the alt or the az motor."
+        },
+        "gear_reduction": {
+          "type": "number",
+          "description": "Translate one step of the motor to what angle the telescope axis will move [deg]."
+        }
+      },
+      "required": [
+        "class_name",
+        "module",
+        "hub_port",
+        "gear_reduction"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "alt",
+    "az"
+  ],
+  "additionalProperties": false
+}
