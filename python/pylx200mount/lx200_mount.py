@@ -29,7 +29,6 @@ class LX200Mount:
         self.port: int = 11880
         self._server: asyncio.AbstractServer | None = None
         self._writer: asyncio.StreamWriter | None = None
-        # TODO Add configuration to select simulation mode and other settings.
         self.responder = Lx200CommandResponder()
 
         self.log: logging.Logger = logging.getLogger(type(self).__name__)

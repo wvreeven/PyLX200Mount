@@ -80,35 +80,38 @@ class TestTrajectory(IsolatedAsyncioTestCase):
         )
         if curr_pos == target_position and math.isclose(curr_vel, 0.0):
             assert len(self.trajectory.segments) == 1
-            assert self.trajectory.segments[0].position0 == curr_pos
-            assert self.trajectory.segments[0].velocity0 == curr_vel
+            assert self.trajectory.segments[0].start_position == curr_pos
+            assert self.trajectory.segments[0].start_velocity == curr_vel
             assert math.isclose(self.trajectory.segments[0].acceleration, 0.0)
         else:
             assert len(self.trajectory.segments) > 1
             for i in range(1, len(self.trajectory.segments)):
                 segment0 = self.trajectory.segments[i - 1]
                 segment1 = self.trajectory.segments[i]
-                assert not numpy.iscomplexobj(segment0.position0)
-                assert not numpy.iscomplexobj(segment0.velocity0)
+                assert not numpy.iscomplexobj(segment0.start_position)
+                assert not numpy.iscomplexobj(segment0.start_velocity)
                 assert not numpy.iscomplexobj(segment0.acceleration)
                 assert not numpy.iscomplexobj(segment0.start_time)
-                assert not numpy.iscomplexobj(segment1.position0)
-                assert not numpy.iscomplexobj(segment1.velocity0)
+                assert not numpy.iscomplexobj(segment1.start_position)
+                assert not numpy.iscomplexobj(segment1.start_velocity)
                 assert not numpy.iscomplexobj(segment1.acceleration)
                 assert not numpy.iscomplexobj(segment1.start_time)
                 pos0, vel0 = pylx200mount.motor.accelerated_pos_and_vel(
-                    segment0.position0,
-                    segment0.velocity0,
+                    segment0.start_position,
+                    segment0.start_velocity,
                     segment0.acceleration,
                     segment1.start_time - segment0.start_time,
                 )
                 pos1, vel1 = pylx200mount.motor.accelerated_pos_and_vel(
-                    segment1.position0, segment1.velocity0, segment1.acceleration, 0.0
+                    segment1.start_position,
+                    segment1.start_velocity,
+                    segment1.acceleration,
+                    0.0,
                 )
                 assert pos0 == pytest.approx(pos1, abs=1e-9)
                 assert vel0 == pytest.approx(vel1, abs=1e-9)
 
             last_segment = self.trajectory.segments[-1]
-            assert last_segment.position0 == target_position
-            assert math.isclose(last_segment.velocity0, 0.0)
+            assert last_segment.start_position == target_position
+            assert math.isclose(last_segment.start_velocity, 0.0)
             assert math.isclose(last_segment.acceleration, 0.0)
