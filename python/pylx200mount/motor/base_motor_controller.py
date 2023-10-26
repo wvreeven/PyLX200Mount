@@ -24,13 +24,37 @@ AZ_WRAP = THREE_SIXTY
 
 
 class BaseMotorController(ABC):
+    """Base class for all motor controllers.
+
+    This class takes care of as much logic for controlling a stepper motor in a generic way.
+
+    The base class is responsible for:
+
+      * Callbacks for when the physical motor attaches and detaches.
+      * Callbacks for when the position or velocity changes.
+      * Converting the number of motor steps to an angle and back for position, velocity and acceleration,
+        taking the gear reduction and position offset into account.
+      * Move to the given target position with the specified maximum velocity.
+      * Track to the given target position for the given duration.
+      * Stop the current motion.
+      * Async context manager methods.
+
+    Implementing classes need to implement the following methods:
+
+      * Connect and disconnect the physical motor.
+      * Set the target position in steps and the maximum velocity in steps/sec in the physical motors.
+    """
+
+    # Name for altitude motors.
+    ALT = "Alt"
+    # Name for azimuth motors.
+    AZ = "Az"
+
     def __init__(
-        self, log: logging.Logger, is_alt: bool, conversion_factor: Angle
+        self, log: logging.Logger, name: str, conversion_factor: Angle
     ) -> None:
-        self.is_alt = is_alt
-        self.log = log.getChild(
-            f"{type(self).__name__} {'Alt' if self.is_alt else 'Az'}"
-        )
+        self.name = name
+        self.log = log.getChild(f"{type(self).__name__} {self.name}")
 
         self._position = 0.0
         self._velocity = 0.0
@@ -47,30 +71,54 @@ class BaseMotorController(ABC):
         self._one_eighty_steps = (ONE_EIGHTY / self._conversion_factor).value
         self._three_sixty_steps = (THREE_SIXTY / self._conversion_factor).value
 
+        self.attached = False
+
     @property
     def position(self) -> Angle:
+        """The motor position [steps] as an astropy `Angle`."""
         pos = round(self._position + self._position_offset) * self._conversion_factor
-        return pos.wrap_at(ALT_WRAP if self.is_alt else AZ_WRAP)
+        return pos.wrap_at(
+            ALT_WRAP if self.name == BaseMotorController.ALT else AZ_WRAP
+        )
 
     @position.setter
     def position(self, position: Angle) -> None:
+        """Setter for the motor position [astropy `Angle`] which gets converted to steps."""
         position_value = (position / self._conversion_factor).value
         self._position_offset = round(position_value - self._position)
         self.log.debug(f"{self._position_offset=}")
 
     @property
     def velocity(self) -> Angle:
+        """The motor velocity [steps/sec] as an astropy `Angle` per sec."""
         return round(self._velocity) * self._conversion_factor
 
     @property
     def max_velocity(self) -> Angle:
+        """The motor maximum velocity [steps/sec] as an astropy `Angle` per sec."""
         return self._max_velocity * self._conversion_factor
 
     @property
     def max_acceleration(self) -> Angle:
+        """The motor maximum acceleration [steps/sec^2] as an astropy `Angle` per sec^2."""
         return self._max_acceleration * self._conversion_factor
 
-    def get_target_position_in_steps(self, target_position: Angle) -> int:
+    def _get_target_position_in_steps(self, target_position: Angle) -> int:
+        """Get the target position in steps.
+
+        This takes both the conversion factor and the position offset into account. The number of steps is
+        increased or decreased to match the multiple of steps equivalent to 180 degrees of the motor position.
+
+        Parameters
+        ----------
+        target_position : `Angle`
+            The target position.
+
+        Returns
+        -------
+        int
+            The targtet position [sec].
+        """
         target_position_in_steps = (
             round((target_position / self._conversion_factor).value)
             - self._position_offset
@@ -86,14 +134,24 @@ class BaseMotorController(ABC):
 
         return target_position_in_steps
 
-    @abstractmethod
     def on_attach(self, _: typing.Any) -> None:
         """On attach callback."""
+        self.log.info("Attach stepper!")
+        self.attached = True
+
+    def on_detach(self, _: typing.Any) -> None:
+        """On detach callback."""
+        self.log.info("Detach stepper!")
+        self.attached = False
+
+    @abstractmethod
+    async def connect(self) -> None:
+        """Connect the stepper motor."""
         raise NotImplementedError
 
     @abstractmethod
-    def on_detach(self, _: typing.Any) -> None:
-        """On detach callback."""
+    async def disconnect(self) -> None:
+        """Disconnect the stepper motor."""
         raise NotImplementedError
 
     def on_position_change(self, _: typing.Any, current_position: int) -> None:
@@ -106,9 +164,8 @@ class BaseMotorController(ABC):
         current_position: `int`
             The current position of the stepper motor [steps].
         """
-        raise NotImplementedError
+        self._position = current_position
 
-    @abstractmethod
     def on_velocity_change(self, _: typing.Any, current_velocity: int) -> None:
         """On velocity change callback.
 
@@ -119,22 +176,16 @@ class BaseMotorController(ABC):
         current_velocity: `int`
             The current velocity of the stepper motor [steps/sec].
         """
-        raise NotImplementedError
-
-    @abstractmethod
-    async def connect(self) -> None:
-        """Connect the stepper motor."""
-        raise NotImplementedError
-
-    @abstractmethod
-    async def disconnect(self) -> None:
-        """Disconnect the stepper motor."""
-        raise NotImplementedError
+        self._velocity = current_velocity
 
     async def stop_motion(self) -> None:
         """Stop the current motion.
 
-        If currently moving, this will slow down the motion at the maximum acceleration until stopped.
+        If currently moving, this will slow down the motion at the maximum acceleration until stopped. In
+        order to do this, the time to stop from the current velocity assuming the maximum acceleration is
+        computed. Based on that time, the resulting target position is computed. The target position and
+        maximum velocity then are passed on to the method that sets it in the physical motor.
+
         If already stopped then this will have no effect.
         """
         self.state = MotorControllerState.STOPPING
@@ -154,7 +205,7 @@ class BaseMotorController(ABC):
         target_position = (
             target_position_in_steps + self._position_offset
         ) * self._conversion_factor
-        target_position_in_steps = self.get_target_position_in_steps(target_position)
+        target_position_in_steps = self._get_target_position_in_steps(target_position)
 
         await self.set_target_position_and_velocity(
             target_position_in_steps, max_velocity_in_steps
@@ -174,7 +225,7 @@ class BaseMotorController(ABC):
             to HIGH, which is the highest rate.
         """
         self.state = MotorControllerState.SLEWING
-        target_position_in_steps = self.get_target_position_in_steps(target_position)
+        target_position_in_steps = self._get_target_position_in_steps(target_position)
         max_velocity_in_steps = self._max_velocity * slew_rate / SlewRate.HIGH
 
         await self.set_target_position_and_velocity(
@@ -182,7 +233,19 @@ class BaseMotorController(ABC):
         )
 
     async def track(self, target_position: Angle, timediff: float) -> None:
-        target_position_in_steps = self.get_target_position_in_steps(target_position)
+        """Track the provided target position over the provided time difference.
+
+        The velocity to track with is computed based on the difference in steps, computed from the current
+        position and the target position, and the time difference.
+
+        Parameters
+        ----------
+        target_position : `Angle`
+            The target position to track to.
+        timediff : `float`
+            The amount of time to take to track to the target position.
+        """
+        target_position_in_steps = self._get_target_position_in_steps(target_position)
         max_velocity_in_steps = (self._position - target_position_in_steps) / timediff
         await self.set_target_position_and_velocity(
             target_position_in_steps, max_velocity_in_steps
@@ -192,6 +255,15 @@ class BaseMotorController(ABC):
     async def set_target_position_and_velocity(
         self, target_position_in_steps: float, max_velocity_in_steps: float
     ) -> None:
+        """Set the target position and maximum velocity in the stepper motor.
+
+        Parameters
+        ----------
+        target_position_in_steps : `float`
+            The target position [steps].
+        max_velocity_in_steps : `float`
+            The maximum velocity [steps/sec].
+        """
         raise NotImplementedError
 
     async def __aenter__(self) -> BaseMotorController:

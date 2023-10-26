@@ -44,7 +44,9 @@ class TestEmulatedMotorController(IsolatedAsyncioTestCase):
             conversion_factor=conversion_factor,
             hub_port=0,
         )
-        assert emulated_motor_controller.is_alt
+        assert (
+            emulated_motor_controller.name == pylx200mount.motor.BaseMotorController.ALT
+        )
         assert not emulated_motor_controller.attached
 
         await emulated_motor_controller.connect()

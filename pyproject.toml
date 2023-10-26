@@ -1,5 +1,5 @@
 [build-system]
-requires = [ "setuptools", "setuptools_scm" ]
+requires = ["setuptools", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,18 +8,17 @@ description = "PyLX200Mount"
 author = "Wouter van Reeven"
 author-email = "wouter@van.reeven.nl"
 license = { text = "GPL" }
-classifiers = [ "Programming Language :: Python :: 3" ]
-dynamic = [ "version" ]
-dependencies = [ "astropy", "skimage" ]
+classifiers = ["Programming Language :: Python :: 3"]
+dynamic = ["version"]
+dependencies = ["astropy", "scikit-image"]
 
 [tool.setuptools.dynamic]
 version = { attr = "setuptools_scm.get_version" }
 
 [tool.setuptools.packages.find]
-where = [ "python" ]
+where = ["python"]
 
 [project.scripts]
-run_demo_lx200_mount = "pylx200mount.lx200_mount:run_demo_lx200_mount"
 run_lx200_mount = "pylx200mount.lx200_mount:run_lx200_mount"
 
 [tool.setuptools_scm]
@@ -32,6 +31,3 @@ __version__ = "{version}"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-
-[project.optional-dependencies]
-dev = ["documenteer[pipelines]"]

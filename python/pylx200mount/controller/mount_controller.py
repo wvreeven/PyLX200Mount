@@ -107,6 +107,13 @@ class MountController:
 
     @property
     def telescope_alt_az(self) -> SkyCoord:
+        """Get the current motor positions as AltAz coordinates.
+
+        Returns
+        -------
+        `SkyCoord`
+            The current motor positions as AltAz coordinates.
+        """
         alt_az = get_skycoord_from_alt_az(
             alt=self.motor_controller_alt.position.deg,
             az=self.motor_controller_az.position.deg,
@@ -134,6 +141,11 @@ class MountController:
         await self.motor_controller_az.connect()
 
     async def position_loop(self) -> None:
+        """The position loop.
+
+        Get the motor positions every `POSITION_INTERVAL` seconds and let the motors track if necessary. The
+        loop delay is non-drifiting.
+        """
         start_time = get_time()
         self.log.debug(f"position_loop starts at {start_time}")
         while True:
@@ -158,6 +170,16 @@ class MountController:
             await asyncio.sleep(POSITION_INTERVAL - remainder)
 
     def check_motor_stopped(self, motor: BaseMotorController) -> None:
+        """Check if the provided motor is stopped.
+
+        If the motor state is not stopped but the motor velocity is 0 deg/sec, then the motor state is set to
+        `MotorControllerState.TRACKING`.
+
+        Parameters
+        ----------
+        motor : `BaseMotorController`
+            The motor to check.
+        """
         if motor.state != MotorControllerState.STOPPED and motor.velocity == ZERO:
             motor.state = MotorControllerState.TRACKING
 
@@ -288,6 +310,13 @@ class MountController:
             return "1"
 
     async def slew_in_direction(self, cmd: str) -> None:
+        """Slew the mount in the provided direction.
+
+        Parameters
+        ----------
+        cmd : `str`
+            The command that specifies which direction to slew to.
+        """
         match cmd:
             case "Mn":
                 self.slew_direction = SlewDirection.UP
@@ -312,6 +341,7 @@ class MountController:
         self.slew_ref_time = get_time()
 
     async def stop_slew(self) -> None:
+        """Stop the slew of both motors."""
         await self.motor_controller_az.stop_motion()
         await self.motor_controller_alt.stop_motion()
 

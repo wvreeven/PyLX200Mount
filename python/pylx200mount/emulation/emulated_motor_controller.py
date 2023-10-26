@@ -19,7 +19,7 @@ MAX_ACCEL = 50000.0
 
 
 class EmulatedStepper:
-    """Emulate a stepper motor."""
+    """Emulate a Phidgets stepper motor."""
 
     def __init__(self) -> None:
         self.log = logging.getLogger(type(self).__name__)
@@ -58,6 +58,11 @@ class EmulatedStepper:
         self._position_loop_task.set_result(None)
 
     async def _position_loop(self) -> None:
+        """Execute the position loop.
+
+        Compute the position and velocity for the current time. Call the position and velocity callbacks if
+        the position respectively the velocity have changed. The loop delay is non-drifiting.
+        """
         start_time = get_time()
         while True:
             # Keep track of old time, position and velocity for change handlers.
@@ -78,6 +83,7 @@ class EmulatedStepper:
             await asyncio.sleep(self._data_interval - remainder)
 
     def _compute_position_and_velocity(self) -> None:
+        """Use the computed trajectory to compute the position and velocity for the current time."""
         if self._trajectory is not None and len(self._trajectory.segments) != 0:
             now = get_time()
             time_since_command_time = now - self._command_time
@@ -93,33 +99,39 @@ class EmulatedStepper:
             ), f"{segment_to_use=}, {self._trajectory.segments=}"
             time_to_use = time_since_command_time - segment_to_use.start_time
             self._position, self._velocity = accelerated_pos_and_vel(
-                start_position=segment_to_use.position0,
-                start_velocity=segment_to_use.velocity0,
+                start_position=segment_to_use.start_position,
+                start_velocity=segment_to_use.start_velocity,
                 acceleration=segment_to_use.acceleration,
                 time=time_to_use,
             )
 
     def close(self) -> None:
+        """Emulate the Phidgets close method."""
         self.log.debug("Setting is_open = False")
         if self._on_detach_handler:
             self._on_detach_handler(self)
 
     def get_min_data_interval(self) -> float:
+        """Emulate the Phidgets getMinDataInterval method."""
         return 0.1
 
     def open_wait_for_attachment(self, timeout: float) -> None:
+        """Emulate the Phidgets openWaitForAttachment method."""
         self.log.debug(f"Setting is_open = True and ignoring {timeout=}")
         if self._on_attach_handler:
             self._on_attach_handler(self)
 
     def set_acceleration(self, acceleration: float) -> None:
+        """Emulate the Phidgets setAcceleration method."""
         self._acceleration = acceleration
         self._trajectory = Trajectory(acceleration)
 
     def set_data_interval(self, data_interval: float) -> None:
+        """Emulate the Phidgets setDataInterval method."""
         self._data_interval = data_interval
 
     def set_engaged(self, engaged: bool) -> None:
+        """Emulate the Phidgets setEngaged method."""
         self._engaged = engaged
         if engaged:
             self._position_loop_task = asyncio.create_task(self._position_loop())
@@ -134,22 +146,27 @@ class EmulatedStepper:
                         )
 
     def set_hub_port(self, hub_port: int) -> None:
+        """Emulate the Phidgets setHubPort method."""
         self._hub_port = hub_port
 
     def set_on_attach_handler(self, handler: typing.Callable) -> None:
+        """Emulate the Phidgets setOnAttachHandler method."""
         self._on_attach_handler = handler
 
     def set_on_detach_handler(self, handler: typing.Callable) -> None:
+        """Emulate the Phidgets setOnDetachHandler method."""
         self._on_detach_handler = handler
 
     def set_on_position_change_handler(self, handler: typing.Callable) -> None:
+        """Emulate the Phidgets setOnPositionChangeHandler method."""
         self._on_position_change_handler = handler
 
     def set_on_velocity_change_handler(self, handler: typing.Callable) -> None:
+        """Emulate the Phidgets setOnVelocityChangeHandler method."""
         self._on_velocity_change_handler = handler
 
     def set_target_position(self, target_position: float) -> None:
-        """Set the target position.
+        """Emulate the Phidgets setTargetPosition method.
 
         Apart from setting the target position, also compute the paramters for the motion.
 
@@ -175,10 +192,16 @@ class EmulatedStepper:
             )
 
     def set_velocity_limit(self, velocity_limit: float) -> None:
+        """Emulate the Phidgets setVelocityLimit method."""
         self._velocity_limit = velocity_limit
 
 
 class EmulatedMotorController(BaseMotorController):
+    """Emulate a motor controller.
+
+    See `BaseMotorController`.
+    """
+
     def __init__(
         self,
         initial_position: Angle,
@@ -186,8 +209,8 @@ class EmulatedMotorController(BaseMotorController):
         conversion_factor: Angle,
         hub_port: int,
     ) -> None:
-        is_alt = hub_port == 0
-        super().__init__(log=log, is_alt=is_alt, conversion_factor=conversion_factor)
+        name = BaseMotorController.ALT if hub_port == 0 else BaseMotorController.AZ
+        super().__init__(log=log, name=name, conversion_factor=conversion_factor)
         self._max_velocity = MAX_VELOCITY
         self._max_acceleration = MAX_ACCEL
 
@@ -204,42 +227,6 @@ class EmulatedMotorController(BaseMotorController):
 
         self.attached = False
 
-    def on_attach(self, _: typing.Any) -> None:
-        """On attach callback."""
-        self.log.info("Attach stepper!")
-        self.attached = True
-
-    def on_detach(self, _: typing.Any) -> None:
-        """On detach callback."""
-        self.log.info("Detach stepper!")
-        self.attached = False
-
-    def on_position_change(self, _: typing.Any, current_position: float) -> None:
-        """On position change callback.
-
-        Parameters
-        ----------
-        _: `typing.Any`
-            An instance of the stepper class.
-        current_position: `int`
-            The current position of the stepper motor [steps].
-        """
-        # self.log.debug(f"time={get_time()}, {current_position=} steps.")
-        self._position = current_position
-
-    def on_velocity_change(self, _: typing.Any, current_velocity: float) -> None:
-        """On velocity change callback.
-
-        Parameters
-        ----------
-        _: `typing.Any`
-            An instance of the stepper class.
-        current_velocity: `int`
-            The current velocity of the stepper motor [steps/sec].
-        """
-        # self.log.debug(f"time={get_time()}, {current_velocity=} steps/s.")
-        self._velocity = current_velocity
-
     async def connect(self) -> None:
         """Connect the stepper motor."""
         assert self.stepper is not None
@@ -247,6 +234,7 @@ class EmulatedMotorController(BaseMotorController):
             self.stepper.open_wait_for_attachment(ATTACH_WAIT_TIME)
         except Exception as e:
             raise RuntimeError(e)
+        assert self.attached
         self.stepper.set_engaged(True)
         self.stepper.set_acceleration(self._max_acceleration)
         self.stepper.set_data_interval(self.stepper.get_min_data_interval())
@@ -256,10 +244,20 @@ class EmulatedMotorController(BaseMotorController):
         assert self.stepper is not None
         self.stepper.set_engaged(False)
         self.stepper.close()
+        assert not self.attached
 
     async def set_target_position_and_velocity(
         self, target_position_in_steps: float, max_velocity_in_steps: float
     ) -> None:
+        """Set the target position and maximum velocity in the stepper motor.
+
+        Parameters
+        ----------
+        target_position_in_steps : `float`
+            The target position [steps].
+        max_velocity_in_steps : `float`
+            The maximum velocity [steps/sec].
+        """
         assert self.stepper is not None
         self.stepper.set_velocity_limit(abs(max_velocity_in_steps))
         self.stepper.set_target_position(target_position_in_steps)

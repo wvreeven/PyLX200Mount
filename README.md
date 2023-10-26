@@ -2,7 +2,8 @@ PyLX200Mount
 ============
 
 A mount controller implementing the Meade LX200 protocol and commanding stepper motors.
-This allows for any dobson telescope to present itself as an AltAz LX200 mount.
+This allows for any dobson telescope to present itself as an LX200 mount.
+Note that LX200 mounts generally are RaDec but under the hood this project uses AltAz.
 
 To control a mount, clone the repo, install via pip and then issue
 
@@ -10,27 +11,19 @@ To control a mount, clone the repo, install via pip and then issue
 run_lx200_mount
 ```
 
-To run the demo mount controller, issue instead
+This will run the controller with emulated motors.
+In order to run with your own motor controllers, create the `.config/pylx200mount/config.json` according to the configuration JSON schema found in the pylx200mount.controller module.
+In it make sure to set the `module` and `class_name` for your motor controller class(es) and the `gear_reduction` which represents the angle (deg) for each (micro)step of your motors.
 
-```
-run_demo_lx200_mount
-```
-
-
-Then, on the computer from which you want to command the mount, set up an Ekos profile with a simulator CCD, and an Autostar mount.
-It is also possible to set up a Meade LX200 Classic or a Meade LX200 GPS/ACF, LX600 mount in SkySafari.
-In both cases, the connection must be set to Wi-Fi/Ethernet using the IP address of the computer running PyLX200Mount, and port 11880.
+Then, on the computer from which you want to command the mount, set up an INDI profile with a simulator CCD, and an `LX200 Basic` mount.
+you can then use KStars, Cartes du Ciel/skychart or any other application that supports INDI to control your mount.
+It is also possible to set up a `Meade LX200 Classic` mount in SkySafari or a `Meade: LX200 Classic` mount in AstroPlanner.
+In all cases, the connection must be set to Wi-Fi/Ethernet using the IP address of the computer running PyLX200Mount, and port 11880.
 
 Future plans
 ------------
 
 Future plans include (and are not restricted to):
 
-  * Support for ASCOM. 
-    * Find a way to command the LX200 "mount" via ASCOM, so it can be used from Windows as well.
-  * Support for equatorial mounts.
-    * At the moment this project only supports AltAz mounts.
-      However, nothing in the LX200 protocol prevents it from being used in equatorial mode as well.
-      Find a way to implement and, more importantly, test that as well.
-  * Add a conda package.
+* Add a conda package.
 

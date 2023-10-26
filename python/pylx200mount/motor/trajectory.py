@@ -8,9 +8,23 @@ import numpy as np
 
 @dataclass
 class TrajectorySegment:
+    """Segment of a trajectory.
+
+    Attributes
+    ----------
+    start_time : `float`
+        The start time.
+    start_position : `float`
+        The start position.
+    start_velocity : `float`
+        The start velocity.
+    acceleration : `float`
+        The acceleration.
+    """
+
     start_time: float
-    position0: float
-    velocity0: float
+    start_position: float
+    start_velocity: float
     acceleration: float
 
 
@@ -23,11 +37,11 @@ def accelerated_pos_and_vel(
     Parameters
     ----------
     start_position : `float`
-        The position [steps] at t = 0s.
+        The position [any unit] at t = 0s.
     start_velocity : `float`
-        The velocity [steps/s] at t = 0s.
+        The velocity [any unit/sec] at t = 0s.
     acceleration : `float`
-        The acceleration [steps/s**2]
+        The acceleration [any unit/sec^2].
     time : `float`
         The time [s] for which the position and velocity are calculated.
 
@@ -36,6 +50,12 @@ def accelerated_pos_and_vel(
     p, v : `tuple`[`float`]
         The position and velocity at the provided time.
 
+    Notes
+    -----
+    All positions, velocities and accelerations are unitless to make this a generic trajectory that can be
+    applied to degrees, radians, or motor steps (or even other units if desirable). It is assumed that all
+    values have the same base unit, e.g. deg for positions in deg, velocities in deg/sec and accelerations in
+    deg/sec^2.
     """
     velocity = start_velocity + acceleration * time
     position = start_position + (velocity + start_velocity) * time / 2.0
@@ -46,7 +66,16 @@ class Trajectory:
     """Class representing the trajectory.
 
     The trajectory starts at the current position with the current velocity and acceleration and ends at the
-    target position with both velocity and acceleraiton 0.0.
+    target position with both velocity and acceleration 0.0.
+
+    The start time of the first trajectory segment is always 0.0 sec.
+
+    Notes
+    -----
+    All positions, velocities and accelerations are unitless to make this a generic trajectory that can be
+    applied to degrees, radians, or motor steps (or even other units if desirable). It is assumed that all
+    values have the same base unit, e.g. deg for positions in deg, velocities in deg/sec and accelerations in
+    deg/sec^2.
     """
 
     def __init__(self, max_acceleration: float) -> None:
@@ -60,6 +89,21 @@ class Trajectory:
         target_position: float,
         max_velocity: float,
     ) -> None:
+        """Set the target position and maximum velocity.
+
+        Using the current position and velocity, all segements for the entire trajectory are computed.
+
+        Parameters
+        ----------
+        curr_pos : `float`
+            The current position [any unit].
+        curr_vel : `float`
+            The current velocity [any unit/sec].
+        target_position : `float`
+            The target position [any unit].
+        max_velocity : `float`
+            The maximum velocity [any unit/sec].
+        """
         self.segments = []
         if target_position == curr_pos:
             self.handle_target_same_as_pos(
@@ -79,13 +123,26 @@ class Trajectory:
         target_position: float,
         max_velocity: float,
     ) -> None:
+        """Compute the trajectory for the case where the target position is the same as the start position.
+
+        Parameters
+        ----------
+        curr_pos : `float`
+            The current position [any unit].
+        curr_vel : `float`
+            The current velocity [any unit/sec].
+        target_position : `float`
+            The target position [any unit].
+        max_velocity : `float`
+            The maximum velocity [any unit/sec].
+        """
         if math.isclose(curr_vel, 0.0):
             # We are where we need to be and are not moving, so we're done.
             self.segments = [
                 TrajectorySegment(
                     start_time=0.0,
-                    position0=curr_pos,
-                    velocity0=curr_vel,
+                    start_position=curr_pos,
+                    start_velocity=curr_vel,
                     acceleration=0.0,
                 )
             ]
@@ -104,8 +161,8 @@ class Trajectory:
             self.segments = [
                 TrajectorySegment(
                     start_time=0.0,
-                    position0=curr_pos,
-                    velocity0=curr_vel,
+                    start_position=curr_pos,
+                    start_velocity=curr_vel,
                     acceleration=accel,
                 )
             ] + self._determine_trajectory_segments(
@@ -124,6 +181,20 @@ class Trajectory:
         target_position: float,
         max_velocity: float,
     ) -> None:
+        """Compute the trajectory for the case where the target position is not the same as the start
+        position.
+
+        Parameters
+        ----------
+        curr_pos : `float`
+            The current position [any unit].
+        curr_vel : `float`
+            The current velocity [any unit/sec].
+        target_position : `float`
+            The target position [any unit].
+        max_velocity : `float`
+            The maximum velocity [any unit/sec].
+        """
         sign_pos = math.copysign(1, target_position - curr_pos)
         sign_vel = math.copysign(1, curr_vel)
         if sign_pos == sign_vel or math.isclose(curr_vel, 0.0):
@@ -155,8 +226,8 @@ class Trajectory:
             self.segments = [
                 TrajectorySegment(
                     start_time=0.0,
-                    position0=curr_pos,
-                    velocity0=curr_vel,
+                    start_position=curr_pos,
+                    start_velocity=curr_vel,
                     acceleration=accel,
                 )
             ] + self._determine_trajectory_segments(
@@ -177,6 +248,31 @@ class Trajectory:
         max_vel: float,
         accel: float,
     ) -> list[TrajectorySegment]:
+        """Determine the trajectory segments.
+
+        First the segments are determined assuming that the maximum velocity can be reached. If then it turns
+        out that that isn't the case, the segments are determined again without reaching the maximum velocity.
+
+        Parameters
+        ----------
+        start_time : `float`
+            The start time [sec].
+        curr_pos : `float`
+            The current position [any unit].
+        curr_vel : `float`
+            The current velocity [any unit/sec].
+        target_position : `float`
+            The target position [any unit].
+        max_vel : `float`
+            The maximum velocity [any unit/sec].
+        accel : `float`
+            The acceleration [any unit/sec^2].
+
+        Returns
+        -------
+        `list`[`TrajectorySegment`]
+            The segments that form the entire trajectory.
+        """
         segments = self._determine_trajectory_segments_with_max_velocity(
             start_time=start_time,
             curr_pos=curr_pos,
@@ -206,6 +302,28 @@ class Trajectory:
         max_vel: float,
         accel: float,
     ) -> list[TrajectorySegment]:
+        """Determine the trajectory segments for the case where the maximum velocity can be reached.
+
+        Parameters
+        ----------
+        start_time : `float`
+            The start time [sec].
+        curr_pos : `float`
+            The current position [any unit].
+        curr_vel : `float`
+            The current velocity [any unit/sec].
+        target_position : `float`
+            The target position [any unit].
+        max_vel : `float`
+            The maximum velocity [any unit/sec].
+        accel : `float`
+            The acceleration [any unit/sec^2].
+
+        Returns
+        -------
+        `list`[`TrajectorySegment`]
+            The segments that form the entire trajectory.
+        """
         time_to_max_vel = (max_vel - curr_vel) / accel
         pos_at_max_vel, vel_at_max_vel = accelerated_pos_and_vel(
             curr_pos, curr_vel, accel, time_to_max_vel
@@ -221,28 +339,28 @@ class Trajectory:
         return [
             TrajectorySegment(
                 start_time=start_time,
-                position0=curr_pos,
-                velocity0=curr_vel,
+                start_position=curr_pos,
+                start_velocity=curr_vel,
                 acceleration=accel,
             ),
             TrajectorySegment(
                 start_time=start_time + time_to_max_vel,
-                position0=pos_at_max_vel,
-                velocity0=vel_at_max_vel,
+                start_position=pos_at_max_vel,
+                start_velocity=vel_at_max_vel,
                 acceleration=0.0,
             ),
             TrajectorySegment(
                 start_time=start_time + time_to_start_stopping,
-                position0=position_to_start_stopping,
-                velocity0=vel_at_max_vel,
+                start_position=position_to_start_stopping,
+                start_velocity=vel_at_max_vel,
                 acceleration=-accel,
             ),
             TrajectorySegment(
                 start_time=start_time
                 + time_to_start_stopping
                 + time_needed_to_stop_from_max_vel,
-                position0=target_position,
-                velocity0=0.0,
+                start_position=target_position,
+                start_velocity=0.0,
                 acceleration=0.0,
             ),
         ]
@@ -255,6 +373,28 @@ class Trajectory:
         target_position: float,
         accel: float,
     ) -> list[TrajectorySegment]:
+        """Determine the trajectory segments for the case where the maximum velocity cannot be reached.
+
+        Parameters
+        ----------
+        start_time : `float`
+            The start time [sec].
+        curr_pos : `float`
+            The current position [any unit].
+        curr_vel : `float`
+            The current velocity [any unit/sec].
+        target_position : `float`
+            The target position [any unit].
+        max_vel : `float`
+            The maximum velocity [any unit/sec].
+        accel : `float`
+            The acceleration [any unit/sec^2].
+
+        Returns
+        -------
+        `list`[`TrajectorySegment`]
+            The segments that form the entire trajectory.
+        """
         # Compute the time at which the velocity for the current motion is zero.
         # v0 + a*t = 0 <=> t = -v0/a
         t_zero_speed = -curr_vel / accel
@@ -282,20 +422,20 @@ class Trajectory:
             return [
                 TrajectorySegment(
                     start_time=start_time,
-                    position0=curr_pos,
-                    velocity0=curr_vel,
+                    start_position=curr_pos,
+                    start_velocity=curr_vel,
                     acceleration=accel,
                 ),
                 TrajectorySegment(
                     start_time=start_time + t0,
-                    position0=p_halfway,
-                    velocity0=max_vel,
+                    start_position=p_halfway,
+                    start_velocity=max_vel,
                     acceleration=-accel,
                 ),
                 TrajectorySegment(
                     start_time=start_time + t0 + t0,
-                    position0=target_position,
-                    velocity0=0.0,
+                    start_position=target_position,
+                    start_velocity=0.0,
                     acceleration=0.0,
                 ),
             ]
@@ -323,25 +463,29 @@ class Trajectory:
             return [
                 TrajectorySegment(
                     start_time=start_time,
-                    position0=curr_pos,
-                    velocity0=curr_vel,
+                    start_position=curr_pos,
+                    start_velocity=curr_vel,
                     acceleration=accel,
                 ),
                 TrajectorySegment(
                     start_time=start_time + t0,
-                    position0=p_halfway,
-                    velocity0=max_vel,
+                    start_position=p_halfway,
+                    start_velocity=max_vel,
                     acceleration=-accel,
                 ),
                 TrajectorySegment(
                     start_time=start_time + t0 + t0 + time_needed_to_stop_from_v0,
-                    position0=target_position,
-                    velocity0=0.0,
+                    start_position=target_position,
+                    start_velocity=0.0,
                     acceleration=0.0,
                 ),
             ]
 
     def consolidate_segments(self) -> None:
+        """Consolidate the segments.
+
+        Any segements that have the same acceleration as its predecessor is removed.
+        """
         accel = self.segments[0].acceleration
         indices_of_segments_to_remove: list[int] = []
         for i in range(1, len(self.segments)):
