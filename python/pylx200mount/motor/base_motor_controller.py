@@ -119,19 +119,9 @@ class BaseMotorController(ABC):
         int
             The targtet position [sec].
         """
-        target_position_in_steps = (
-            round((target_position / self._conversion_factor).value)
-            - self._position_offset
-        )
-        while (target_position_in_steps - self._position) > self._one_eighty_steps:
-            target_position_in_steps = (
-                target_position_in_steps - self._three_sixty_steps
-            )
-        while (target_position_in_steps - self._position) < -self._one_eighty_steps:
-            target_position_in_steps = (
-                target_position_in_steps + self._three_sixty_steps
-            )
-
+        diff = (target_position - self.position).wrap_at(ONE_EIGHTY)
+        diff_in_steps = (diff / self._conversion_factor).value
+        target_position_in_steps = self._position + diff_in_steps
         return target_position_in_steps
 
     def on_attach(self, _: typing.Any) -> None:
