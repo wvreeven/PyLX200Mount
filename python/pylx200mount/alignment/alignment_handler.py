@@ -3,6 +3,7 @@ __all__ = [
     "AlignmentPoint",
 ]
 
+import math
 from dataclasses import dataclass
 from itertools import combinations
 
@@ -11,7 +12,7 @@ from astropy.coordinates import SkyCoord
 from skimage import transform
 
 from ..enums import IDENTITY
-from ..my_math.astropy_util import get_skycoord_from_alt_az
+from ..my_math.astropy_util import get_radec_from_altaz, get_skycoord_from_alt_az
 from ..observing_location import ObservingLocation
 from ..utils import get_time
 
@@ -31,7 +32,7 @@ def _ndarray_to_altaz(
     )
 
 
-@dataclass
+@dataclass(frozen=True)
 class AlignmentPoint:
     """Class representing an alignment point.
 
@@ -122,7 +123,7 @@ class AlignmentHandler:
         self.matrix = IDENTITY
 
     def add_alignment_position(self, altaz: SkyCoord, telescope: SkyCoord) -> None:
-        """Add an alignment point.
+        """Add an alignment point and compute the alignment matrix.
 
         Parameters
         ----------
@@ -131,9 +132,18 @@ class AlignmentHandler:
         telescope : `SkyCoord`
             The telescope [azimuth, altitude].
         """
-        self._alignment_data.append(AlignmentPoint(altaz=altaz, telescope=telescope))
+        alignment_point = AlignmentPoint(altaz=altaz, telescope=telescope)
+        ra_dec = get_radec_from_altaz(altaz)
+        for ad in self._alignment_data:
+            ad_ra_dec = get_radec_from_altaz(ad.altaz)
+            if math.isclose(ra_dec.ra.deg, ad_ra_dec.ra.deg) and math.isclose(
+                ra_dec.dec.deg, ad_ra_dec.dec.deg
+            ):
+                self._alignment_data.remove(ad)
+        self._alignment_data.append(alignment_point)
+        self.compute_transformation_matrix()
 
-    async def compute_transformation_matrix(self) -> None:
+    def compute_transformation_matrix(self) -> None:
         """Compute the transformation matrix between the altaz and telescope coordinates.
 
         The transformation matrix only is computed if at least three alignment points have been added. If more
