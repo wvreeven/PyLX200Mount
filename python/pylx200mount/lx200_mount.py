@@ -33,7 +33,9 @@ class LX200Mount:
 
         self.log: logging.Logger = logging.getLogger(type(self).__name__)
 
+        # Keep track of the previous command to be able to ignore duplicate ones.
         self.previous_command = ""
+        # Keep track of being in a button move in SkySafari or not.
         self.in_button_move = False
 
     async def start(self) -> None:
@@ -146,7 +148,11 @@ class LX200Mount:
         # causing INDI to swap RA and DEC. If the duplicate command is ignored, all works well, so that's
         # what's being done here.
         if cmd != self.previous_command or self.in_button_move:
+            # Keep track of being in a button move or not. SkySafari issues a duplicate "GD" command after
+            # a move button in the telescope control panel is clicked and will disconnect if that command is
+            # ignored. As soon as the button move ends, duplicate commands may be ignored again.
             self.set_in_button_move(cmd)
+
             self.responder.cmd = cmd
             (func, has_arg) = self.responder.dispatch_dict[cmd]
             kwargs = {}
