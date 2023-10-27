@@ -51,8 +51,6 @@ class PhidgetsMotorController(BaseMotorController):
             (initial_position / self._conversion_factor).value
         )
 
-        self.attached = False
-
     def on_error(self, code: int, description: str) -> None:
         self.log.error(f"{code=!s} -> {description=!s}")
 
