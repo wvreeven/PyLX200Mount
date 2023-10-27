@@ -13,7 +13,6 @@ from astropy.coordinates import Angle, SkyCoord
 from ..enums import MotorControllerState, SlewDirection, SlewRate
 from ..motor.base_motor_controller import BaseMotorController
 from ..my_math.astropy_util import (
-    compute_slew_time,
     get_altaz_at_different_time,
     get_altaz_from_radec,
     get_radec_from_altaz,
@@ -96,8 +95,6 @@ class MountController:
         )
 
         # Slew related variables
-        self.slew_ref_time = get_time()
-        self.target_ra_dec: SkyCoord | None = None
         self.slew_direction = SlewDirection.NONE
         self.slew_rate = SlewRate.HIGH
 
@@ -161,9 +158,13 @@ class MountController:
                 timediff=timediff,
             )
 
-            if self.motor_controller_az.state == MotorControllerState.TRACKING:
+            # Since the slew is performed to the AltAz at the end of the longest axis slew, tracking should
+            # only start as soon as both motors have switched to tracking.
+            if (
+                self.motor_controller_az.state == MotorControllerState.TRACKING
+                and self.motor_controller_alt.state == MotorControllerState.TRACKING
+            ):
                 await self.motor_controller_az.track(target_alt_az.az, timediff)
-            if self.motor_controller_alt.state == MotorControllerState.TRACKING:
                 await self.motor_controller_alt.track(target_alt_az.alt, timediff)
 
             remainder = (get_time() - start_time) % POSITION_INTERVAL
@@ -230,11 +231,9 @@ class MountController:
         dec_str: `str`
             The Declination of the mount in degrees. The format is "+dd*mm:ss".
         """
-        self.target_ra_dec = get_skycoord_from_ra_dec_str(
-            ra_str=ra_str, dec_str=dec_str
-        )
+        target_ra_dec = get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
         alt_az = get_altaz_from_radec(
-            self.target_ra_dec, self.observing_location, get_time()
+            target_ra_dec, self.observing_location, get_time()
         )
         self.motor_controller_az.position = alt_az.az
         self.motor_controller_alt.position = alt_az.alt
@@ -283,28 +282,23 @@ class MountController:
         )
 
         # Compute slew times.
-        az_slew_time = compute_slew_time(self.motor_controller_az, alt_az.az.deg)
-        alt_slew_time = compute_slew_time(self.motor_controller_alt, alt_az.alt.deg)
+        az_slew_time = await self.motor_controller_az.estimate_slew_time(alt_az.az)
+        alt_slew_time = await self.motor_controller_alt.estimate_slew_time(alt_az.alt)
 
-        # Compute az and alt at the end of the respective slews.
-        alt_az_at_az_time = get_altaz_from_radec(
+        slew_time = max(az_slew_time, alt_slew_time)
+
+        # Compute AltAz at the end of the slew.
+        alt_az_after_slew = get_altaz_from_radec(
             ra_dec=ra_dec,
             observing_location=self.observing_location,
-            timestamp=now + az_slew_time,
-        )
-        alt_az_at_alt_time = get_altaz_from_radec(
-            ra_dec=ra_dec,
-            observing_location=self.observing_location,
-            timestamp=now + alt_slew_time,
+            timestamp=now + slew_time,
         )
 
         self.slew_direction = SlewDirection.NONE
-        if alt_az_at_alt_time.alt.value > 0:
-            self.slew_ref_time = get_time()
-            self.target_ra_dec = ra_dec
+        if alt_az_after_slew.alt.value > 0:
             self.slew_rate = SlewRate.HIGH
-            await self.motor_controller_az.move(alt_az_at_az_time.az)
-            await self.motor_controller_alt.move(alt_az_at_alt_time.alt)
+            await self.motor_controller_az.move(alt_az_after_slew.az)
+            await self.motor_controller_alt.move(alt_az_after_slew.alt)
             return "0"
         else:
             return "1"
@@ -338,7 +332,6 @@ class MountController:
                 self.slew_direction = SlewDirection.NONE
                 raise ValueError(f"Received unknown slew direction command {cmd}.")
         self.log.debug(f"SlewDirection = {self.slew_direction.name}")
-        self.slew_ref_time = get_time()
 
     async def stop_slew(self) -> None:
         """Stop the slew of both motors."""
