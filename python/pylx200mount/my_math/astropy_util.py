@@ -1,5 +1,4 @@
 __all__ = [
-    "compute_slew_time",
     "get_altaz_at_different_time",
     "get_altaz_from_radec",
     "get_radec_from_altaz",
@@ -13,7 +12,6 @@ from datetime import datetime
 from astropy import units as u
 from astropy.coordinates import FK5, AltAz, Angle, SkyCoord
 
-from ..motor import BaseMotorController, Trajectory
 from ..observing_location import ObservingLocation
 
 DEFAULT_ATMOSPHERIC_PRESSURE = u.Quantity(101325.0 * u.Pa)
@@ -90,14 +88,3 @@ def get_skycoord_from_ra_dec_str(ra_str: str, dec_str: str) -> SkyCoord:
 
 def get_radec_from_altaz(alt_az: SkyCoord) -> SkyCoord:
     return alt_az.transform_to(_fk5)
-
-
-def compute_slew_time(motor: BaseMotorController, target_position: float) -> float:
-    trajectory = Trajectory(max_acceleration=motor.max_acceleration.deg)
-    trajectory.set_target_position_and_velocity(
-        curr_pos=motor.position.deg,
-        curr_vel=motor.velocity.deg,
-        target_position=target_position,
-        max_velocity=motor.max_velocity.deg,
-    )
-    return trajectory.segments[-1].start_time

@@ -11,7 +11,7 @@ import astropy.units as u
 from astropy.coordinates import Angle
 
 from ..enums import MotorControllerState, SlewRate
-from .trajectory import accelerated_pos_and_vel
+from .trajectory import Trajectory, accelerated_pos_and_vel
 
 # An angle of 180º.
 ONE_EIGHTY = Angle(180.0 * u.deg)
@@ -134,16 +134,6 @@ class BaseMotorController(ABC):
         self.log.info("Detach stepper!")
         self.attached = False
 
-    @abstractmethod
-    async def connect(self) -> None:
-        """Connect the stepper motor."""
-        raise NotImplementedError
-
-    @abstractmethod
-    async def disconnect(self) -> None:
-        """Disconnect the stepper motor."""
-        raise NotImplementedError
-
     def on_position_change(self, _: typing.Any, current_position: int) -> None:
         """On position change callback.
 
@@ -240,6 +230,39 @@ class BaseMotorController(ABC):
         await self.set_target_position_and_velocity(
             target_position_in_steps, max_velocity_in_steps
         )
+
+    async def estimate_slew_time(self, target_position: Angle) -> float:
+        """Estimate the slew time to the target position.
+
+        Parameters
+        ----------
+        target_position : `Angle`
+            The target position to estimate the slew time for.
+
+        Returns
+        -------
+        float
+            The estimated slew time to the target position.
+        """
+        trajectory = Trajectory(max_acceleration=self._max_acceleration)
+        target_position_in_steps = self._get_target_position_in_steps(target_position)
+        trajectory.set_target_position_and_velocity(
+            curr_pos=self._position,
+            curr_vel=self._velocity,
+            target_position=target_position_in_steps,
+            max_velocity=self._max_velocity,
+        )
+        return trajectory.segments[-1].start_time
+
+    @abstractmethod
+    async def connect(self) -> None:
+        """Connect the stepper motor."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def disconnect(self) -> None:
+        """Disconnect the stepper motor."""
+        raise NotImplementedError
 
     @abstractmethod
     async def set_target_position_and_velocity(

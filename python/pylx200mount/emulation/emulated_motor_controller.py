@@ -225,8 +225,6 @@ class EmulatedMotorController(BaseMotorController):
             (initial_position / self._conversion_factor).value
         )
 
-        self.attached = False
-
     async def connect(self) -> None:
         """Connect the stepper motor."""
         assert self.stepper is not None
