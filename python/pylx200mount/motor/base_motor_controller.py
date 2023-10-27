@@ -76,7 +76,7 @@ class BaseMotorController(ABC):
     @property
     def position(self) -> Angle:
         """The motor position [steps] as an astropy `Angle`."""
-        pos = round(self._position + self._position_offset) * self._conversion_factor
+        pos = (self._position + self._position_offset) * self._conversion_factor
         return pos.wrap_at(
             ALT_WRAP if self.name == BaseMotorController.ALT else AZ_WRAP
         )
@@ -85,13 +85,12 @@ class BaseMotorController(ABC):
     def position(self, position: Angle) -> None:
         """Setter for the motor position [astropy `Angle`] which gets converted to steps."""
         position_value = (position / self._conversion_factor).value
-        self._position_offset = round(position_value - self._position)
-        self.log.debug(f"{self._position_offset=}")
+        self._position_offset = position_value - self._position
 
     @property
     def velocity(self) -> Angle:
         """The motor velocity [steps/sec] as an astropy `Angle` per sec."""
-        return round(self._velocity) * self._conversion_factor
+        return self._velocity * self._conversion_factor
 
     @property
     def max_velocity(self) -> Angle:
