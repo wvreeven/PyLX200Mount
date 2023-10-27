@@ -27,7 +27,7 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
         np_testing.assert_array_equal(
             alignment_handler.matrix, pylx200mount.enums.IDENTITY
         )
-        await alignment_handler.compute_transformation_matrix()
+        alignment_handler.compute_transformation_matrix()
         np_testing.assert_array_equal(
             alignment_handler.matrix, pylx200mount.enums.IDENTITY
         )
@@ -76,7 +76,6 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
                 timestamp=pylx200mount.get_time(),
             ),
         )
-        await alignment_handler.compute_transformation_matrix()
         assert (
             np.not_equal(alignment_handler.matrix, pylx200mount.enums.IDENTITY)
         ).any()
@@ -150,7 +149,6 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
                 timestamp=pylx200mount.get_time(),
             ),
         )
-        await alignment_handler.compute_transformation_matrix()
 
         telescope2 = alignment_handler.matrix_transform(altaz)
         assert telescope2.alt.deg == pytest.approx(telescope.alt.deg)

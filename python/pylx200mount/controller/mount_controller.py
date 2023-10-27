@@ -243,9 +243,8 @@ class MountController:
             sky_ra_dec, self.observing_location, get_time()
         )
 
-        # Add an alignment point and compute the alingment matrix.
+        # Add an alignment point and compute the alignment matrix.
         self.alignment_handler.add_alignment_position(sky_alt_az, self.mount_alt_az)
-        await self.alignment_handler.compute_transformation_matrix()
 
         # Compute the mount AltAz from the sky AltAz and pass on to the motor controllers.
         mount_alt_az = self.alignment_handler.matrix_transform(sky_alt_az)
