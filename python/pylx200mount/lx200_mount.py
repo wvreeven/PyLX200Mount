@@ -34,6 +34,7 @@ class LX200Mount:
         self.log: logging.Logger = logging.getLogger(type(self).__name__)
 
         self.previous_command = ""
+        self.in_button_move = False
 
     async def start(self) -> None:
         """Start the TCP/IP server."""
@@ -144,7 +145,8 @@ class LX200Mount:
         # On 22 Oct 2023 I found that INDI sends a duplicate GR command after issuing an MS (goto) command
         # causing INDI to swap RA and DEC. If the duplicate command is ignored, all works well, so that's
         # what's being done here.
-        if cmd != self.previous_command:
+        if cmd != self.previous_command or self.in_button_move:
+            self.set_in_button_move(cmd)
             self.responder.cmd = cmd
             (func, has_arg) = self.responder.dispatch_dict[cmd]
             kwargs = {}
@@ -169,6 +171,12 @@ class LX200Mount:
         else:
             self.log.debug(f"Ignoring duplicate {cmd=}")
         self.previous_command = cmd
+
+    def set_in_button_move(self, cmd: str) -> None:
+        if cmd in ["Mn", "Me", "Ms", "Mw"]:
+            self.in_button_move = True
+        if cmd in ["Qn", "Qe", "Qs", "Qw"]:
+            self.in_button_move = False
 
 
 async def run_lx200_mount() -> None:
