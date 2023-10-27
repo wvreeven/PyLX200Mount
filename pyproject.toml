@@ -10,7 +10,7 @@ author-email = "wouter@van.reeven.nl"
 license = { text = "GPL" }
 classifiers = ["Programming Language :: Python :: 3"]
 dynamic = ["version"]
-dependencies = ["astropy", "scikit-image"]
+dependencies = ["astropy"]
 
 [tool.setuptools.dynamic]
 version = { attr = "setuptools_scm.get_version" }

@@ -137,14 +137,14 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
         )
         alignment_handler.add_alignment_position(
             altaz=pylx200mount.my_math.get_skycoord_from_alt_az(
-                az=2.1,
+                az=2.2,
                 alt=0.9,
                 observing_location=observing_location,
                 timestamp=pylx200mount.get_time(),
             ),
             telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
-                az=2.7777669529,
-                alt=5.565063509,
+                az=2.80312229,
+                alt=5.55836478,
                 observing_location=observing_location,
                 timestamp=pylx200mount.get_time(),
             ),
