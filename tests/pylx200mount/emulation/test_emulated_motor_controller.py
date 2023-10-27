@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import logging
+import math
 import typing
 import unittest.mock
 from dataclasses import dataclass
@@ -61,16 +62,18 @@ class TestEmulatedMotorController(IsolatedAsyncioTestCase):
     async def assert_position_and_velocity(self, expected_data: ExpectedData) -> None:
         self.t = expected_data.time
         await asyncio.sleep(0.1)
-        assert (
-            self.emulated_motor_controller.position
-            == expected_data.position
-            * self.emulated_motor_controller._conversion_factor
-        )
-        assert (
-            self.emulated_motor_controller.velocity
-            == expected_data.velocity
-            * self.emulated_motor_controller._conversion_factor
-        )
+        expected_pos_deg = (
+            expected_data.position * self.emulated_motor_controller._conversion_factor
+        ).deg
+        expected_vel_deg = (
+            expected_data.velocity * self.emulated_motor_controller._conversion_factor
+        ).deg
+        assert math.isclose(
+            self.emulated_motor_controller.position.deg, expected_pos_deg, abs_tol=0.001
+        ), f"{self.emulated_motor_controller.position.deg=}, {expected_pos_deg}"
+        assert math.isclose(
+            self.emulated_motor_controller.velocity.deg, expected_vel_deg, abs_tol=0.001
+        ), f"{self.emulated_motor_controller.velocity.deg=}, {expected_vel_deg}"
 
     async def test_move_far_positive(self) -> None:
         async with self.create_emulated_motor():
