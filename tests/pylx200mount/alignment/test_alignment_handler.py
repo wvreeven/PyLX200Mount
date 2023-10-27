@@ -1,20 +1,35 @@
 import unittest
 
+import numpy as np
 import pylx200mount
 import pytest
 from numpy import testing as np_testing
 
 
 class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
+    async def test_alignment_transform_identity(self) -> None:
+        observing_location = pylx200mount.observing_location.ObservingLocation()
+        telescope = pylx200mount.my_math.get_skycoord_from_alt_az(
+            alt=5.732050807,
+            az=2.4142135623,
+            observing_location=observing_location,
+            timestamp=pylx200mount.get_time(),
+        )
+        alignment_handler = pylx200mount.alignment.AlignmentHandler()
+
+        telescope2 = alignment_handler.matrix_transform(telescope)
+        assert telescope2.alt.deg == pytest.approx(telescope.alt.deg)
+        assert telescope2.az.deg == pytest.approx(telescope.az.deg)
+
     async def test_alignment_handler_with_tree_alignment_points(self) -> None:
         observing_location = pylx200mount.observing_location.ObservingLocation()
         alignment_handler = pylx200mount.alignment.AlignmentHandler()
         np_testing.assert_array_equal(
-            alignment_handler.transformation_matrix, pylx200mount.enums.IDENTITY
+            alignment_handler.matrix, pylx200mount.enums.IDENTITY
         )
         await alignment_handler.compute_transformation_matrix()
         np_testing.assert_array_equal(
-            alignment_handler.transformation_matrix, pylx200mount.enums.IDENTITY
+            alignment_handler.matrix, pylx200mount.enums.IDENTITY
         )
 
         altaz = pylx200mount.my_math.get_skycoord_from_alt_az(
@@ -62,15 +77,15 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
             ),
         )
         await alignment_handler.compute_transformation_matrix()
-        affine_transformation = pylx200mount.alignment.AffineTransformation(
-            alignment_handler.transformation_matrix
-        )
+        assert (
+            np.not_equal(alignment_handler.matrix, pylx200mount.enums.IDENTITY)
+        ).any()
 
-        telescope2 = affine_transformation.matrix_transform(altaz)
+        telescope2 = alignment_handler.matrix_transform(altaz)
         assert telescope2.alt.deg == pytest.approx(telescope.alt.deg)
         assert telescope2.az.deg == pytest.approx(telescope.az.deg)
 
-        altaz2 = affine_transformation.reverse_matrix_transform(telescope)
+        altaz2 = alignment_handler.reverse_matrix_transform(telescope)
         assert altaz2.alt.deg == pytest.approx(altaz.alt.deg)
         assert altaz2.az.deg == pytest.approx(altaz.az.deg)
 
@@ -136,14 +151,11 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
             ),
         )
         await alignment_handler.compute_transformation_matrix()
-        affine_transformation = pylx200mount.alignment.AffineTransformation(
-            alignment_handler.transformation_matrix
-        )
 
-        telescope2 = affine_transformation.matrix_transform(altaz)
+        telescope2 = alignment_handler.matrix_transform(altaz)
         assert telescope2.alt.deg == pytest.approx(telescope.alt.deg)
         assert telescope2.az.deg == pytest.approx(telescope.az.deg)
 
-        altaz2 = affine_transformation.reverse_matrix_transform(telescope)
+        altaz2 = alignment_handler.reverse_matrix_transform(telescope)
         assert altaz2.alt.deg == pytest.approx(altaz.alt.deg)
         assert altaz2.az.deg == pytest.approx(altaz.az.deg)

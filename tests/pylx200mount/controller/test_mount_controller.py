@@ -3,8 +3,7 @@ from unittest import IsolatedAsyncioTestCase
 
 import astropy.units as u
 import pylx200mount
-import pytest
-from astropy.coordinates import Latitude, SkyCoord
+from astropy.coordinates import SkyCoord
 
 
 def format_ra_dec_str(ra_dec: SkyCoord) -> Tuple[str, str]:
@@ -57,35 +56,3 @@ class TestMountController(IsolatedAsyncioTestCase):
 
     async def test_slew_down(self) -> None:
         await self.mount_controller.slew_in_direction("Ms")
-
-    @pytest.mark.skip(reason="Not implemented yet.")
-    async def test_alignment(self) -> None:
-        self.mount_controller.observing_location.set_latitude(
-            Latitude((42 + (40 / 60)) * u.deg)
-        )
-        await self.mount_controller.location_updated()
-
-        # s1 = 03h00m00s, +48d00m00s
-        s1 = pylx200mount.my_math.get_skycoord_from_ra_dec_str(
-            ra_str="03:00:00", dec_str="+48*00:00"
-        )
-        # s2 = 23h00m00s, +45d00m00s
-        s2 = pylx200mount.my_math.get_skycoord_from_ra_dec_str(
-            ra_str="23:00:00", dec_str="+45*00:00"
-        )
-
-        s1_ra_str, s1_dec_str = format_ra_dec_str(s1)
-        await self.mount_controller.set_ra_dec(ra_str=s1_ra_str, dec_str=s1_dec_str)
-        ra_dec = pylx200mount.my_math.get_radec_from_altaz(
-            self.mount_controller.telescope_alt_az
-        )
-        assert s1.ra.value == pytest.approx(ra_dec.ra.value)
-        assert s1.dec.value == pytest.approx(ra_dec.dec.value)
-
-        s2_ra_str, s2_dec_str = format_ra_dec_str(s2)
-        await self.mount_controller.set_ra_dec(ra_str=s2_ra_str, dec_str=s2_dec_str)
-        ra_dec = pylx200mount.my_math.get_radec_from_altaz(
-            self.mount_controller.telescope_alt_az
-        )
-        assert s2.ra.value == pytest.approx(ra_dec.ra.value)
-        assert s2.dec.value == pytest.approx(ra_dec.dec.value)
