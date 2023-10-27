@@ -82,12 +82,15 @@ class AlignmentTriplet:
     three: AlignmentPoint
 
     def as_3d_ndarrays(self) -> tuple[np.ndarray, np.ndarray]:
-        """Return the altaz and telescope coordinates of the three `AlignmentPoint`s as two arrays.
+        """Return the altaz and telescope coordinates of the three `AlignmentPoint`s as two 3D arrays.
+
+        Each arrays contains three values: the azimuth [deg], the altitude [deg] and 1.0. The latter is needed
+        for the affine transformation to work.
 
         Returns
         -------
-        tuple of np.ndarray and np.ndarray
-            The altaz coordinates and telescope coordinates in a Numpy array format.
+        tuple[np.ndarray, np.ndarray]
+            The altaz coordinates and telescope coordinates in a numpy array format.
         """
         return np.array(
             (
@@ -114,7 +117,9 @@ class AlignmentHandler:
     Attributes
     ----------
     matrix : `np.ndarray`
-        The Numpy array representing the transformation matrix.
+        The numpy array representing the transformation matrix.
+    inv_matrix : `np.ndarray`
+        The numpy array representing the inverse transformation matrix.
     """
 
     def __init__(self) -> None:
@@ -147,7 +152,7 @@ class AlignmentHandler:
         """Compute the transformation matrix between the altaz and telescope coordinates.
 
         The transformation matrix only is computed if at least three alignment points have been added. If more
-        thatn three alignment points have been added, the transformation matrix is computed for all unique
+        than three alignment points have been added, the transformation matrix is computed for all unique
         combinations of three alignment points.
 
         If two or more alignment points are very close together, the resulting transformation matrix will
