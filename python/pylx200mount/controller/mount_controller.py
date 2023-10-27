@@ -10,6 +10,7 @@ import jsonschema
 from astropy import units as u
 from astropy.coordinates import Angle, SkyCoord
 
+from ..alignment import AlignmentHandler
 from ..enums import MotorControllerState, SlewDirection, SlewRate
 from ..motor.base_motor_controller import BaseMotorController
 from ..my_math.astropy_util import (
@@ -102,8 +103,10 @@ class MountController:
         self._position_loop_task: asyncio.Future = asyncio.Future()
         self._position_loop_task.set_result(None)
 
+        self.alignment_handler = AlignmentHandler()
+
     @property
-    def telescope_alt_az(self) -> SkyCoord:
+    def mount_alt_az(self) -> SkyCoord:
         """Get the current motor positions as AltAz coordinates.
 
         Returns
@@ -214,7 +217,10 @@ class MountController:
         -------
         The right ascention and declination.
         """
-        ra_dec = get_radec_from_altaz(alt_az=self.telescope_alt_az)
+        # Transform the mount AltAz to sky AltAz.
+        sky_alt_az = self.alignment_handler.reverse_matrix_transform(self.mount_alt_az)
+        # Compute the sky RaDec from the sky AltAz.
+        ra_dec = get_radec_from_altaz(alt_az=sky_alt_az)
         return ra_dec
 
     async def set_ra_dec(self, ra_str: str, dec_str: str) -> None:
@@ -231,12 +237,20 @@ class MountController:
         dec_str: `str`
             The Declination of the mount in degrees. The format is "+dd*mm:ss".
         """
-        target_ra_dec = get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
-        alt_az = get_altaz_from_radec(
-            target_ra_dec, self.observing_location, get_time()
+        sky_ra_dec = get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
+        # Compute the sky AltAz from the sky RaDec.
+        sky_alt_az = get_altaz_from_radec(
+            sky_ra_dec, self.observing_location, get_time()
         )
-        self.motor_controller_az.position = alt_az.az
-        self.motor_controller_alt.position = alt_az.alt
+
+        # Add an alignment point and compute the alingment matrix.
+        self.alignment_handler.add_alignment_position(sky_alt_az, self.mount_alt_az)
+        await self.alignment_handler.compute_transformation_matrix()
+
+        # Compute the mount AltAz from the sky AltAz and pass on to the motor controllers.
+        mount_alt_az = self.alignment_handler.matrix_transform(sky_alt_az)
+        self.motor_controller_az.position = mount_alt_az.az
+        self.motor_controller_alt.position = mount_alt_az.alt
 
     async def set_slew_rate(self, cmd: str) -> None:
         """Set the slew rate.
