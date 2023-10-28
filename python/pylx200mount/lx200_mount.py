@@ -5,15 +5,20 @@ import logging
 import socket
 
 from pylx200mount.controller import REPLY_SEPARATOR, Lx200CommandResponder
+from pylx200mount.enums import CommandName
 
-# ACK symbol sent by Ekos
+# ACK symbol sent by INDI.
 ACK: bytes = b"\x06"
 
-# Command start with a colon symbol
+# Command start with a colon symbol.
 COLON: str = ":"
 
-# Commands and replies are terminated by the hash symbol
-HASH: bytes = b"#"
+# Commands and replies are terminated by the hash symbol.
+HASH = "#"
+HASH_BYTES: bytes = b"#"
+
+# SkySafari expects a reply to an emtpy request.
+EMPTY_REPLY = "A"
 
 # Sleep time between sending replies that contain a newline character.
 SEND_COMMAND_SLEEP = 0.01
@@ -77,7 +82,7 @@ class LX200Mount:
         """
         reply = st.encode()
         if append_hash:
-            reply = reply + HASH
+            reply = reply + HASH_BYTES
         # self.log.debug(f"Writing reply {st}")
         if self._writer is not None:
             # After a :SC command, multiple replies need to be send which may
@@ -102,12 +107,12 @@ class LX200Mount:
                 c = (await reader.read(1)).decode()
                 # SkySafari connects and disconnects all the time and expects a reply when it does.
                 if c == "":
-                    await self.write("A")
+                    await self.write(EMPTY_REPLY)
                 # AstroPlanner appends all commands with a HASH that can safely be ignored.
-                elif c == "#":
+                elif c == HASH:
                     pass
                 # A colon indicates a command so process that.
-                elif c == ":":
+                elif c == COLON:
                     await self._read_and_process_line(reader)
                 # Not sure what to do in this case, so log the character and do nothing else.
                 else:
@@ -119,9 +124,9 @@ class LX200Mount:
     async def _read_and_process_line(self, reader: asyncio.StreamReader) -> None:
         # All the next commands end in a # so we simply read all incoming
         # strings up to # and parse them.
-        line_b = await reader.readuntil(HASH)
+        line_b = await reader.readuntil(HASH_BYTES)
         line = line_b.decode().strip()
-        if line not in ["GD#", "GR#"]:
+        if CommandName.GD not in line and CommandName.GR not in line:
             self.log.debug(f"Read command line: {line!r}")
 
         # Almost all LX200 commands are unique but don't have a fixed length.
@@ -172,16 +177,21 @@ class LX200Mount:
                         self.log.debug(f"Sleeping for {SEND_COMMAND_SLEEP} sec.")
                         await asyncio.sleep(SEND_COMMAND_SLEEP)
                 else:
-                    append_hash = cmd not in ["MS"]
+                    append_hash = cmd not in [CommandName.M_UPPER_S]
                     await self.write(output, append_hash)
         else:
             self.log.debug(f"Ignoring duplicate {cmd=}")
         self.previous_command = cmd
 
     def set_in_button_move(self, cmd: str) -> None:
-        if cmd in ["Mn", "Me", "Ms", "Mw"]:
+        if cmd in [
+            CommandName.Mn,
+            CommandName.Me,
+            CommandName.M_LOWER_S,
+            CommandName.Mw,
+        ]:
             self.in_button_move = True
-        if cmd in ["Qn", "Qe", "Qs", "Qw"]:
+        if cmd in [CommandName.Qn, CommandName.Qe, CommandName.Qs, CommandName.Qw]:
             self.in_button_move = False
 
 

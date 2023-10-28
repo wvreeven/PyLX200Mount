@@ -3,6 +3,7 @@ __all__ = [
     "TELESCOPE_REDUCTION_06INCH",
     "TELESCOPE_REDUCTION_12INCH",
     "TELESCOPE_REDUCTION_20INCH",
+    "CommandName",
     "CoordinatePrecision",
     "MotorControllerState",
     "SlewDirection",
@@ -20,6 +21,52 @@ TELESCOPE_REDUCTION_20INCH = 34.91
 
 # Identity (transformation) matrix.
 IDENTITY = np.identity(3)
+
+
+class CommandName(enum.StrEnum):
+    """LX200 Command Name."""
+
+    CM = "CM"
+    G_LOWER_C = "Gc"
+    G_UPPER_C = "GC"
+    GD = "GD"
+    G_LOWER_G = "Gg"
+    G_UPPER_G = "GG"
+    GL = "GL"
+    GM = "GM"
+    GR = "GR"
+    G_LOWER_T = "Gt"
+    G_UPPER_T = "GT"
+    GVD = "GVD"
+    GVF = "GVF"
+    GVN = "GVN"
+    GVP = "GVP"
+    GVT = "GVT"
+    Mn = "Mn"
+    Me = "Me"
+    M_LOWER_S = "Ms"
+    Mw = "Mw"
+    M_UPPER_S = "MS"
+    Qn = "Qn"
+    Qe = "Qe"
+    Qs = "Qs"
+    Qw = "Qw"
+    # In general the keys should not contain the trailing '#' but in
+    # this case it is necessary to avoid confusion with the other
+    # commands starting with 'Q'.
+    Q_HASH = "Q#"
+    RC = "RC"
+    RG = "RG"
+    RM = "RM"
+    RS = "RS"
+    SC = "SC"
+    Sd = "Sd"
+    S_LOWER_G = "Sg"
+    S_UPPER_G = "SG"
+    SL = "SL"
+    Sr = "Sr"
+    St = "St"
+    U = "U"
 
 
 class CoordinatePrecision(enum.IntEnum):
