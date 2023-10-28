@@ -4,7 +4,7 @@ from datetime import datetime
 from astropy import units as u
 from astropy.coordinates import Latitude, Longitude, SkyCoord
 
-from ..enums import CoordinatePrecision
+from ..enums import CommandName, CoordinatePrecision
 from .mount_controller import MountController
 
 _all__ = ["Lx200CommandResponder", "REPLY_SEPARATOR"]
@@ -45,47 +45,44 @@ class Lx200CommandResponder:
         self.cmd: str = ""
         # Dictionary of the functions to execute based on the received command.
         self.dispatch_dict = {
-            "CM": (self.sync, False),
-            "Gc": (self.get_clock_format, False),
-            "GC": (self.get_current_date, False),
-            "GD": (self.get_dec, False),
-            "Gg": (self.get_current_site_longitude, False),
-            "GG": (self.get_utc_offset, False),
-            "GL": (self.get_local_time, False),
-            "GM": (self.get_site_1_name, False),
-            "GR": (self.get_ra, False),
-            "Gt": (self.get_current_site_latitude, False),
-            "GT": (self.get_tracking_rate, False),
-            "GVD": (self.get_firmware_date, False),
-            "GVF": (self.get_firmware_name, False),
-            "GVN": (self.get_firmware_number, False),
-            "GVP": (self.get_telescope_name, False),
-            "GVT": (self.get_firmware_time, False),
-            "Mn": (self.move_slew_in_direction, False),
-            "Me": (self.move_slew_in_direction, False),
-            "Ms": (self.move_slew_in_direction, False),
-            "Mw": (self.move_slew_in_direction, False),
-            "MS": (self.move_slew, False),
-            "Qn": (self.stop_slew, False),
-            "Qe": (self.stop_slew, False),
-            "Qs": (self.stop_slew, False),
-            "Qw": (self.stop_slew, False),
-            # In general the keys should not contain the trailing '#' but in
-            # this case it is necessary to avoid confusion with the other
-            # commands starting with 'Q'.
-            "Q#": (self.stop_slew, False),
-            "RC": (self.set_slew_rate, False),
-            "RG": (self.set_slew_rate, False),
-            "RM": (self.set_slew_rate, False),
-            "RS": (self.set_slew_rate, False),
-            "SC": (self.set_local_date, True),
-            "Sd": (self.set_dec, True),
-            "Sg": (self.set_current_site_longitude, True),
-            "SG": (self.set_utc_offset, True),
-            "SL": (self.set_local_time, True),
-            "Sr": (self.set_ra, True),
-            "St": (self.set_current_site_latitude, True),
-            "U": (self.set_coordinate_precision, False),
+            CommandName.CM: (self.sync, False),
+            CommandName.G_LOWER_C: (self.get_clock_format, False),
+            CommandName.G_UPPER_C: (self.get_current_date, False),
+            CommandName.GD: (self.get_dec, False),
+            CommandName.G_LOWER_G: (self.get_current_site_longitude, False),
+            CommandName.G_UPPER_G: (self.get_utc_offset, False),
+            CommandName.GL: (self.get_local_time, False),
+            CommandName.GM: (self.get_site_1_name, False),
+            CommandName.GR: (self.get_ra, False),
+            CommandName.G_LOWER_T: (self.get_current_site_latitude, False),
+            CommandName.G_UPPER_T: (self.get_tracking_rate, False),
+            CommandName.GVD: (self.get_firmware_date, False),
+            CommandName.GVF: (self.get_firmware_name, False),
+            CommandName.GVN: (self.get_firmware_number, False),
+            CommandName.GVP: (self.get_telescope_name, False),
+            CommandName.GVT: (self.get_firmware_time, False),
+            CommandName.Mn: (self.move_slew_in_direction, False),
+            CommandName.Me: (self.move_slew_in_direction, False),
+            CommandName.M_LOWER_S: (self.move_slew_in_direction, False),
+            CommandName.Mw: (self.move_slew_in_direction, False),
+            CommandName.M_UPPER_S: (self.move_slew, False),
+            CommandName.Qn: (self.stop_slew, False),
+            CommandName.Qe: (self.stop_slew, False),
+            CommandName.Qs: (self.stop_slew, False),
+            CommandName.Qw: (self.stop_slew, False),
+            CommandName.Q_HASH: (self.stop_slew, False),
+            CommandName.RC: (self.set_slew_rate, False),
+            CommandName.RG: (self.set_slew_rate, False),
+            CommandName.RM: (self.set_slew_rate, False),
+            CommandName.RS: (self.set_slew_rate, False),
+            CommandName.SC: (self.set_local_date, True),
+            CommandName.Sd: (self.set_dec, True),
+            CommandName.S_LOWER_G: (self.set_current_site_longitude, True),
+            CommandName.S_UPPER_G: (self.set_utc_offset, True),
+            CommandName.SL: (self.set_local_time, True),
+            CommandName.Sr: (self.set_ra, True),
+            CommandName.St: (self.set_current_site_latitude, True),
+            CommandName.U: (self.set_coordinate_precision, False),
         }
         # The coordinate precision.
         self.coordinate_precision = CoordinatePrecision.LOW
