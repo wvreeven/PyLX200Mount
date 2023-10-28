@@ -7,9 +7,6 @@ import socket
 from pylx200mount.controller import REPLY_SEPARATOR, Lx200CommandResponder
 from pylx200mount.enums import CommandName
 
-# ACK symbol sent by INDI.
-ACK: bytes = b"\x06"
-
 # Command start with a colon symbol.
 COLON: str = ":"
 
@@ -116,7 +113,7 @@ class LX200Mount:
                     await self._read_and_process_line(reader)
                 # Not sure what to do in this case, so log the character and do nothing else.
                 else:
-                    self.log.debug(f"{c=}")
+                    self.log.debug(f"Ignoring {c=}.")
 
         except (ConnectionResetError, BrokenPipeError):
             pass
