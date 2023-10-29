@@ -11,6 +11,7 @@ from astropy import units as u
 from astropy.coordinates import Angle, SkyCoord
 
 from ..alignment import AlignmentHandler
+from ..datetime_util import DatetimeUtil
 from ..enums import MotorControllerState, SlewDirection, SlewRate
 from ..motor.base_motor_controller import BaseMotorController
 from ..my_math.astropy_util import (
@@ -21,7 +22,6 @@ from ..my_math.astropy_util import (
     get_skycoord_from_ra_dec_str,
 )
 from ..observing_location import ObservingLocation
-from ..utils import get_time
 
 # AltAz task interval [sec].
 ALTAZ_INTERVAL = 0.1
@@ -119,7 +119,7 @@ class MountController:
             alt=self.motor_controller_alt.position.deg,
             az=self.motor_controller_az.position.deg,
             observing_location=self.observing_location,
-            timestamp=get_time(),
+            timestamp=DatetimeUtil.get_timestamp(),
         )
         return alt_az
 
@@ -147,7 +147,7 @@ class MountController:
         Get the motor positions every `POSITION_INTERVAL` seconds and let the motors track if necessary. The
         loop delay is non-drifiting.
         """
-        start_time = get_time()
+        start_time = DatetimeUtil.get_timestamp()
         self.log.debug(f"position_loop starts at {start_time}")
         while True:
             self.check_motor_tracking(self.motor_controller_az)
@@ -166,7 +166,7 @@ class MountController:
                 alt=self.motor_controller_alt.position.deg,
                 az=self.motor_controller_az.position.deg,
                 observing_location=self.observing_location,
-                timestamp=get_time(),
+                timestamp=DatetimeUtil.get_timestamp(),
                 timediff=timediff,
             )
 
@@ -179,7 +179,7 @@ class MountController:
                 await self.motor_controller_az.track(target_alt_az.az, timediff)
                 await self.motor_controller_alt.track(target_alt_az.alt, timediff)
 
-            remainder = (get_time() - start_time) % POSITION_INTERVAL
+            remainder = (DatetimeUtil.get_timestamp() - start_time) % POSITION_INTERVAL
             await asyncio.sleep(POSITION_INTERVAL - remainder)
 
     def check_motor_tracking(self, motor: BaseMotorController) -> None:
@@ -249,7 +249,7 @@ class MountController:
         sky_ra_dec = get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
         # Compute the sky AltAz from the sky RaDec.
         sky_alt_az = get_altaz_from_radec(
-            sky_ra_dec, self.observing_location, get_time()
+            sky_ra_dec, self.observing_location, DatetimeUtil.get_timestamp()
         )
 
         # Add an alignment point and compute the alignment matrix.
@@ -297,7 +297,7 @@ class MountController:
         slew_possible: 0 or 1
             0 means in reach, 1 not.
         """
-        now = get_time()
+        now = DatetimeUtil.get_timestamp()
         ra_dec = get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
         alt_az = get_altaz_from_radec(
             ra_dec=ra_dec, observing_location=self.observing_location, timestamp=now

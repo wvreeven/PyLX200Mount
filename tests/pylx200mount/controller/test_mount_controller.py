@@ -22,7 +22,7 @@ class TestMountController(IsolatedAsyncioTestCase):
             alt=45.0,
             az=175.0,
             observing_location=self.mount_controller.observing_location,
-            timestamp=pylx200mount.get_time(),
+            timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
         )
         ra_dec = pylx200mount.my_math.get_radec_from_altaz(alt_az=alt_az)
         self.ra_str, self.dec_str = format_ra_dec_str(ra_dec)
@@ -30,7 +30,7 @@ class TestMountController(IsolatedAsyncioTestCase):
             alt=48.0,
             az=179.0,
             observing_location=self.mount_controller.observing_location,
-            timestamp=pylx200mount.get_time(),
+            timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
         )
         target_ra_dec = pylx200mount.my_math.get_radec_from_altaz(alt_az=target_alt_az)
         self.target_ra_str, self.target_dec_str = format_ra_dec_str(target_ra_dec)

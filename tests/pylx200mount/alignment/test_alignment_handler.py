@@ -13,7 +13,7 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
             alt=5.732050807,
             az=2.4142135623,
             observing_location=observing_location,
-            timestamp=pylx200mount.get_time(),
+            timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
         )
         alignment_handler = pylx200mount.alignment.AlignmentHandler()
 
@@ -36,13 +36,13 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
             az=1.0,
             alt=1.0,
             observing_location=observing_location,
-            timestamp=pylx200mount.get_time(),
+            timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
         )
         telescope = pylx200mount.my_math.get_skycoord_from_alt_az(
             az=2.4142135623,
             alt=5.732050807,
             observing_location=observing_location,
-            timestamp=pylx200mount.get_time(),
+            timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
         )
         alignment_handler.add_alignment_position(
             altaz=altaz,
@@ -53,13 +53,13 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
                 az=1.0,
                 alt=2.0,
                 observing_location=observing_location,
-                timestamp=pylx200mount.get_time(),
+                timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
             ),
             telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
                 az=2.7677669529,
                 alt=6.665063509,
                 observing_location=observing_location,
-                timestamp=pylx200mount.get_time(),
+                timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
             ),
         )
         alignment_handler.add_alignment_position(
@@ -67,13 +67,13 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
                 az=2.0,
                 alt=1.0,
                 observing_location=observing_location,
-                timestamp=pylx200mount.get_time(),
+                timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
             ),
             telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
                 az=2.7677669529,
                 alt=5.665063509,
                 observing_location=observing_location,
-                timestamp=pylx200mount.get_time(),
+                timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
             ),
         )
         assert (
@@ -94,13 +94,13 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
             az=1.0,
             alt=1.0,
             observing_location=observing_location,
-            timestamp=pylx200mount.get_time(),
+            timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
         )
         telescope = pylx200mount.my_math.get_skycoord_from_alt_az(
             az=2.4142135623,
             alt=5.732050807,
             observing_location=observing_location,
-            timestamp=pylx200mount.get_time(),
+            timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
         )
         alignment_handler = pylx200mount.alignment.AlignmentHandler()
         alignment_handler.add_alignment_position(
@@ -112,13 +112,13 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
                 az=1.0,
                 alt=2.0,
                 observing_location=observing_location,
-                timestamp=pylx200mount.get_time(),
+                timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
             ),
             telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
                 az=2.7677669529,
                 alt=6.665063509,
                 observing_location=observing_location,
-                timestamp=pylx200mount.get_time(),
+                timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
             ),
         )
         alignment_handler.add_alignment_position(
@@ -126,13 +126,13 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
                 az=2.0,
                 alt=1.0,
                 observing_location=observing_location,
-                timestamp=pylx200mount.get_time(),
+                timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
             ),
             telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
                 az=2.7677669529,
                 alt=5.665063509,
                 observing_location=observing_location,
-                timestamp=pylx200mount.get_time(),
+                timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
             ),
         )
         alignment_handler.add_alignment_position(
@@ -140,13 +140,13 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
                 az=2.2,
                 alt=0.9,
                 observing_location=observing_location,
-                timestamp=pylx200mount.get_time(),
+                timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
             ),
             telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
                 az=2.80312229,
                 alt=5.55836478,
                 observing_location=observing_location,
-                timestamp=pylx200mount.get_time(),
+                timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
             ),
         )
 

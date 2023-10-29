@@ -10,10 +10,10 @@ from itertools import combinations
 import numpy as np
 from astropy.coordinates import SkyCoord
 
+from ..datetime_util import DatetimeUtil
 from ..enums import IDENTITY
 from ..my_math.astropy_util import get_radec_from_altaz, get_skycoord_from_alt_az
 from ..observing_location import ObservingLocation
-from ..utils import get_time
 
 
 def _altaz_to_3d_ndarray(altaz: SkyCoord) -> np.ndarray:
@@ -27,7 +27,7 @@ def _ndarray_to_altaz(
         az=float(array[0]),
         alt=float(array[1]),
         observing_location=observing_location,
-        timestamp=get_time(),
+        timestamp=DatetimeUtil.get_timestamp(),
     )
 
 

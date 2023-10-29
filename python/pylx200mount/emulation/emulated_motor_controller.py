@@ -6,9 +6,9 @@ import typing
 
 from astropy.coordinates import Angle
 
+from ..datetime_util import DatetimeUtil
 from ..motor.base_motor_controller import BaseMotorController
 from ..motor.trajectory import Trajectory, TrajectorySegment, accelerated_pos_and_vel
-from ..utils import get_time
 
 # Time to wait for the stepper motor to report that it is attached [ms].
 ATTACH_WAIT_TIME = 2000
@@ -63,7 +63,7 @@ class EmulatedStepper:
         Compute the position and velocity for the current time. Call the position and velocity callbacks if
         the position respectively the velocity have changed. The loop delay is non-drifiting.
         """
-        start_time = get_time()
+        start_time = DatetimeUtil.get_timestamp()
         while True:
             # Keep track of old time, position and velocity for change handlers.
             old_position = self._position
@@ -78,14 +78,16 @@ class EmulatedStepper:
                 self._on_velocity_change_handler(self, self._velocity)
 
             # Compute the remainder of the wait time to avoid drift.
-            remainder = (get_time() - start_time) % self._data_interval
+            remainder = (
+                DatetimeUtil.get_timestamp() - start_time
+            ) % self._data_interval
             # Now sleep the remainder of the wait time.
             await asyncio.sleep(self._data_interval - remainder)
 
     def _compute_position_and_velocity(self) -> None:
         """Use the computed trajectory to compute the position and velocity for the current time."""
         if self._trajectory is not None and len(self._trajectory.segments) != 0:
-            now = get_time()
+            now = DatetimeUtil.get_timestamp()
             time_since_command_time = now - self._command_time
 
             segment_to_use: TrajectorySegment | None = None
@@ -181,7 +183,7 @@ class EmulatedStepper:
         self._target_position = target_position
         self._start_position = self._position
         self._start_velocity = self._velocity
-        self._command_time = get_time()
+        self._command_time = DatetimeUtil.get_timestamp()
 
         if self._trajectory is not None:
             self._trajectory.set_target_position_and_velocity(

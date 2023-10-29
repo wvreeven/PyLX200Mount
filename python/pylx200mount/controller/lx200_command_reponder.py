@@ -4,6 +4,7 @@ from datetime import datetime
 from astropy import units as u
 from astropy.coordinates import Angle, Latitude, Longitude, SkyCoord
 
+from ..datetime_util import DatetimeUtil
 from ..enums import CommandName, CoordinatePrecision
 from .mount_controller import MountController
 
@@ -95,6 +96,9 @@ class Lx200CommandResponder:
         # The coordinate precision.
         self.coordinate_precision = CoordinatePrecision.LOW
 
+        # Keep track of the timezone, time and date so it can be passed on to DatetimeUtil.
+        self._datetime_str = ""
+
     async def start(self) -> None:
         """Start the responder."""
         self.log.info("Start called.")
@@ -164,18 +168,15 @@ class Lx200CommandResponder:
         self.target_dec = data
         return DEFAULT_REPLY
 
-    # noinspection PyMethodMayBeStatic
     async def get_clock_format(self) -> str:
         """Get the clock format: 12h or 24h. We will always use 24h."""
         return "(24)" + HASH
 
-    # noinspection PyMethodMayBeStatic
     async def get_tracking_rate(self) -> str:
         """Get the tracking rate of the mount."""
         # Return the sideral tracking frequency.
         return "60.1" + HASH
 
-    # noinspection PyMethodMayBeStatic
     async def get_utc_offset(self) -> str:
         """Get the UTC offset of the obsering site.
 
@@ -183,44 +184,41 @@ class Lx200CommandResponder:
         of the number of hours that the local time is ahead or behind of UTC. The
         difference is a minus symbol.
         """
-        dt = datetime.now().astimezone()
-        utc_offset = dt.tzinfo.utcoffset(dt).total_seconds() / 3600
-        self.log.debug(f"UTC Offset = {utc_offset}")
-        return f"{utc_offset:2.0f}" + HASH
+        dt = DatetimeUtil.get_datetime()
+        tz_info = dt.tzinfo
+        assert tz_info is not None
+        utc_offset = tz_info.utcoffset(dt)
+        assert utc_offset is not None
+        utc_offset_hours = -utc_offset.total_seconds() / 3600
+        self.log.debug(f"UTC Offset = {utc_offset_hours}")
+        return f"{utc_offset_hours:2.0f}" + HASH
 
-    # noinspection PyMethodMayBeStatic
     async def get_local_time(self) -> str:
         """Get the local time at the observing site."""
-        current_dt = datetime.now().astimezone()
+        current_dt = DatetimeUtil.get_datetime()
         return current_dt.strftime("%H:%M:%S") + HASH
 
-    # noinspection PyMethodMayBeStatic
     async def get_current_date(self) -> str:
         """Get the local date at the observing site."""
-        current_dt = datetime.now().astimezone()
+        current_dt = DatetimeUtil.get_datetime()
         return current_dt.strftime("%m/%d/%y") + HASH
 
-    # noinspection PyMethodMayBeStatic
     async def get_firmware_date(self) -> str:
         """Get the firmware date which is just a date that I made up."""
         return "Apr 05 2020" + HASH
 
-    # noinspection PyMethodMayBeStatic
     async def get_firmware_time(self) -> str:
         """Get the firmware time which is just a time that I made up."""
         return "18:00:00" + HASH
 
-    # noinspection PyMethodMayBeStatic
     async def get_firmware_number(self) -> str:
         """Get the firmware number which is just a number that I made up."""
         return "01.0" + HASH
 
-    # noinspection PyMethodMayBeStatic
     async def get_firmware_name(self) -> str:
         """Get the firmware name which is just a name that I made up."""
         return "Phidgets|A|43Eg|Apr 05 2020@18:00:00" + HASH
 
-    # noinspection PyMethodMayBeStatic
     async def get_telescope_name(self) -> str:
         """Get the mount name which is just a name that I made up."""
         return "Phidgets" + HASH
@@ -334,22 +332,36 @@ class Lx200CommandResponder:
         await self.mount_controller.stop_slew()
 
     async def set_utc_offset(self, data: str) -> str:
-        """Set the UTC offset."""
+        """Set the UTC offset.
+
+        This is the first method to be called in sequence when the planetarium software sets the timezone,
+        time and date.
+        """
         self.log.debug(f"set_utc_offset received data {data}")
+        utc_offset_hours = -float(data)
+        self._datetime_str = f"{100 * utc_offset_hours:+05.0f}"
         return DEFAULT_REPLY
 
     async def set_local_time(self, data: str) -> str:
-        """Set the local time."""
+        """Set the local time.
+
+        This is the second method to be called in sequence when the planetarium software sets the timezone,
+        time and date.
+        """
         self.log.debug(f"set_local_time received data {data}")
+        self._datetime_str = data + self._datetime_str
         return DEFAULT_REPLY
 
-    async def toggle_time_format(self) -> None:
-        """Toggle the time format."""
-        self.log.debug("toggle_time_format received.")
-
     async def set_local_date(self, data: str) -> str:
-        """Set the local date."""
+        """Set the local date.
+
+        This is the third method to be called in sequence when the planetarium software sets the timezone,
+        time and date.
+        """
         self.log.debug(f"set_local_date received data {data}")
+        self._datetime_str = data + "T" + self._datetime_str
+        dt = datetime.strptime(self._datetime_str, "%m/%d/%yT%H:%M:%S%z")
+        DatetimeUtil.set_datetime(dt)
         # Two return strings are expected so here we separate them by a new
         # line character and will let the socket server deal with it.
         return (
@@ -359,6 +371,10 @@ class Lx200CommandResponder:
             + REPLY_SEPARATOR
             + UPDATING_PLANETARY_DATA2
         )
+
+    async def toggle_time_format(self) -> None:
+        """Toggle the time format."""
+        self.log.debug("toggle_time_format received.")
 
     async def set_coordinate_precision(self) -> None:
         """Set the coordinate precision."""
