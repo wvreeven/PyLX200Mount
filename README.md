@@ -89,5 +89,3 @@ Open the Main Control tab and click `Connect`.
 In the menu to the top left, select `Observing Tools` and enable `Telescope Control`.  
 Enter the IP address and port as indicated above.  
 Toggle the switch to the right of `Link`.
-
-Stellarium may complain about the current time now being right. I am working on that.
