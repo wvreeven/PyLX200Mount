@@ -2,31 +2,37 @@ import logging
 from datetime import datetime
 
 from astropy import units as u
-from astropy.coordinates import Latitude, Longitude, SkyCoord
+from astropy.coordinates import Angle, Latitude, Longitude, SkyCoord
 
 from ..enums import CommandName, CoordinatePrecision
 from .mount_controller import MountController
 
 _all__ = ["Lx200CommandResponder", "REPLY_SEPARATOR"]
 
-"""Default reply."""
+# Some replies are terminated by the hash symbol.
+HASH = "#"
+
+# Default reply.
 DEFAULT_REPLY = "1"
 
-"""A slew to the target position is possible."""
+# A slew to the target position is possible.
 SLEW_POSSIBLE = "0"
 
-"""Multiple strings which get sent as a reply to the SC command."""
-UPDATING_PLANETARY_DATA1 = "Updating Planetary Data       "
-UPDATING_PLANETARY_DATA2 = "                              "
+# Multiple strings which get sent as a reply to the SC command.
+UPDATING_PLANETARY_DATA1 = "Updating Planetary Data       " + HASH
+UPDATING_PLANETARY_DATA2 = "                              " + HASH
 
-"""Separator used for multiple replies."""
+# Separator used for multiple replies.
 REPLY_SEPARATOR = "\n"
 
 
 class Lx200CommandResponder:
     """Implements the LX200 protocol.
 
-    For more info, see the TelescopeProtocol PDF document in the misc/docs section.
+    For more info, see the TelescopeProtocol PDF document in the misc/docs section and
+
+    https://www.astro.louisville.edu/software/xmtel/archive/
+        xmtel-indi-6.0/xmtel-6.0l/support/lx200/CommandSet.html
     """
 
     def __init__(self) -> None:
@@ -46,6 +52,7 @@ class Lx200CommandResponder:
         # Dictionary of the functions to execute based on the received command.
         self.dispatch_dict = {
             CommandName.CM: (self.sync, False),
+            CommandName.D: (self.get_distance_bars, False),
             CommandName.G_LOWER_C: (self.get_clock_format, False),
             CommandName.G_UPPER_C: (self.get_current_date, False),
             CommandName.GD: (self.get_dec, False),
@@ -61,11 +68,12 @@ class Lx200CommandResponder:
             CommandName.GVN: (self.get_firmware_number, False),
             CommandName.GVP: (self.get_telescope_name, False),
             CommandName.GVT: (self.get_firmware_time, False),
+            CommandName.H: (self.toggle_time_format, False),
             CommandName.Mn: (self.move_slew_in_direction, False),
             CommandName.Me: (self.move_slew_in_direction, False),
             CommandName.M_LOWER_S: (self.move_slew_in_direction, False),
-            CommandName.Mw: (self.move_slew_in_direction, False),
             CommandName.M_UPPER_S: (self.move_slew, False),
+            CommandName.Mw: (self.move_slew_in_direction, False),
             CommandName.Qn: (self.stop_slew, False),
             CommandName.Qe: (self.stop_slew, False),
             CommandName.Qs: (self.stop_slew, False),
@@ -103,12 +111,12 @@ class Lx200CommandResponder:
         ra = ra_dec.ra
         hms = ra.hms
         if self.coordinate_precision == CoordinatePrecision.HIGH:
-            ra_str = f"{hms.h:02.0f}:{hms.m:02.0f}:{hms.s:02.2f}"
+            ra_str = f"{hms.h:02.0f}:{hms.m:02.0f}:{hms.s:02.0f}"
         else:
             m = hms.m + (hms.s / 60.0)
             ra_str = f"{hms.h:02.0f}:{m:02.1f}"
         # self.log.debug(f"{ra_str=}")
-        return ra_str
+        return ra_str + HASH
 
     async def set_ra(self, data: str) -> str:
         """Set the RA that the mount should slew to.
@@ -130,18 +138,14 @@ class Lx200CommandResponder:
     async def get_dec(self) -> str:
         """Get the DEC that the mount currently is pointing at."""
         ra_dec: SkyCoord = await self.mount_controller.get_ra_dec()
-        dec = ra_dec.dec
-        # Use signed_dms here because dms will have negative minutes and seconds!!!
-        dec_dms = dec.signed_dms
-        if self.coordinate_precision == CoordinatePrecision.HIGH:
-            dec_str = (
-                f"{dec_dms.sign*dec_dms.d:02.0f}*{dec_dms.m:02.0f}'{dec_dms.s:02.2f}"
+        return (
+            await self.get_angle_as_lx200_string(
+                angle=ra_dec.dec,
+                digits=2,
+                coordinate_precision=self.coordinate_precision,
             )
-        else:
-            m = dec_dms.m + (dec_dms.s / 60.0)
-            dec_str = f"{dec_dms.sign*dec_dms.d:02.0f}*{m:02.0f}"
-        # self.log.debug(f"{dec_str=}")
-        return dec_str
+            + HASH
+        )
 
     async def set_dec(self, data: str) -> str:
         """Set the DEC that the mount should slew to.
@@ -163,12 +167,13 @@ class Lx200CommandResponder:
     # noinspection PyMethodMayBeStatic
     async def get_clock_format(self) -> str:
         """Get the clock format: 12h or 24h. We will always use 24h."""
-        return "(24)"
+        return "(24)" + HASH
 
     # noinspection PyMethodMayBeStatic
     async def get_tracking_rate(self) -> str:
         """Get the tracking rate of the mount."""
-        return "60.0"
+        # Return the sideral tracking frequency.
+        return "60.1" + HASH
 
     # noinspection PyMethodMayBeStatic
     async def get_utc_offset(self) -> str:
@@ -179,52 +184,55 @@ class Lx200CommandResponder:
         difference is a minus symbol.
         """
         dt = datetime.now().astimezone()
-        tz = self.mount_controller.observing_location.tz.utcoffset(dt=dt)
-        utc_offset = tz.total_seconds() / 3600
+        utc_offset = dt.tzinfo.utcoffset(dt).total_seconds() / 3600
         self.log.debug(f"UTC Offset = {utc_offset}")
-        return f"{-utc_offset:.1f}"
+        return f"{utc_offset:2.0f}" + HASH
 
     # noinspection PyMethodMayBeStatic
     async def get_local_time(self) -> str:
         """Get the local time at the observing site."""
         current_dt = datetime.now().astimezone()
-        return current_dt.strftime("%H:%M:%S")
+        return current_dt.strftime("%H:%M:%S") + HASH
 
     # noinspection PyMethodMayBeStatic
     async def get_current_date(self) -> str:
         """Get the local date at the observing site."""
         current_dt = datetime.now().astimezone()
-        return current_dt.strftime("%m/%d/%y")
+        return current_dt.strftime("%m/%d/%y") + HASH
 
     # noinspection PyMethodMayBeStatic
     async def get_firmware_date(self) -> str:
         """Get the firmware date which is just a date that I made up."""
-        return "Apr 05 2020"
+        return "Apr 05 2020" + HASH
 
     # noinspection PyMethodMayBeStatic
     async def get_firmware_time(self) -> str:
         """Get the firmware time which is just a time that I made up."""
-        return "18:00:00"
+        return "18:00:00" + HASH
 
     # noinspection PyMethodMayBeStatic
     async def get_firmware_number(self) -> str:
         """Get the firmware number which is just a number that I made up."""
-        return "1.0"
+        return "01.0" + HASH
 
     # noinspection PyMethodMayBeStatic
     async def get_firmware_name(self) -> str:
         """Get the firmware name which is just a name that I made up."""
-        return "Phidgets|A|43Eg|Apr 05 2020@18:00:00"
+        return "Phidgets|A|43Eg|Apr 05 2020@18:00:00" + HASH
 
     # noinspection PyMethodMayBeStatic
     async def get_telescope_name(self) -> str:
         """Get the mount name which is just a name that I made up."""
-        return "Phidgets"
+        return "Phidgets" + HASH
 
     async def get_current_site_latitude(self) -> str:
         """Get the latitude of the obsering site."""
-        return self.mount_controller.observing_location.location.lat.to_string(
-            unit=u.degree, sep=":", fields=2
+        lat = self.mount_controller.observing_location.location.lat
+        return (
+            await self.get_angle_as_lx200_string(
+                angle=lat, digits=2, coordinate_precision=CoordinatePrecision.LOW
+            )
+            + HASH
         )
 
     async def set_current_site_latitude(self, data: str) -> str:
@@ -263,7 +271,7 @@ class Lx200CommandResponder:
             f"{self.mount_controller.observing_location.location.lon.to_string()} "
             f"to LX200 longitude {longitude}"
         )
-        return longitude
+        return longitude + HASH
 
     async def set_current_site_longitude(self, data: str) -> str:
         """Set the longitude of the obsering site.
@@ -298,7 +306,7 @@ class Lx200CommandResponder:
 
     async def get_site_1_name(self) -> str:
         """Get the name of the observing site."""
-        return self.mount_controller.observing_location.name
+        return self.mount_controller.observing_location.name + HASH
 
     async def set_slew_rate(self) -> None:
         """Set the slew rate at the commanded rate."""
@@ -311,13 +319,14 @@ class Lx200CommandResponder:
         slew_possible = await self.mount_controller.slew_to(
             self.target_ra, self.target_dec
         )
+        if slew_possible != "0":
+            slew_possible = slew_possible + HASH
         return slew_possible
 
-    async def move_slew_in_direction(self) -> str:
+    async def move_slew_in_direction(self) -> None:
         """Move the telescope at slew rate in the commanded direction."""
         self.log.debug(f"Slewing in direction determined by cmd {self.cmd}")
         await self.mount_controller.slew_in_direction(cmd=self.cmd)
-        return SLEW_POSSIBLE
 
     async def stop_slew(self) -> None:
         """Stop the current slew."""
@@ -333,6 +342,10 @@ class Lx200CommandResponder:
         """Set the local time."""
         self.log.debug(f"set_local_time received data {data}")
         return DEFAULT_REPLY
+
+    async def toggle_time_format(self) -> None:
+        """Toggle the time format."""
+        self.log.debug("toggle_time_format received.")
 
     async def set_local_date(self, data: str) -> str:
         """Set the local date."""
@@ -361,4 +374,25 @@ class Lx200CommandResponder:
         await self.mount_controller.set_ra_dec(
             ra_str=self.target_ra, dec_str=self.target_dec
         )
-        return "RANDOM NAME"
+        return "RANDOM NAME" + HASH
+
+    async def get_angle_as_lx200_string(
+        self, angle: Angle, digits: int, coordinate_precision: CoordinatePrecision
+    ) -> str:
+        # Use signed_dms here because dms will have negative minutes and seconds!!!
+        angle_dms = angle.signed_dms
+        d = f"{angle_dms.sign * angle_dms.d:0{digits}.0f}"
+        if coordinate_precision == CoordinatePrecision.HIGH:
+            angle_str = f"{d}*{angle_dms.m:02.0f}'{angle_dms.s:02.0f}"
+        else:
+            m = angle_dms.m + (angle_dms.s / 60.0)
+            angle_str = f"{d}*{m:02.0f}"
+        # self.log.debug(f"{angle_str=}")
+        return angle_str
+
+    async def get_distance_bars(self) -> str:
+        """Get the distance bars displayed on the hand controller.
+
+        The hand controller doesn't exist in this case."""
+        self.log.debug("get_distance_bars received.")
+        return "0x7f" + HASH if self.mount_controller.is_slewing else HASH

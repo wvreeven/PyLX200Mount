@@ -7,10 +7,13 @@ import socket
 from pylx200mount.controller import REPLY_SEPARATOR, Lx200CommandResponder
 from pylx200mount.enums import CommandName
 
+# Algnment query.
+AQ = "\x06"
+
 # Command start with a colon symbol.
 COLON: str = ":"
 
-# Commands and replies are terminated by the hash symbol.
+# Commands and some replies are terminated by the hash symbol.
 HASH = "#"
 HASH_BYTES: bytes = b"#"
 
@@ -34,11 +37,6 @@ class LX200Mount:
         self.responder = Lx200CommandResponder()
 
         self.log: logging.Logger = logging.getLogger(type(self).__name__)
-
-        # Keep track of the previous command to be able to ignore duplicate ones.
-        self.previous_command = ""
-        # Keep track of being in a button move in SkySafari or not.
-        self.in_button_move = False
 
     async def start(self) -> None:
         """Start the TCP/IP server."""
@@ -67,26 +65,17 @@ class LX200Mount:
         server.close()
         self.log.info("Done closing.")
 
-    async def write(self, st: str, append_hash: bool = True) -> None:
+    async def write(self, st: str) -> None:
         """Write the string st appended with a HASH character.
 
         Parameters
         ----------
         st: `str`
             The string to append a HASH character to and then write.
-        append_hash: `bool`
-            Append a HASH to the reply or not? Defaults to True.
         """
-        reply = st.encode()
-        if append_hash:
-            reply = reply + HASH_BYTES
         # self.log.debug(f"Writing reply {st}")
         if self._writer is not None:
-            # After a :SC command, multiple replies need to be send which may
-            # lead to a broken pipe error because of the way SkySafari connects
-            # and disconnects from the SocketServer all the time. We will just
-            # simply ignore that here. It usually only happens once or twice
-            # when SkySafari connects, and then it doesn't happen anymore.
+            reply = st.encode()
             self._writer.write(reply)
             await self._writer.drain()
 
@@ -102,12 +91,16 @@ class LX200Mount:
             while True:
                 # First read only one character.
                 c = (await reader.read(1)).decode()
+                # self.log.debug(f"Processing {c=}")
                 # SkySafari connects and disconnects all the time and expects a reply when it does.
                 if c == "":
                     await self.write(EMPTY_REPLY)
                 # AstroPlanner appends all commands with a HASH that can safely be ignored.
                 elif c == HASH:
+                    # self.log.debug(f"Ignoring {c=}.")
                     pass
+                elif c == AQ:
+                    await self.write("A")
                 # A colon indicates a command so process that.
                 elif c == COLON:
                     await self._read_and_process_line(reader)
@@ -132,64 +125,37 @@ class LX200Mount:
         # unique so this is a safe way to find the command without having to
         # write too much boilerplate code.
         cmd = ""
-        for key in self.responder.dispatch_dict.keys():
+        for key in CommandName:
             if line.startswith(key):
                 cmd = key
                 break
 
         # Log a message if the command wasn't found.
-        if cmd not in self.responder.dispatch_dict:
-            self.log.error(f"Unknown command {cmd!r}.")
+        if cmd == "":
+            self.log.error(f"Unknown command {line!r}.")
 
         # Otherwise, process the command.
         else:
             await self._process_command(cmd, line)
 
     async def _process_command(self, cmd: str, line: str) -> None:
-        # On 22 Oct 2023 I found that INDI sends a duplicate GR command after issuing an MS (goto) command
-        # causing INDI to swap RA and DEC. If the duplicate command is ignored, all works well, so that's
-        # what's being done here.
-        if cmd != self.previous_command or self.in_button_move:
-            # Keep track of being in a button move or not. SkySafari issues a duplicate "GD" command after
-            # a move button in the telescope control panel is clicked and will disconnect if that command is
-            # ignored. As soon as the button move ends, duplicate commands may be ignored again.
-            self.set_in_button_move(cmd)
-
-            self.responder.cmd = cmd
-            (func, has_arg) = self.responder.dispatch_dict[cmd]
-            kwargs = {}
-            if has_arg:
-                # Read the function argument from the incoming command line
-                # and pass it on to the function.
-                data_start = len(cmd)
-                kwargs["data"] = line[data_start:-1]
-            output = await func(**kwargs)  # type: ignore
-            if output:
-                if REPLY_SEPARATOR in output:
-                    # dirty trick to be able to send two output
-                    # strings as is expected for e.g. "SC#"
-                    outputs = output.split(REPLY_SEPARATOR)
-                    for i in range(len(outputs)):
-                        await self.write(outputs[i])
-                        self.log.debug(f"Sleeping for {SEND_COMMAND_SLEEP} sec.")
-                        await asyncio.sleep(SEND_COMMAND_SLEEP)
-                else:
-                    append_hash = cmd not in [CommandName.M_UPPER_S]
-                    await self.write(output, append_hash)
-        else:
-            self.log.debug(f"Ignoring duplicate {cmd=}")
-        self.previous_command = cmd
-
-    def set_in_button_move(self, cmd: str) -> None:
-        if cmd in [
-            CommandName.Mn,
-            CommandName.Me,
-            CommandName.M_LOWER_S,
-            CommandName.Mw,
-        ]:
-            self.in_button_move = True
-        if cmd in [CommandName.Qn, CommandName.Qe, CommandName.Qs, CommandName.Qw]:
-            self.in_button_move = False
+        self.responder.cmd = cmd
+        (func, has_arg) = self.responder.dispatch_dict[cmd]
+        kwargs = {}
+        if has_arg:
+            # Read the function argument from the incoming command line
+            # and pass it on to the function.
+            data_start = len(cmd)
+            kwargs["data"] = line[data_start:-1]
+        output = await func(**kwargs)  # type: ignore
+        if output:
+            # Dirty trick to be able to send two output
+            # strings as is expected for "SC#".
+            outputs = output.split(REPLY_SEPARATOR)
+            for i in range(len(outputs)):
+                await self.write(outputs[i])
+                # self.log.debug(f"Sleeping for {SEND_COMMAND_SLEEP} sec.")
+                await asyncio.sleep(SEND_COMMAND_SLEEP)
 
 
 async def run_lx200_mount() -> None:

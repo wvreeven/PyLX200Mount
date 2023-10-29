@@ -13,6 +13,7 @@ from astropy import units as u
 from astropy.coordinates import FK5, AltAz, Angle, SkyCoord
 
 from ..observing_location import ObservingLocation
+from ..utils import get_time
 
 DEFAULT_ATMOSPHERIC_PRESSURE = u.Quantity(101325.0 * u.Pa)
 DEFAULT_TEMPERATURE = u.Quantity(-20.0 * u.deg_C)
