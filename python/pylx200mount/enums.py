@@ -27,6 +27,7 @@ class CommandName(enum.StrEnum):
     """LX200 Command Name."""
 
     CM = "CM"
+    D = "D"
     G_LOWER_C = "Gc"
     G_UPPER_C = "GC"
     GD = "GD"
@@ -42,6 +43,7 @@ class CommandName(enum.StrEnum):
     GVN = "GVN"
     GVP = "GVP"
     GVT = "GVT"
+    H = "H"
     Mn = "Mn"
     Me = "Me"
     M_LOWER_S = "Ms"

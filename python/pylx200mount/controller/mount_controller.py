@@ -98,6 +98,7 @@ class MountController:
         # Slew related variables
         self.slew_direction = SlewDirection.NONE
         self.slew_rate = SlewRate.HIGH
+        self.is_slewing = False
 
         # Create a Future that is done, so it can be safely canceled at all times.
         self._position_loop_task: asyncio.Future = asyncio.Future()
@@ -149,8 +150,16 @@ class MountController:
         start_time = get_time()
         self.log.debug(f"position_loop starts at {start_time}")
         while True:
-            self.check_motor_stopped(self.motor_controller_az)
-            self.check_motor_stopped(self.motor_controller_alt)
+            self.check_motor_tracking(self.motor_controller_az)
+            self.check_motor_tracking(self.motor_controller_alt)
+
+            if (
+                self.motor_controller_az.state == MotorControllerState.SLEWING
+                or self.motor_controller_alt.state == MotorControllerState.SLEWING
+            ):
+                self.is_slewing = True
+            else:
+                self.is_slewing = False
 
             timediff = 2.0 * POSITION_INTERVAL
             target_alt_az = get_altaz_at_different_time(
@@ -173,7 +182,7 @@ class MountController:
             remainder = (get_time() - start_time) % POSITION_INTERVAL
             await asyncio.sleep(POSITION_INTERVAL - remainder)
 
-    def check_motor_stopped(self, motor: BaseMotorController) -> None:
+    def check_motor_tracking(self, motor: BaseMotorController) -> None:
         """Check if the provided motor is stopped.
 
         If the motor state is not stopped but the motor velocity is 0 deg/sec, then the motor state is set to
