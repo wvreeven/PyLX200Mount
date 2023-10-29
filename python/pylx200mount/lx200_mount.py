@@ -116,7 +116,7 @@ class LX200Mount:
         # strings up to # and parse them.
         line_b = await reader.readuntil(HASH_BYTES)
         line = line_b.decode().strip()
-        if CommandName.GD not in line and CommandName.GR not in line:
+        if CommandName.GD.value not in line and CommandName.GR.value not in line:
             self.log.debug(f"Read command line: {line!r}")
 
         # Almost all LX200 commands are unique but don't have a fixed length.
@@ -126,26 +126,23 @@ class LX200Mount:
         # write too much boilerplate code.
         cmd = ""
         for key in CommandName:
-            if line.startswith(key):
-                cmd = key
+            if line.startswith(key.value):
+                await self._process_command(key, line)
+                cmd = key.value
                 break
 
         # Log a message if the command wasn't found.
         if cmd == "":
             self.log.error(f"Unknown command {line!r}.")
 
-        # Otherwise, process the command.
-        else:
-            await self._process_command(cmd, line)
-
-    async def _process_command(self, cmd: str, line: str) -> None:
-        self.responder.cmd = cmd
+    async def _process_command(self, cmd: CommandName, line: str) -> None:
+        self.responder.cmd = cmd.value
         (func, has_arg) = self.responder.dispatch_dict[cmd]
         kwargs = {}
         if has_arg:
             # Read the function argument from the incoming command line
             # and pass it on to the function.
-            data_start = len(cmd)
+            data_start = len(cmd.value)
             kwargs["data"] = line[data_start:-1]
         output = await func(**kwargs)  # type: ignore
         if output:

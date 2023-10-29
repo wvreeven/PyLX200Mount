@@ -1,9 +1,9 @@
 import logging
-from datetime import datetime
 
 from astropy import units as u
 from astropy.coordinates import Angle, Latitude, Longitude, SkyCoord
 
+from ..datetime_util import DatetimeUtil
 from ..enums import CommandName, CoordinatePrecision
 from .mount_controller import MountController
 
@@ -164,18 +164,15 @@ class Lx200CommandResponder:
         self.target_dec = data
         return DEFAULT_REPLY
 
-    # noinspection PyMethodMayBeStatic
     async def get_clock_format(self) -> str:
         """Get the clock format: 12h or 24h. We will always use 24h."""
         return "(24)" + HASH
 
-    # noinspection PyMethodMayBeStatic
     async def get_tracking_rate(self) -> str:
         """Get the tracking rate of the mount."""
         # Return the sideral tracking frequency.
         return "60.1" + HASH
 
-    # noinspection PyMethodMayBeStatic
     async def get_utc_offset(self) -> str:
         """Get the UTC offset of the obsering site.
 
@@ -183,44 +180,41 @@ class Lx200CommandResponder:
         of the number of hours that the local time is ahead or behind of UTC. The
         difference is a minus symbol.
         """
-        dt = datetime.now().astimezone()
-        utc_offset = dt.tzinfo.utcoffset(dt).total_seconds() / 3600
-        self.log.debug(f"UTC Offset = {utc_offset}")
-        return f"{utc_offset:2.0f}" + HASH
+        dt = DatetimeUtil.get_datetime()
+        tz_info = dt.tzinfo
+        assert tz_info is not None
+        utc_offset = tz_info.utcoffset(dt)
+        assert utc_offset is not None
+        utc_offset_hours = -utc_offset.total_seconds() / 3600
+        self.log.debug(f"UTC Offset = {utc_offset_hours}")
+        return f"{utc_offset_hours:2.0f}" + HASH
 
-    # noinspection PyMethodMayBeStatic
     async def get_local_time(self) -> str:
         """Get the local time at the observing site."""
-        current_dt = datetime.now().astimezone()
+        current_dt = DatetimeUtil.get_datetime()
         return current_dt.strftime("%H:%M:%S") + HASH
 
-    # noinspection PyMethodMayBeStatic
     async def get_current_date(self) -> str:
         """Get the local date at the observing site."""
-        current_dt = datetime.now().astimezone()
+        current_dt = DatetimeUtil.get_datetime()
         return current_dt.strftime("%m/%d/%y") + HASH
 
-    # noinspection PyMethodMayBeStatic
     async def get_firmware_date(self) -> str:
         """Get the firmware date which is just a date that I made up."""
         return "Apr 05 2020" + HASH
 
-    # noinspection PyMethodMayBeStatic
     async def get_firmware_time(self) -> str:
         """Get the firmware time which is just a time that I made up."""
         return "18:00:00" + HASH
 
-    # noinspection PyMethodMayBeStatic
     async def get_firmware_number(self) -> str:
         """Get the firmware number which is just a number that I made up."""
         return "01.0" + HASH
 
-    # noinspection PyMethodMayBeStatic
     async def get_firmware_name(self) -> str:
         """Get the firmware name which is just a name that I made up."""
         return "Phidgets|A|43Eg|Apr 05 2020@18:00:00" + HASH
 
-    # noinspection PyMethodMayBeStatic
     async def get_telescope_name(self) -> str:
         """Get the mount name which is just a name that I made up."""
         return "Phidgets" + HASH

@@ -13,60 +13,63 @@ class TestLx200CommandResponder(IsolatedAsyncioTestCase):
     async def asyncTearDown(self) -> None:
         await self.responder.stop()
 
+    def assertEndsInHash(self, s: str) -> None:
+        assert s.endswith("#")
+
     def assertDoesNotEndInHash(self, s: str) -> None:
         assert not s.endswith("#")
 
     async def test_get_ra(self) -> None:
         ra = await self.responder.get_ra()
-        self.assertDoesNotEndInHash(ra)
+        self.assertEndsInHash(ra)
 
     async def test_get_dec(self) -> None:
         de = await self.responder.get_dec()
-        self.assertDoesNotEndInHash(de)
+        self.assertEndsInHash(de)
 
     async def test_get_clock_format(self) -> None:
         clock_format = await self.responder.get_clock_format()
-        self.assertDoesNotEndInHash(clock_format)
+        self.assertEndsInHash(clock_format)
 
     async def test_get_tracking_rate(self) -> None:
         tracking_rate = await self.responder.get_tracking_rate()
-        self.assertDoesNotEndInHash(tracking_rate)
+        self.assertEndsInHash(tracking_rate)
 
     async def test_get_utc_offset(self) -> None:
         utc_offset = await self.responder.get_utc_offset()
-        self.assertDoesNotEndInHash(utc_offset)
+        self.assertEndsInHash(utc_offset)
 
     async def test_get_local_time(self) -> None:
         local_time = await self.responder.get_local_time()
-        self.assertDoesNotEndInHash(local_time)
+        self.assertEndsInHash(local_time)
 
     async def test_get_current_date(self) -> None:
         current_date = await self.responder.get_current_date()
-        self.assertDoesNotEndInHash(current_date)
+        self.assertEndsInHash(current_date)
 
     async def test_get_firmware_date(self) -> None:
         firmware_date = await self.responder.get_firmware_date()
-        self.assertDoesNotEndInHash(firmware_date)
+        self.assertEndsInHash(firmware_date)
 
     async def test_get_firmware_time(self) -> None:
         firmware_time = await self.responder.get_firmware_time()
-        self.assertDoesNotEndInHash(firmware_time)
+        self.assertEndsInHash(firmware_time)
 
     async def test_get_firmware_number(self) -> None:
         firmware_number = await self.responder.get_firmware_number()
-        self.assertDoesNotEndInHash(firmware_number)
+        self.assertEndsInHash(firmware_number)
 
     async def test_get_firmware_name(self) -> None:
         firmware_name = await self.responder.get_firmware_name()
-        self.assertDoesNotEndInHash(firmware_name)
+        self.assertEndsInHash(firmware_name)
 
     async def test_get_telescope_name(self) -> None:
         telescope_name = await self.responder.get_telescope_name()
-        self.assertDoesNotEndInHash(telescope_name)
+        self.assertEndsInHash(telescope_name)
 
     async def test_get_current_site_latitude(self) -> None:
         current_site_latitude = await self.responder.get_current_site_latitude()
-        self.assertDoesNotEndInHash(current_site_latitude)
+        self.assertEndsInHash(current_site_latitude)
 
     async def test_set_current_site_latitude(self) -> None:
         current_site_latitude = await self.responder.set_current_site_latitude(
@@ -76,7 +79,7 @@ class TestLx200CommandResponder(IsolatedAsyncioTestCase):
 
     async def test_get_current_site_longitude(self) -> None:
         current_site_longitude = await self.responder.get_current_site_longitude()
-        self.assertDoesNotEndInHash(current_site_longitude)
+        self.assertEndsInHash(current_site_longitude)
 
     async def test_set_current_site_longitude(self) -> None:
         current_site_longitude = await self.responder.set_current_site_longitude(
@@ -86,8 +89,8 @@ class TestLx200CommandResponder(IsolatedAsyncioTestCase):
 
     async def test_get_site_1_name(self) -> None:
         site_1_name = await self.responder.get_site_1_name()
-        self.assertDoesNotEndInHash(site_1_name)
+        self.assertEndsInHash(site_1_name)
 
     async def test_set_slew_rate(self) -> None:
-        self.responder.cmd = "RS"
+        self.responder.cmd = pylx200mount.CommandName.RS.value
         await self.responder.set_slew_rate()

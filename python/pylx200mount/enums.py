@@ -23,7 +23,7 @@ TELESCOPE_REDUCTION_20INCH = 34.91
 IDENTITY = np.identity(3)
 
 
-class CommandName(enum.StrEnum):
+class CommandName(enum.Enum):
     """LX200 Command Name."""
 
     CM = "CM"
