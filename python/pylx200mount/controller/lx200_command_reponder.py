@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 from astropy import units as u
 from astropy.coordinates import Angle, Latitude, Longitude, SkyCoord
@@ -94,6 +95,9 @@ class Lx200CommandResponder:
         }
         # The coordinate precision.
         self.coordinate_precision = CoordinatePrecision.LOW
+
+        # Keep track of the timezone, time and date so it can be passed on to DatetimeUtil.
+        self._datetime_str = ""
 
     async def start(self) -> None:
         """Start the responder."""
@@ -328,22 +332,36 @@ class Lx200CommandResponder:
         await self.mount_controller.stop_slew()
 
     async def set_utc_offset(self, data: str) -> str:
-        """Set the UTC offset."""
+        """Set the UTC offset.
+
+        This is the first method to be called in sequence when the planetarium software sets the timezone,
+        time and date.
+        """
         self.log.debug(f"set_utc_offset received data {data}")
+        utc_offset_hours = -float(data)
+        self._datetime_str = f"{100 * utc_offset_hours:+05.0f}"
         return DEFAULT_REPLY
 
     async def set_local_time(self, data: str) -> str:
-        """Set the local time."""
+        """Set the local time.
+
+        This is the second method to be called in sequence when the planetarium software sets the timezone,
+        time and date.
+        """
         self.log.debug(f"set_local_time received data {data}")
+        self._datetime_str = data + self._datetime_str
         return DEFAULT_REPLY
 
-    async def toggle_time_format(self) -> None:
-        """Toggle the time format."""
-        self.log.debug("toggle_time_format received.")
-
     async def set_local_date(self, data: str) -> str:
-        """Set the local date."""
+        """Set the local date.
+
+        This is the third method to be called in sequence when the planetarium software sets the timezone,
+        time and date.
+        """
         self.log.debug(f"set_local_date received data {data}")
+        self._datetime_str = data + "T" + self._datetime_str
+        dt = datetime.strptime(self._datetime_str, "%m/%d/%yT%H:%M:%S%z")
+        DatetimeUtil.set_datetime(dt)
         # Two return strings are expected so here we separate them by a new
         # line character and will let the socket server deal with it.
         return (
@@ -353,6 +371,10 @@ class Lx200CommandResponder:
             + REPLY_SEPARATOR
             + UPDATING_PLANETARY_DATA2
         )
+
+    async def toggle_time_format(self) -> None:
+        """Toggle the time format."""
+        self.log.debug("toggle_time_format received.")
 
     async def set_coordinate_precision(self) -> None:
         """Set the coordinate precision."""
