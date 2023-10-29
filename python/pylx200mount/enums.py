@@ -43,6 +43,7 @@ class CommandName(enum.Enum):
     GVN = "GVN"
     GVP = "GVP"
     GVT = "GVT"
+    GW = "GW"
     H = "H"
     Mn = "Mn"
     Me = "Me"

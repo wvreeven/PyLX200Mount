@@ -69,6 +69,7 @@ class Lx200CommandResponder:
             CommandName.GVN: (self.get_firmware_number, False),
             CommandName.GVP: (self.get_telescope_name, False),
             CommandName.GVT: (self.get_firmware_time, False),
+            CommandName.GW: (self.get_firmware_time, False),
             CommandName.H: (self.toggle_time_format, False),
             CommandName.Mn: (self.move_slew_in_direction, False),
             CommandName.Me: (self.move_slew_in_direction, False),
@@ -412,3 +413,7 @@ class Lx200CommandResponder:
         The hand controller doesn't exist in this case."""
         self.log.debug("get_distance_bars received.")
         return "0x7f" + HASH if self.mount_controller.is_slewing else HASH
+
+    async def get_alignment_status(self) -> str:
+        """Get the alignment status."""
+        return "AN0" + HASH
