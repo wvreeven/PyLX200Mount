@@ -27,6 +27,20 @@ UPDATING_PLANETARY_DATA2 = "                              " + HASH
 REPLY_SEPARATOR = "\n"
 
 
+async def get_angle_as_lx200_string(
+    angle: Angle, digits: int, coordinate_precision: CoordinatePrecision
+) -> str:
+    # Use signed_dms here because dms will have negative minutes and seconds!!!
+    angle_dms = angle.signed_dms
+    d = f"{angle_dms.sign * angle_dms.d:0{digits}.0f}"
+    if coordinate_precision == CoordinatePrecision.HIGH:
+        angle_str = f"{d}*{angle_dms.m:02.0f}'{angle_dms.s:02.0f}"
+    else:
+        m = angle_dms.m + (angle_dms.s / 60.0)
+        angle_str = f"{d}*{m:02.0f}"
+    return angle_str
+
+
 class Lx200CommandResponder:
     """Implements the LX200 protocol.
 
@@ -97,7 +111,7 @@ class Lx200CommandResponder:
         # The coordinate precision.
         self.coordinate_precision = CoordinatePrecision.LOW
 
-        # Keep track of the timezone, time and date so it can be passed on to DatetimeUtil.
+        # Keep track of the timezone, time and date, so it can be passed on to DatetimeUtil.
         self._datetime_str = ""
 
     async def start(self) -> None:
@@ -144,7 +158,7 @@ class Lx200CommandResponder:
         """Get the DEC that the mount currently is pointing at."""
         ra_dec: SkyCoord = await self.mount_controller.get_ra_dec()
         return (
-            await self.get_angle_as_lx200_string(
+            await get_angle_as_lx200_string(
                 angle=ra_dec.dec,
                 digits=2,
                 coordinate_precision=self.coordinate_precision,
@@ -228,7 +242,7 @@ class Lx200CommandResponder:
         """Get the latitude of the obsering site."""
         lat = self.mount_controller.observing_location.location.lat
         return (
-            await self.get_angle_as_lx200_string(
+            await get_angle_as_lx200_string(
                 angle=lat, digits=2, coordinate_precision=CoordinatePrecision.LOW
             )
             + HASH
@@ -392,20 +406,6 @@ class Lx200CommandResponder:
             ra_str=self.target_ra, dec_str=self.target_dec
         )
         return "RANDOM NAME" + HASH
-
-    async def get_angle_as_lx200_string(
-        self, angle: Angle, digits: int, coordinate_precision: CoordinatePrecision
-    ) -> str:
-        # Use signed_dms here because dms will have negative minutes and seconds!!!
-        angle_dms = angle.signed_dms
-        d = f"{angle_dms.sign * angle_dms.d:0{digits}.0f}"
-        if coordinate_precision == CoordinatePrecision.HIGH:
-            angle_str = f"{d}*{angle_dms.m:02.0f}'{angle_dms.s:02.0f}"
-        else:
-            m = angle_dms.m + (angle_dms.s / 60.0)
-            angle_str = f"{d}*{m:02.0f}"
-        # self.log.debug(f"{angle_str=}")
-        return angle_str
 
     async def get_distance_bars(self) -> str:
         """Get the distance bars displayed on the hand controller.

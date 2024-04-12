@@ -23,14 +23,6 @@ from ..my_math.astropy_util import (
 )
 from ..observing_location import ObservingLocation
 
-# AltAz task interval [sec].
-ALTAZ_INTERVAL = 0.1
-# A limit to decide between slewing and tracking.
-TRACKING_LIMIT = Angle(1.0, u.arcmin)
-# Angle of 360º
-THREE_SIXTY = Angle(360.0, u.deg)
-# Angle of 180º
-ONE_EIGHTY = Angle(180.0, u.deg)
 # Angle of 90º.
 NINETY = Angle(90.0, u.deg)
 # Angle of 0º.
