@@ -28,7 +28,7 @@ NINETY = Angle(90.0, u.deg)
 # Angle of 0º.
 ZERO = Angle(0.0, u.deg)
 # Position loop task interval [sec].
-POSITION_INTERVAL = 2.0
+POSITION_INTERVAL = 0.5
 
 JSON_SCHEMA_FILE = pathlib.Path(__file__).parents[0] / "configuration_schema.json"
 CONFIG_FILE = pathlib.Path.home() / ".config" / "pylx200mount" / "config.json"
@@ -87,15 +87,16 @@ class MountController:
             hub_port=az_hub_port,
         )
 
-        # Slew related variables
+        # Slew related variables.
         self.slew_direction = SlewDirection.NONE
         self.slew_rate = SlewRate.HIGH
         self.is_slewing = False
 
-        # Create a Future that is done, so it can be safely canceled at all times.
+        # Position loop that is done, so it can be safely canceled at all times.
         self._position_loop_task: asyncio.Future = asyncio.Future()
         self._position_loop_task.set_result(None)
 
+        # Alignment handler.
         self.alignment_handler = AlignmentHandler()
 
     @property
@@ -123,8 +124,8 @@ class MountController:
         """
         self.log.info("Start called.")
         await self.attach_motors()
-        if not self._position_loop_task.done():
-            self._position_loop_task.cancel()
+        self._position_loop_task.cancel()
+        await self._position_loop_task
         self._position_loop_task = asyncio.create_task(self.position_loop())
         self.log.info("Started.")
 
@@ -172,7 +173,11 @@ class MountController:
                 await self.motor_controller_alt.track(target_alt_az.alt, timediff)
 
             remainder = (DatetimeUtil.get_timestamp() - start_time) % POSITION_INTERVAL
-            await asyncio.sleep(POSITION_INTERVAL - remainder)
+            try:
+                await asyncio.sleep(POSITION_INTERVAL - remainder)
+            except asyncio.CancelledError:
+                # Ignore.
+                pass
 
     def check_motor_tracking(self, motor: BaseMotorController) -> None:
         """Check if the provided motor is stopped.
@@ -195,8 +200,8 @@ class MountController:
         down actions.
         """
         self.log.info("Stop called.")
-        if not self._position_loop_task.done():
-            self._position_loop_task.cancel()
+        self._position_loop_task.cancel()
+        await self._position_loop_task
         await self.detach_motors()
 
     async def detach_motors(self) -> None:
