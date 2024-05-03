@@ -10,6 +10,25 @@
     "az": {
       "description": "The configuration for the azimuth motor.",
       "$ref": "#/$defs/motor"
+    },
+    "camera": {
+      "description": "The configuration for the camera for plate solving.",
+      "type": "object",
+      "properties": {
+        "class_name": {
+          "type": "string",
+          "description": "The name of the camera class."
+        },
+        "module": {
+          "type": "string",
+          "description": "The Python module for the camera class."
+        }
+      },
+      "required": [
+        "class_name",
+        "module"
+      ],
+      "additionalProperties": false
     }
   },
   "$defs": {
@@ -44,7 +63,8 @@
   },
   "required": [
     "alt",
-    "az"
+    "az",
+    "camera"
   ],
   "additionalProperties": false
 }

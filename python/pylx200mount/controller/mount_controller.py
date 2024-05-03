@@ -5,12 +5,14 @@ import importlib
 import json
 import logging
 import pathlib
+import typing
 
 import jsonschema
 from astropy import units as u
 from astropy.coordinates import Angle, SkyCoord
 
 from ..alignment import AlignmentHandler
+from ..camera import BaseCamera
 from ..datetime_util import DatetimeUtil
 from ..enums import MotorControllerState, SlewDirection, SlewRate
 from ..motor.base_motor_controller import BaseMotorController
@@ -22,6 +24,7 @@ from ..my_math.astropy_util import (
     get_skycoord_from_ra_dec_str,
 )
 from ..observing_location import ObservingLocation
+from ..plate_solver import BasePlateSolver
 
 # Angle of 90º.
 NINETY = Angle(90.0, u.deg)
@@ -32,6 +35,26 @@ POSITION_INTERVAL = 0.5
 
 JSON_SCHEMA_FILE = pathlib.Path(__file__).parents[0] / "configuration_schema.json"
 CONFIG_FILE = pathlib.Path.home() / ".config" / "pylx200mount" / "config.json"
+DEFAULT_CONFIG: dict[str, typing.Any] = {
+    "alt": {
+        "module": "pylx200mount.emulation.emulated_motor_controller",
+        "class_name": "EmulatedMotorController",
+        "hub_port": 0,
+        # 200 steps per revolution, 16 microsteps per step and a gear reduction of 2000x.
+        "gear_reduction": 0.00005625,
+    },
+    "az": {
+        "module": "pylx200mount.emulation.emulated_motor_controller",
+        "class_name": "EmulatedMotorController",
+        "hub_port": 1,
+        # 200 steps per revolution, 16 microsteps per step and a gear reduction of 2000x.
+        "gear_reduction": 0.00005625,
+    },
+    "camera": {
+        "module": "pylx200mount.emulation.emulated_camera",
+        "class_name": "EmulatedCamera",
+    },
+}
 
 
 class MountController:
@@ -44,34 +67,71 @@ class MountController:
         with open(JSON_SCHEMA_FILE, "r") as f:
             json_schema = json.load(f)
         self.validator = jsonschema.Draft7Validator(schema=json_schema)
+        self.validator.validate(DEFAULT_CONFIG)
 
+        config = DEFAULT_CONFIG
         if CONFIG_FILE.exists():
             with open(CONFIG_FILE, "r") as f:
                 config = json.load(f)
             self.validator.validate(config)
-            alt_module_name = config["alt"]["module"]
-            alt_class_name = config["alt"]["class_name"]
-            alt_hub_port = config["alt"]["hub_port"]
-            alt_gear_reduction = config["alt"]["gear_reduction"]
-            az_module_name = config["az"]["module"]
-            az_class_name = config["az"]["class_name"]
-            az_hub_port = config["az"]["hub_port"]
-            az_gear_reduction = config["az"]["gear_reduction"]
-        else:
-            alt_module_name = "pylx200mount.emulation.emulated_motor_controller"
-            alt_class_name = "EmulatedMotorController"
-            alt_hub_port = 0
-            # 200 steps per revolution, 16 microsteps per step and a gear reduction of 2000x.
-            alt_gear_reduction = 360 / 200 / 16 / 2000
-            az_module_name = "pylx200mount.emulation.emulated_motor_controller"
-            az_class_name = "EmulatedMotorController"
-            az_hub_port = 1
-            # 200 steps per revolution, 16 microsteps per step and a gear reduction of 2000x.
-            az_gear_reduction = 360 / 200 / 16 / 2000
+
+        alt_module_name = (
+            config["alt"]["module"]
+            if config["alt"]["module"]
+            else DEFAULT_CONFIG["alt"]["module"]
+        )
+        alt_class_name = (
+            config["alt"]["class_name"]
+            if config["alt"]["class_name"]
+            else DEFAULT_CONFIG["alt"]["class_name"]
+        )
+        alt_hub_port = (
+            config["alt"]["hub_port"]
+            if config["alt"]["hub_port"]
+            else DEFAULT_CONFIG["alt"]["hub_port"]
+        )
+        alt_gear_reduction = (
+            config["alt"]["gear_reduction"]
+            if config["alt"]["gear_reduction"]
+            else DEFAULT_CONFIG["alt"]["gear_reduction"]
+        )
+        az_module_name = (
+            config["az"]["module"]
+            if config["az"]["module"]
+            else DEFAULT_CONFIG["az"]["module"]
+        )
+        az_class_name = (
+            config["az"]["class_name"]
+            if config["az"]["class_name"]
+            else DEFAULT_CONFIG["az"]["class_name"]
+        )
+        az_hub_port = (
+            config["az"]["hub_port"]
+            if config["az"]["hub_port"]
+            else DEFAULT_CONFIG["az"]["hub_port"]
+        )
+        az_gear_reduction = (
+            config["az"]["gear_reduction"]
+            if config["az"]["gear_reduction"]
+            else DEFAULT_CONFIG["az"]["gear_reduction"]
+        )
+        camera_module_name = (
+            config["camera"]["module"]
+            if config["camera"]["module"]
+            else DEFAULT_CONFIG["camera"]["module"]
+        )
+        camera_class_name = (
+            config["camera"]["class_name"]
+            if config["camera"]["class_name"]
+            else DEFAULT_CONFIG["camera"]["class_name"]
+        )
+
         alt_motor_module = importlib.import_module(alt_module_name)
         alt_motor_class = getattr(alt_motor_module, alt_class_name)
         az_motor_module = importlib.import_module(az_module_name)
         az_motor_class = getattr(az_motor_module, az_class_name)
+        camera_module = importlib.import_module(camera_module_name)
+        camera_class = getattr(camera_module, camera_class_name)
 
         # The motor controllers.
         self.motor_controller_alt: BaseMotorController = alt_motor_class(
@@ -87,6 +147,19 @@ class MountController:
             hub_port=az_hub_port,
         )
 
+        # The camera and plate solver.
+        self.camera: BaseCamera = camera_class()
+        if camera_class_name == "EmulatedCamera":
+            from ..emulation import EmulatedPlateSolver
+
+            self.plate_solver: BasePlateSolver = EmulatedPlateSolver(self.camera)
+        else:
+            from ..plate_solver import PlateSolver
+
+            self.plate_solver = PlateSolver(self.camera)
+        self.camera_mount_offset = SkyCoord(0.0 * u.deg, 0.0 * u.deg, frame="icrs")
+        self.previous_camera_position: SkyCoord | None = None
+
         # Slew related variables.
         self.slew_direction = SlewDirection.NONE
         self.slew_rate = SlewRate.HIGH
@@ -99,8 +172,7 @@ class MountController:
         # Alignment handler.
         self.alignment_handler = AlignmentHandler()
 
-    @property
-    def mount_alt_az(self) -> SkyCoord:
+    def _get_mount_alt_az(self) -> SkyCoord:
         """Get the current motor positions as AltAz coordinates.
 
         Returns
@@ -115,6 +187,25 @@ class MountController:
             timestamp=DatetimeUtil.get_timestamp(),
         )
         return alt_az
+
+    async def _get_camera_alt_az(self) -> SkyCoord:
+        """Get the current AltAz cordinates for the camera, if present.
+
+        Returns
+        -------
+        `SkyCoord`
+            The current camera AltAz coordinates.
+
+        Raises
+        ------
+        RuntimeError
+            In case no camera is present or plate solving fails.
+        """
+        camera_ra_dec = await self.plate_solver.solve()
+        camera_alt_az = get_altaz_from_radec(
+            camera_ra_dec, self.observing_location, DatetimeUtil.get_timestamp()
+        )
+        return camera_alt_az
 
     async def start(self) -> None:
         """Start the mount controller.
@@ -223,9 +314,17 @@ class MountController:
         -------
         The right ascention and declination.
         """
-        # Transform the mount AltAz to sky AltAz.
-        sky_alt_az = self.alignment_handler.reverse_matrix_transform(self.mount_alt_az)
-        # Compute the sky RaDec from the sky AltAz.
+        try:
+            camera_alt_az = await self._get_camera_alt_az()
+            mount_alt_az = camera_alt_az - self.camera_mount_offset
+            self.previous_camera_position = camera_alt_az
+        except RuntimeError:
+            if self.previous_camera_position is not None:
+                mount_alt_az = self.previous_camera_position
+            else:
+                mount_alt_az = self._get_mount_alt_az()
+
+        sky_alt_az = self.alignment_handler.reverse_matrix_transform(mount_alt_az)
         ra_dec = get_radec_from_altaz(alt_az=sky_alt_az)
         return ra_dec
 
@@ -250,12 +349,23 @@ class MountController:
         )
 
         # Add an alignment point and compute the alignment matrix.
-        self.alignment_handler.add_alignment_position(sky_alt_az, self.mount_alt_az)
+        self.alignment_handler.add_alignment_position(
+            sky_alt_az, self._get_mount_alt_az
+        )
 
         # Compute the mount AltAz from the sky AltAz and pass on to the motor controllers.
         mount_alt_az = self.alignment_handler.matrix_transform(sky_alt_az)
         self.motor_controller_az.position = mount_alt_az.az
         self.motor_controller_alt.position = mount_alt_az.alt
+
+        # Get the camera AltAz and determine the offset w.r.t. the mount.
+        try:
+            camera_alt_az = await self._get_camera_alt_az()
+            self.camera_mount_offset = camera_alt_az - mount_alt_az
+            self.log.info(f"{self.camera_mount_offset=}")
+        except RuntimeError:
+            # Deliberately left empty.
+            pass
 
     async def set_slew_rate(self, cmd: str) -> None:
         """Set the slew rate.
