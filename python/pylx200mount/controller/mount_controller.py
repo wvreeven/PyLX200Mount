@@ -168,6 +168,7 @@ class MountController:
         # Position loop that is done, so it can be safely canceled at all times.
         self._position_loop_task: asyncio.Future = asyncio.Future()
         self._position_loop_task.set_result(None)
+        self.should_run_loop = True
 
         # Alignment handler.
         self.alignment_handler = AlignmentHandler()
@@ -215,6 +216,7 @@ class MountController:
         """
         self.log.info("Start called.")
         await self.attach_motors()
+        self.should_run_loop = True
         self._position_loop_task.cancel()
         await self._position_loop_task
         self._position_loop_task = asyncio.create_task(self.position_loop())
@@ -233,7 +235,7 @@ class MountController:
         """
         start_time = DatetimeUtil.get_timestamp()
         self.log.debug(f"position_loop starts at {start_time}")
-        while True:
+        while self.should_run_loop:
             self.check_motor_tracking(self.motor_controller_az)
             self.check_motor_tracking(self.motor_controller_alt)
 
@@ -291,6 +293,7 @@ class MountController:
         down actions.
         """
         self.log.info("Stop called.")
+        self.should_run_loop = False
         self._position_loop_task.cancel()
         await self._position_loop_task
         await self.detach_motors()
