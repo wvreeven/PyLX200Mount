@@ -6,7 +6,7 @@ repos:
         exclude: conda/meta.yaml
 
   - repo: https://github.com/psf/black
-    rev: 24.3.0
+    rev: 24.4.2
     hooks:
       - id: black
 
@@ -22,7 +22,7 @@ repos:
         name: isort (python)
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.9.0
+    rev: v1.10.0
     hooks:
       - id: mypy
         additional_dependencies: [ types-PyYAML==6 ]
