@@ -220,6 +220,10 @@ class MountController:
         self._position_loop_task.cancel()
         await self._position_loop_task
         self._position_loop_task = asyncio.create_task(self.position_loop())
+        await self.plate_solver.open_camera()
+        await self.plate_solver.set_gain_and_exposure_time(
+            gain=80, exposure_time=150000
+        )
         self.log.info("Started.")
 
     async def attach_motors(self) -> None:
@@ -319,7 +323,9 @@ class MountController:
         """
         try:
             camera_alt_az = await self._get_camera_alt_az()
-            mount_alt_az = camera_alt_az - self.camera_mount_offset
+            mount_alt_az = camera_alt_az.spherical_offsets_by(
+                self.camera_mount_offset.ra, self.camera_mount_offset.dec
+            )
             self.previous_camera_position = camera_alt_az
         except RuntimeError:
             if self.previous_camera_position is not None:
@@ -364,7 +370,7 @@ class MountController:
         # Get the camera AltAz and determine the offset w.r.t. the mount.
         try:
             camera_alt_az = await self._get_camera_alt_az()
-            self.camera_mount_offset = camera_alt_az - mount_alt_az
+            self.camera_mount_offset = camera_alt_az.spherical_offsets_to(mount_alt_az)
             self.log.info(f"{self.camera_mount_offset=}")
         except RuntimeError:
             # Deliberately left empty.
