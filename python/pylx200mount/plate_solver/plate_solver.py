@@ -1,10 +1,10 @@
 __all__ = ["PlateSolver"]
 
-import astropy.units as u  # type: ignore
 import tetra3  # type: ignore
 from astropy.coordinates import SkyCoord  # type: ignore
 
 from ..camera import BaseCamera
+from ..my_math import get_skycoord_from_ra_dec
 from .base_plate_solver import BasePlateSolver
 
 # Estimate of the size of the field of view [deg].
@@ -41,8 +41,9 @@ class PlateSolver(BasePlateSolver):
                 (self.camera.img_width, self.camera.img_height),
                 fov_estimate=FOV_ESTIMATE,
                 fov_max_error=FOV_MAX_ERROR,
+                solve_timeout=100000,
             )
-            center = SkyCoord(result["RA"], result["Dec"], unit=u.deg, frame="icrs")
+            center = get_skycoord_from_ra_dec(result["RA"], result["Dec"])
         except Exception as e:
             raise RuntimeError(e)
         return center
