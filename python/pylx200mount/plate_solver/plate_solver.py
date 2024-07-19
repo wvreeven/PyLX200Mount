@@ -8,9 +8,9 @@ from ..my_math import get_skycoord_from_ra_dec
 from .base_plate_solver import BasePlateSolver
 
 # Estimate of the size of the field of view [deg].
-FOV_ESTIMATE = 7.5
+FOV_ESTIMATE = 7.92
 # Max FOV error [deg].
-FOV_MAX_ERROR = 2.0
+FOV_MAX_ERROR = 0.05
 
 
 class PlateSolver(BasePlateSolver):
@@ -18,7 +18,7 @@ class PlateSolver(BasePlateSolver):
 
     def __init__(self, camera: BaseCamera) -> None:
         super().__init__(camera=camera)
-        self.t3 = tetra3.Tetra3()
+        self.t3 = tetra3.Tetra3(load_database="wouter_database")
 
     async def solve(self) -> SkyCoord:
         """Take an image and solve it.
@@ -33,15 +33,14 @@ class PlateSolver(BasePlateSolver):
         RuntimeError
             In case no image can be taken or solving it fails.
         """
-        img = await self.take_image()
+        img = await self.take_image(save_image=True)
         try:
-            centroids = tetra3.get_centroids_from_image(img)
+            centroids = tetra3.get_centroids_from_image(image=img)
             result = self.t3.solve_from_centroids(
                 centroids,
-                (self.camera.img_width, self.camera.img_height),
+                (img.width, img.height),
                 fov_estimate=FOV_ESTIMATE,
                 fov_max_error=FOV_MAX_ERROR,
-                solve_timeout=100000,
             )
             center = get_skycoord_from_ra_dec(result["RA"], result["Dec"])
         except Exception as e:
