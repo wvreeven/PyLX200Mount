@@ -21,7 +21,6 @@ from ..my_math.astropy_util import (
     get_altaz_from_radec,
     get_radec_from_altaz,
     get_skycoord_from_alt_az,
-    get_skycoord_from_ra_dec,
     get_skycoord_from_ra_dec_str,
 )
 from ..observing_location import ObservingLocation
@@ -159,7 +158,9 @@ class MountController:
 
             self.plate_solver = PlateSolver(self.camera)
         self.camera_mount_offset = (0.0 * u.deg, 0.0 * u.deg)
-        self.previous_camera_position: SkyCoord | None = None
+
+        # Keep track of the previous mount AltAz in case the plate solver fails.
+        self.previous_mount_alt_az: SkyCoord | None = None
 
         # Slew related variables.
         self.slew_direction = SlewDirection.NONE
@@ -204,7 +205,7 @@ class MountController:
         self._position_loop_task = asyncio.create_task(self.position_loop())
         await self.plate_solver.open_camera()
         await self.plate_solver.set_gain_and_exposure_time(
-            gain=100, exposure_time=150000
+            gain=80, exposure_time=150000
         )
         self.log.info("Started.")
 
@@ -305,20 +306,21 @@ class MountController:
         """
         try:
             camera_ra_dec = await self.plate_solver.solve()
-            self.log.debug(
-                f"camera_ra_dec=[{camera_ra_dec.ra.deg}, {camera_ra_dec.dec.deg}]."
+            camera_alt_az = await get_altaz_from_radec(
+                camera_ra_dec, self.observing_location, DatetimeUtil.get_timestamp()
             )
-            mount_ra_dec = camera_ra_dec.spherical_offsets_by(
+            self.log.debug(
+                f"camera_ra_dec=[{camera_ra_dec.ra.deg}, {camera_ra_dec.dec.deg}], "
+                f"camera_alt_az=[{camera_alt_az.az.deg}, {camera_alt_az.alt.deg}]."
+            )
+            mount_alt_az = camera_alt_az.spherical_offsets_by(
                 self.camera_mount_offset[0], self.camera_mount_offset[1]
             )
-            mount_alt_az = get_altaz_from_radec(
-                mount_ra_dec, self.observing_location, DatetimeUtil.get_timestamp()
-            )
-            self.previous_camera_position = mount_alt_az
+            self.previous_mount_alt_az = mount_alt_az
         except RuntimeError:
             self.log.exception("Error solving.")
-            if self.previous_camera_position is not None:
-                mount_alt_az = self.previous_camera_position
+            if self.previous_mount_alt_az is not None:
+                mount_alt_az = self.previous_mount_alt_az
             else:
                 mount_alt_az = self._get_mount_alt_az()
 
@@ -359,8 +361,10 @@ class MountController:
         # Get the camera AltAz and determine the offset w.r.t. the mount.
         try:
             camera_ra_dec = await self.plate_solver.solve()
-            mount_ra_dec = get_radec_from_altaz(mount_alt_az)
-            self.camera_mount_offset = camera_ra_dec.spherical_offsets_to(mount_ra_dec)
+            camera_alt_az = await get_altaz_from_radec(
+                camera_ra_dec, self.observing_location, DatetimeUtil.get_timestamp()
+            )
+            self.camera_mount_offset = camera_alt_az.spherical_offsets_to(mount_alt_az)
             self.log.info(f"{self.camera_mount_offset=}")
         except RuntimeError:
             self.log.exception("Error calculating camera_mount_offset.")
