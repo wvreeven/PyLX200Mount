@@ -2,11 +2,15 @@ __all__ = ["BasePlateSolver"]
 
 import abc
 import logging
+import pathlib
 
 from astropy.coordinates import SkyCoord  # type: ignore
 from PIL import Image
 
 from ..camera import BaseCamera
+from ..datetime_util import DatetimeUtil
+
+SAVE_DIR = pathlib.Path("/Users/wouter/PyLX200")
 
 
 class BasePlateSolver(abc.ABC):
@@ -15,6 +19,10 @@ class BasePlateSolver(abc.ABC):
     def __init__(self, camera: BaseCamera) -> None:
         self.log = logging.getLogger(type(self).__name__)
         self.camera = camera
+        now = DatetimeUtil.get_datetime()
+        now_string = now.strftime("%Y-%m-%d")
+        self.out_dir: pathlib.Path = SAVE_DIR / now_string
+        self.out_dir.mkdir(parents=True, exist_ok=True)
 
     async def open_camera(self) -> None:
         """Open the camera and make sure it uses the full sensor."""
@@ -36,8 +44,13 @@ class BasePlateSolver(abc.ABC):
         await self.camera.set_gain(gain)
         await self.camera.set_exposure_time(exposure_time)
 
-    async def take_image(self) -> Image.Image:
+    async def take_image(self, save_image: bool = False) -> Image.Image:
         """Use the camera to take an image.
+
+        Parameters
+        ----------
+        save_image : `bool`, optional
+            Save the image (True) or not (False). Defaults to False.
 
         Returns
         -------
@@ -45,10 +58,12 @@ class BasePlateSolver(abc.ABC):
             The image taken with the camera in PIL Image format.
         """
         data = await self.camera.take_and_get_image()
-        data_min = data.min()
-        data_max = data.max()
-        normalized_data = ((data - data_min) / (data_max - data_min)) * 255
-        img = Image.fromarray(normalized_data).convert("L")
+        img = Image.fromarray(data)
+
+        if save_image:
+            timestamp = DatetimeUtil.get_timestamp()
+            img.save(self.out_dir / f"{timestamp}.png")
+
         return img
 
     @abc.abstractmethod
