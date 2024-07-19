@@ -413,9 +413,7 @@ class AsiCamera(BaseCamera):
                 self.camera_id, ctypes.byref(exposure_status)
             )
         )
-        print(f"{exp_status=}, {exposure_status.value=}")
         while exposure_status.value == AsiExposureStatus.ASI_EXP_WORKING.value:
-            print(f"{exp_status=}, {exposure_status.value=}")
             time.sleep(0.02)
             exp_status = AsiExposureStatus(
                 self.asi_lib.lib.ASIGetExpStatus(

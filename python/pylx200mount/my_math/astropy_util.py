@@ -87,4 +87,5 @@ def get_skycoord_from_ra_dec_str(ra_str: str, dec_str: str) -> SkyCoord:
 
 
 def get_radec_from_altaz(alt_az: SkyCoord) -> SkyCoord:
-    return alt_az.transform_to(_fk5)
+    ra_dec = alt_az.transform_to(_fk5)
+    return get_skycoord_from_ra_dec(ra_dec.ra.deg, ra_dec.dec.deg)
