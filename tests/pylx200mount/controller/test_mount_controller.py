@@ -1,5 +1,6 @@
+import pathlib
 from typing import Tuple
-from unittest import IsolatedAsyncioTestCase
+from unittest import IsolatedAsyncioTestCase, mock
 
 import astropy.units as u
 import pylx200mount
@@ -17,25 +18,32 @@ def format_ra_dec_str(ra_dec: SkyCoord) -> Tuple[str, str]:
 
 class TestMountController(IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        self.mount_controller = pylx200mount.controller.MountController()
-        alt_az = pylx200mount.my_math.get_skycoord_from_alt_az(
-            alt=45.0,
-            az=175.0,
-            observing_location=self.mount_controller.observing_location,
-            timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
-        )
-        ra_dec = pylx200mount.my_math.get_radec_from_altaz(alt_az=alt_az)
-        self.ra_str, self.dec_str = format_ra_dec_str(ra_dec)
-        target_alt_az = pylx200mount.my_math.get_skycoord_from_alt_az(
-            alt=48.0,
-            az=179.0,
-            observing_location=self.mount_controller.observing_location,
-            timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
-        )
-        target_ra_dec = pylx200mount.my_math.get_radec_from_altaz(alt_az=target_alt_az)
-        self.target_ra_str, self.target_dec_str = format_ra_dec_str(target_ra_dec)
-        await self.mount_controller.start()
-        await self.mount_controller.set_ra_dec(ra_str=self.ra_str, dec_str=self.dec_str)
+        with mock.patch(
+            "pylx200mount.controller.utils.CONFIG_FILE", pathlib.Path("/does_not_exist")
+        ):
+            self.mount_controller = pylx200mount.controller.MountController()
+            alt_az = pylx200mount.my_math.get_skycoord_from_alt_az(
+                alt=45.0,
+                az=175.0,
+                observing_location=self.mount_controller.observing_location,
+                timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
+            )
+            ra_dec = pylx200mount.my_math.get_radec_from_altaz(alt_az=alt_az)
+            self.ra_str, self.dec_str = format_ra_dec_str(ra_dec)
+            target_alt_az = pylx200mount.my_math.get_skycoord_from_alt_az(
+                alt=48.0,
+                az=179.0,
+                observing_location=self.mount_controller.observing_location,
+                timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
+            )
+            target_ra_dec = pylx200mount.my_math.get_radec_from_altaz(
+                alt_az=target_alt_az
+            )
+            self.target_ra_str, self.target_dec_str = format_ra_dec_str(target_ra_dec)
+            await self.mount_controller.start()
+            await self.mount_controller.set_ra_dec(
+                ra_str=self.ra_str, dec_str=self.dec_str
+            )
 
     async def asyncTearDown(self) -> None:
         await self.mount_controller.stop()

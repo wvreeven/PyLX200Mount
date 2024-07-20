@@ -1,14 +1,18 @@
-from unittest import IsolatedAsyncioTestCase
+import pathlib
+from unittest import IsolatedAsyncioTestCase, mock
 
 import pylx200mount
 
 
 class TestLx200CommandResponder(IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        self.responder = (
-            pylx200mount.controller.lx200_command_reponder.Lx200CommandResponder()
-        )
-        await self.responder.start()
+        with mock.patch(
+            "pylx200mount.controller.utils.CONFIG_FILE", pathlib.Path("/does_not_exist")
+        ):
+            self.responder = (
+                pylx200mount.controller.lx200_command_reponder.Lx200CommandResponder()
+            )
+            await self.responder.start()
 
     async def asyncTearDown(self) -> None:
         await self.responder.stop()

@@ -2,12 +2,8 @@ __all__ = ["MountController"]
 
 import asyncio
 import importlib
-import json
 import logging
-import pathlib
-import typing
 
-import jsonschema
 from astropy import units as u
 from astropy.coordinates import Angle, SkyCoord
 
@@ -25,6 +21,7 @@ from ..my_math.astropy_util import (
 )
 from ..observing_location import ObservingLocation
 from ..plate_solver import BasePlateSolver
+from .utils import load_config
 
 # Angle of 90º.
 NINETY = Angle(90.0, u.deg)
@@ -32,29 +29,6 @@ NINETY = Angle(90.0, u.deg)
 ZERO = Angle(0.0, u.deg)
 # Position loop task interval [sec].
 POSITION_INTERVAL = 0.5
-
-JSON_SCHEMA_FILE = pathlib.Path(__file__).parents[0] / "configuration_schema.json"
-CONFIG_FILE = pathlib.Path.home() / ".config" / "pylx200mount" / "config.json"
-DEFAULT_CONFIG: dict[str, typing.Any] = {
-    "alt": {
-        "module": "pylx200mount.emulation.emulated_motor_controller",
-        "class_name": "EmulatedMotorController",
-        "hub_port": 0,
-        # 200 steps per revolution, 16 microsteps per step and a gear reduction of 2000x.
-        "gear_reduction": 0.00005625,
-    },
-    "az": {
-        "module": "pylx200mount.emulation.emulated_motor_controller",
-        "class_name": "EmulatedMotorController",
-        "hub_port": 1,
-        # 200 steps per revolution, 16 microsteps per step and a gear reduction of 2000x.
-        "gear_reduction": 0.00005625,
-    },
-    "camera": {
-        "module": "pylx200mount.emulation.emulated_camera",
-        "class_name": "EmulatedCamera",
-    },
-}
 
 
 class MountController:
@@ -64,92 +38,32 @@ class MountController:
         self.log = logging.getLogger(type(self).__name__)
         self.observing_location = ObservingLocation()
 
-        with open(JSON_SCHEMA_FILE, "r") as f:
-            json_schema = json.load(f)
-        self.validator = jsonschema.Draft7Validator(schema=json_schema)
-        self.validator.validate(DEFAULT_CONFIG)
-
-        config = DEFAULT_CONFIG
-        if CONFIG_FILE.exists():
-            with open(CONFIG_FILE, "r") as f:
-                config = json.load(f)
-            self.validator.validate(config)
-
-        alt_module_name = (
-            config["alt"]["module"]
-            if config["alt"]["module"]
-            else DEFAULT_CONFIG["alt"]["module"]
-        )
-        alt_class_name = (
-            config["alt"]["class_name"]
-            if config["alt"]["class_name"]
-            else DEFAULT_CONFIG["alt"]["class_name"]
-        )
-        alt_hub_port = (
-            config["alt"]["hub_port"]
-            if config["alt"]["hub_port"]
-            else DEFAULT_CONFIG["alt"]["hub_port"]
-        )
-        alt_gear_reduction = (
-            config["alt"]["gear_reduction"]
-            if config["alt"]["gear_reduction"]
-            else DEFAULT_CONFIG["alt"]["gear_reduction"]
-        )
-        az_module_name = (
-            config["az"]["module"]
-            if config["az"]["module"]
-            else DEFAULT_CONFIG["az"]["module"]
-        )
-        az_class_name = (
-            config["az"]["class_name"]
-            if config["az"]["class_name"]
-            else DEFAULT_CONFIG["az"]["class_name"]
-        )
-        az_hub_port = (
-            config["az"]["hub_port"]
-            if config["az"]["hub_port"]
-            else DEFAULT_CONFIG["az"]["hub_port"]
-        )
-        az_gear_reduction = (
-            config["az"]["gear_reduction"]
-            if config["az"]["gear_reduction"]
-            else DEFAULT_CONFIG["az"]["gear_reduction"]
-        )
-        camera_module_name = (
-            config["camera"]["module"]
-            if config["camera"]["module"]
-            else DEFAULT_CONFIG["camera"]["module"]
-        )
-        camera_class_name = (
-            config["camera"]["class_name"]
-            if config["camera"]["class_name"]
-            else DEFAULT_CONFIG["camera"]["class_name"]
-        )
-
-        alt_motor_module = importlib.import_module(alt_module_name)
-        alt_motor_class = getattr(alt_motor_module, alt_class_name)
-        az_motor_module = importlib.import_module(az_module_name)
-        az_motor_class = getattr(az_motor_module, az_class_name)
-        camera_module = importlib.import_module(camera_module_name)
-        camera_class = getattr(camera_module, camera_class_name)
+        configuration = load_config()
+        assert configuration is not None
+        alt_motor_module = importlib.import_module(configuration.alt_module_name)
+        alt_motor_class = getattr(alt_motor_module, configuration.alt_class_name)
+        az_motor_module = importlib.import_module(configuration.az_module_name)
+        az_motor_class = getattr(az_motor_module, configuration.az_class_name)
+        camera_module = importlib.import_module(configuration.camera_module_name)
+        camera_class = getattr(camera_module, configuration.camera_class_name)
 
         # The motor controllers.
         self.motor_controller_alt: BaseMotorController = alt_motor_class(
             initial_position=Angle(0.0, u.deg),
             log=self.log,
-            conversion_factor=Angle(alt_gear_reduction * u.deg),
-            hub_port=alt_hub_port,
+            conversion_factor=Angle(configuration.alt_gear_reduction * u.deg),
+            hub_port=configuration.alt_hub_port,
         )
         self.motor_controller_az: BaseMotorController = az_motor_class(
             initial_position=Angle(0.0, u.deg),
             log=self.log,
-            conversion_factor=Angle(az_gear_reduction * u.deg),
-            hub_port=az_hub_port,
+            conversion_factor=Angle(configuration.az_gear_reduction * u.deg),
+            hub_port=configuration.az_hub_port,
         )
 
         # The camera and plate solver.
         self.camera: BaseCamera = camera_class()
-        if camera_class_name == "EmulatedCamera":
+        if configuration.camera_class_name == "EmulatedCamera":
             from ..emulation import EmulatedPlateSolver
 
             self.plate_solver: BasePlateSolver = EmulatedPlateSolver(self.camera)
