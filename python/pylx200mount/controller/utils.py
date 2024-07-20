@@ -39,6 +39,7 @@ def load_config() -> types.SimpleNamespace:
     validator = jsonschema.Draft7Validator(schema=json_schema)
     validator.validate(DEFAULT_CONFIG)
 
+    config = DEFAULT_CONFIG
     if CONFIG_FILE.exists():
         with open(CONFIG_FILE, "r") as f:
             config = json.load(f)
