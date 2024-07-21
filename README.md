@@ -52,50 +52,56 @@ Note that the default tetra3 solver database may not work well with your camera.
 
 A configuration file for push-to with an ASI120MM-S camera looks like this:
 
-> {
->   "camera": {
->     "module": "pylx200mount.asi",
->     "class_name": "AsiCamera"
->   }
-> }
+```
+{
+  "camera": {
+    "module": "pylx200mount.asi",
+    "class_name": "AsiCamera"
+  }
+}
+```
 
 A configuration file for GOTO with Phidgets motor controllers looks like this:
 
-> {
->   "alt": {
->     "module": "pylx200mount.phidgets",
->     "class_name": "PhidgetsMotorController",
->     "hub_port": 0,
->     "gear_reduction": 0.00005625
->   },
->   "az": {
->     "module": "pylx200mount.phidgets",
->     "class_name": "PhidgetsMotorController",
->     "hub_port": 1,
->     "gear_reduction": 0.00005625
->   }
-> }
+```
+{
+  "alt": {
+    "module": "pylx200mount.phidgets",
+    "class_name": "PhidgetsMotorController",
+    "hub_port": 0,
+    "gear_reduction": 0.00005625
+  },
+  "az": {
+    "module": "pylx200mount.phidgets",
+    "class_name": "PhidgetsMotorController",
+    "hub_port": 1,
+    "gear_reduction": 0.00005625
+  }
+}
+```
 
 A configuration file GOTO with Phidgets motor controllers and an ASI120MM-S camera for plate solving looks like this:
 
-> {
->   "alt": {
->     "module": "pylx200mount.phidgets",
->     "class_name": "PhidgetsMotorController",
->     "hub_port": 0,
->     "gear_reduction": 0.00005625
->   },
->   "az": {
->     "module": "pylx200mount.phidgets",
->     "class_name": "PhidgetsMotorController",
->     "hub_port": 1,
->     "gear_reduction": 0.00005625
->   },
->   "camera": {
->     "module": "pylx200mount.asi",
->     "class_name": "AsiCamera"
->   }
-> }
+```
+{
+  "alt": {
+    "module": "pylx200mount.phidgets",
+    "class_name": "PhidgetsMotorController",
+    "hub_port": 0,
+    "gear_reduction": 0.00005625
+  },
+  "az": {
+    "module": "pylx200mount.phidgets",
+    "class_name": "PhidgetsMotorController",
+    "hub_port": 1,
+    "gear_reduction": 0.00005625
+  },
+  "camera": {
+    "module": "pylx200mount.asi",
+    "class_name": "AsiCamera"
+  }
+}
+```
 
 ## Connecting to the running mount controller
 
