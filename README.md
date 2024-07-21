@@ -2,7 +2,13 @@
 
 A mount controller implementing the Meade LX200 protocol and commanding stepper motors.
 This allows for any dobson telescope to present itself as an LX200 mount.
+Support for ASI120MM-S/MC-S cameras is also built in.
+Using one improves the accuracy of plate solving and allows for accurate push-to capabilities if no motors are used.
+For rapid plate solving [tetra3](https://github.com/esa/tetra3) is used.
+An optimized solver database has been created for the supported cameras.
 Note that LX200 mounts generally are RaDec but under the hood this project uses AltAz.
+
+> ***At the moment both the motor support and plate solving support are experimental.***
 
 ## Running the code
 
@@ -14,22 +20,33 @@ This will run the controller with emulated motors.
 
 ## Using real motors
 
-In order to run with your own motor controllers, create the 
+In order to run with your own motor controllers, create a 
 
 ```~/.config/pylx200mount/config.json```
 
-according to the [configuration JSON schema](https://github.com/wvreeven/PyLX200Mount/blob/main/python/pylx200mount/controller/configuration_schema.json).
+file according to the [configuration JSON schema](https://github.com/wvreeven/PyLX200Mount/blob/main/python/pylx200mount/controller/configuration_schema.json).
 
 In it make sure to set the `module` and `class_name` for your motor controller class(es) and the `gear_reduction` which represents the angle (deg) for each (micro)step of your motors.
 If you use Phidgets motor controllers, like me, then set `module` to `pylx200mount.phidgets.phidgets_motor_controller` and `class_name` to `PhidgetsMotorController`.
-
-If you use different hardware then create a new subclass of `pylx200mount.motor.base_motor_controller.BaseMotorController` and implement the following methods:
+If you want use different motor hardware then create a new subclass of `pylx200mount.motor.base_motor_controller.BaseMotorController` and implement the following methods:
 
   * connect: connect to a motor
   * disconnect: disconnect from a motor
-  * set_target_position_and_velocity: set the target position \[steps] and the maximum velocity \[steps/sec] in the motor.
+  * set_target_position_and_velocity: set the target position \[steps] and the maximum velocity \[steps/sec] in the motor
 
 Then set `module` to the python module and `class_name` to the python class for your motor code.
+
+You can also set the `module` and `class_name` for your camera to enable plate solving.
+Currently only ASI120MM-S/MC-S cameras are supported.
+If you want to use a different camera then create a new subclass of  `pylx200mount.camera.base_camera.BaseCamera` and implement the following methods:
+
+  * open: open and connect to the camera
+  * set_max_image_size: set the maximum image size and the bit depth of the camera
+  * set_gain: set the gain of the camera
+  * set_exposure_time: set the exposure time of the camera
+  * take_and_get_image: take an image with the camera and return it as a numpy araay
+
+Note that the default tetra3 solver database may not work well with your camera.
 
 ## Connecting to the running mount controller
 
