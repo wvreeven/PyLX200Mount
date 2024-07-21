@@ -1,3 +1,6 @@
+# This code is inspired by
+# https://github.com/lsst-ts/ts_genericcamera/blob/develop/python/lsst/ts/genericcamera/driver/zwocamera.py
+
 __all__ = ["AsiCamera"]
 
 import ctypes
