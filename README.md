@@ -4,7 +4,6 @@ A mount controller implementing the Meade LX200 protocol and commanding stepper 
 This allows for any dobson telescope to present itself as an LX200 mount.
 Support for ASI120MM-S/MC-S cameras is also built in.
 Using one improves the accuracy of plate solving and allows for accurate push-to capabilities if no motors are used.
-For rapid plate solving [tetra3](https://github.com/esa/tetra3) is used.
 An optimized solver database has been created for the supported cameras.
 Note that LX200 mounts generally are RaDec but under the hood this project uses AltAz.
 
@@ -36,6 +35,8 @@ If you want use different motor hardware then create a new subclass of `pylx200m
 
 Then set `module` to the python module and `class_name` to the python class for your motor code.
 
+## Using plate solving
+
 You can also set the `module` and `class_name` for your camera to enable plate solving.
 Currently only ASI120MM-S/MC-S cameras are supported.
 If you want to use a different camera then create a new subclass of  `pylx200mount.camera.base_camera.BaseCamera` and implement the following methods:
@@ -48,11 +49,49 @@ If you want to use a different camera then create a new subclass of  `pylx200mou
 
 Note that the default tetra3 solver database may not work well with your camera.
 
-### Examples
+### Under the plate solving hood
+
+The idea for using a camera for plate solving came from the [PiFinder]()https://www.pifinder.io/ project.
+The source code is open source and can be found [here](https://github.com/brickbots/PiFinder).
+For rapid plate solving [tetra3](https://github.com/esa/tetra3) is used, just like in PiFinder.
+I experimented with plate solving with tetra3 with images taken with an ASI120MM-S camera and a 25 mm CCTV lens.
+In the end I created a plate solver database using tetra3 for which all those images, that don't show too much trailing due to telescope motion, solve within 150 ms.
+The name of the db is hard coded in the source code for now but it will become a configuration option soon.
+
+The database was created with:
+
+```python
+import tetra3
+t3 = tetra3.Tetra3()
+t3.generate_database(
+    max_fov=11.0,
+    min_fov=7.5,
+    pattern_stars_per_fov=20,
+    save_largest_edge=True,
+    save_as="asi120mm_database",
+)
+```
+
+It took about an hour on my 2020 Intel MacBook to create the db.
+Note that the db is not included in this GitHub repo.
+It can be downloaded [here](https://wvreeven.stackstorage.com/s/pylx200mount_databases).
+
+As soon as a planetarium application connects to the PyLX200Mount software and the position loop starts, the camera starts taking images.
+Those images are plate solved using tetra3.
+The resulting position is returned to the planetarium application.
+
+A sync on a known target with the planetarium application is necessary to determine the camera offset w.r.t. the telescope.
+As soon as a sync is done in the planetarium position, the sync position in RaDec is converted to AltAz.
+A picture is taken and solved and the resulting camera position RaDec is converted to AltAz as well.
+The difference between the two positions is stored.
+From then on, that difference is applied to the AltAz camera position resulting from yet more images and converted back to RaDec.
+That corrected position is then returned to the planetarium application which then correctly shows where the telescope is pointing in the sky.
+
+## Configuration examples
 
 A configuration file for push-to with an ASI120MM-S camera looks like this:
 
-```
+```json
 {
   "camera": {
     "module": "pylx200mount.asi",
@@ -63,7 +102,7 @@ A configuration file for push-to with an ASI120MM-S camera looks like this:
 
 A configuration file for GOTO with Phidgets motor controllers looks like this:
 
-```
+```json
 {
   "alt": {
     "module": "pylx200mount.phidgets",
@@ -82,7 +121,7 @@ A configuration file for GOTO with Phidgets motor controllers looks like this:
 
 A configuration file GOTO with Phidgets motor controllers and an ASI120MM-S camera for plate solving looks like this:
 
-```
+```json
 {
   "alt": {
     "module": "pylx200mount.phidgets",
@@ -105,7 +144,7 @@ A configuration file GOTO with Phidgets motor controllers and an ASI120MM-S came
 
 ## Connecting to the running mount controller
 
-Here are instructions to setup some popular planetarium applications on the computer or mobile device from which you want to command the mount.
+Here are instructions to set up some popular planetarium applications on the computer or mobile device from which you want to command the mount.
 
 In all cases, the connection must be set to Wi-Fi/Ethernet using the IP address of the computer running PyLX200Mount and port 11880.
 
@@ -146,7 +185,7 @@ Select the telescope you just configured and toggle `Connect to telescope`.
 
 ### INDI
 
-I am working on support for an INDI profile so it can be used with a stand alone INDI server.
+I am working on support for an INDI profile, so it can be used with a stand alone INDI server.
 Until then KStars needs to be used.
 
 In KStars, press CTRL-SHIFT-D to open the device manager.  
