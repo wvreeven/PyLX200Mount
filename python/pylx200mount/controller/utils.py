@@ -32,107 +32,42 @@ DEFAULT_CONFIG: dict[str, typing.Any] = {
 
 
 def load_config() -> types.SimpleNamespace:
-    configuration = types.SimpleNamespace()
+    """Load the configuration file.
+
+    The configuration file is expected to be at ~/.config/pylx200mount/config.json
+    If it doesn't exist then a default configuration with emulators only is loaded.
+
+    Returns
+    -------
+    types.SimpleNamespace
+        A SimpleNamespace containing the configuration.
+    """
+    config = DEFAULT_CONFIG
+    loaded_config: dict[str, typing.Any] = {}
+
+    if CONFIG_FILE.exists():
+        with open(CONFIG_FILE, "r") as f:
+            loaded_config = json.load(f)
 
     with open(JSON_SCHEMA_FILE, "r") as f:
         json_schema = json.load(f)
     validator = jsonschema.Draft7Validator(schema=json_schema)
     validator.validate(DEFAULT_CONFIG)
+    validator.validate(loaded_config)
 
-    config = DEFAULT_CONFIG
-    if CONFIG_FILE.exists():
-        with open(CONFIG_FILE, "r") as f:
-            config = json.load(f)
-        validator.validate(config)
+    config = config | loaded_config
 
-    setattr(
-        configuration,
-        "alt_module_name",
-        (
-            config["alt"]["module"]
-            if "alt" in config and config["alt"]["module"]
-            else DEFAULT_CONFIG["alt"]["module"]
-        ),
+    configuration = types.SimpleNamespace(
+        alt_module_name=config["alt"]["module"],
+        alt_class_name=config["alt"]["class_name"],
+        alt_hub_port=config["alt"]["hub_port"],
+        alt_gear_reduction=config["alt"]["gear_reduction"],
+        az_module_name=config["az"]["module"],
+        az_class_name=config["az"]["class_name"],
+        az_hub_port=config["az"]["hub_port"],
+        az_gear_reduction=config["az"]["gear_reduction"],
+        camera_module_name=config["camera"]["module"],
+        camera_class_name=config["camera"]["class_name"],
     )
-    setattr(
-        configuration,
-        "alt_class_name",
-        (
-            config["alt"]["class_name"]
-            if "alt" in config and config["alt"]["class_name"]
-            else DEFAULT_CONFIG["alt"]["class_name"]
-        ),
-    )
-    setattr(
-        configuration,
-        "alt_hub_port",
-        (
-            config["alt"]["hub_port"]
-            if "alt" in config and config["alt"]["hub_port"]
-            else DEFAULT_CONFIG["alt"]["hub_port"]
-        ),
-    )
-    setattr(
-        configuration,
-        "alt_gear_reduction",
-        (
-            config["alt"]["gear_reduction"]
-            if "alt" in config and config["alt"]["gear_reduction"]
-            else DEFAULT_CONFIG["alt"]["gear_reduction"]
-        ),
-    )
-    setattr(
-        configuration,
-        "az_module_name",
-        (
-            config["az"]["module"]
-            if "az" in config and config["az"]["module"]
-            else DEFAULT_CONFIG["az"]["module"]
-        ),
-    )
-    setattr(
-        configuration,
-        "az_class_name",
-        (
-            config["az"]["class_name"]
-            if "az" in config and config["az"]["class_name"]
-            else DEFAULT_CONFIG["az"]["class_name"]
-        ),
-    )
-    setattr(
-        configuration,
-        "az_hub_port",
-        (
-            config["az"]["hub_port"]
-            if "az" in config and config["az"]["hub_port"]
-            else DEFAULT_CONFIG["az"]["hub_port"]
-        ),
-    )
-    setattr(
-        configuration,
-        "az_gear_reduction",
-        (
-            config["az"]["gear_reduction"]
-            if "az" in config and config["az"]["gear_reduction"]
-            else DEFAULT_CONFIG["az"]["gear_reduction"]
-        ),
-    )
-    setattr(
-        configuration,
-        "camera_module_name",
-        (
-            config["camera"]["module"]
-            if "camera" in config and config["camera"]["module"]
-            else DEFAULT_CONFIG["camera"]["module"]
-        ),
-    )
-    setattr(
-        configuration,
-        "camera_class_name",
-        (
-            config["camera"]["class_name"]
-            if "camera" in config and config["camera"]["class_name"]
-            else DEFAULT_CONFIG["camera"]["class_name"]
-        ),
-    )
+
     return configuration
