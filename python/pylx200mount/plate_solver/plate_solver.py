@@ -18,7 +18,7 @@ class PlateSolver(BasePlateSolver):
 
     def __init__(self, camera: BaseCamera) -> None:
         super().__init__(camera=camera)
-        self.t3 = tetra3.Tetra3(load_database="wouter_database")
+        self.t3 = tetra3.Tetra3(load_database="asi120mm_database")
 
     async def solve(self) -> SkyCoord:
         """Take an image and solve it.
