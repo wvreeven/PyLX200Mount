@@ -38,39 +38,29 @@ class MountController:
         self.log = logging.getLogger(type(self).__name__)
         self.observing_location = ObservingLocation()
 
-        configuration = load_config()
-        assert configuration is not None
-        alt_motor_module = importlib.import_module(configuration.alt_module_name)
-        alt_motor_class = getattr(alt_motor_module, configuration.alt_class_name)
-        az_motor_module = importlib.import_module(configuration.az_module_name)
-        az_motor_class = getattr(az_motor_module, configuration.az_class_name)
-        camera_module = importlib.import_module(configuration.camera_module_name)
-        camera_class = getattr(camera_module, configuration.camera_class_name)
+        self.configuration = load_config()
+        assert self.configuration is not None
+        alt_motor_module = importlib.import_module(self.configuration.alt_module_name)
+        alt_motor_class = getattr(alt_motor_module, self.configuration.alt_class_name)
+        az_motor_module = importlib.import_module(self.configuration.az_module_name)
+        az_motor_class = getattr(az_motor_module, self.configuration.az_class_name)
 
         # The motor controllers.
         self.motor_controller_alt: BaseMotorController = alt_motor_class(
             initial_position=Angle(0.0, u.deg),
             log=self.log,
-            conversion_factor=Angle(configuration.alt_gear_reduction * u.deg),
-            hub_port=configuration.alt_hub_port,
+            conversion_factor=Angle(self.configuration.alt_gear_reduction * u.deg),
+            hub_port=self.configuration.alt_hub_port,
         )
         self.motor_controller_az: BaseMotorController = az_motor_class(
             initial_position=Angle(0.0, u.deg),
             log=self.log,
-            conversion_factor=Angle(configuration.az_gear_reduction * u.deg),
-            hub_port=configuration.az_hub_port,
+            conversion_factor=Angle(self.configuration.az_gear_reduction * u.deg),
+            hub_port=self.configuration.az_hub_port,
         )
 
-        # The camera and plate solver.
-        self.camera: BaseCamera = camera_class()
-        if configuration.camera_class_name == "EmulatedCamera":
-            from ..emulation import EmulatedPlateSolver
-
-            self.plate_solver: BasePlateSolver = EmulatedPlateSolver(self.camera)
-        else:
-            from ..plate_solver import PlateSolver
-
-            self.plate_solver = PlateSolver(self.camera)
+        # The plate solver.
+        self.plate_solver: BasePlateSolver | None = None
         self.camera_mount_offset = (0.0 * u.deg, 0.0 * u.deg)
 
         # Keep track of the previous mount AltAz in case the plate solver fails.
@@ -88,6 +78,25 @@ class MountController:
 
         # Alignment handler.
         self.alignment_handler = AlignmentHandler()
+
+    async def load_camera_and_plate_solver(self) -> None:
+        """Helper method to load the configured camera and plate solver."""
+        camera_module = importlib.import_module(self.configuration.camera_module_name)
+        camera_class = getattr(camera_module, self.configuration.camera_class_name)
+        camera: BaseCamera = camera_class()
+        if self.configuration.camera_class_name == "EmulatedCamera":
+            await self.load_emulated_camera_and_plate_solver()
+        else:
+            from ..plate_solver import PlateSolver
+
+            self.plate_solver = PlateSolver(camera)
+
+    async def load_emulated_camera_and_plate_solver(self) -> None:
+        """Helper method to load the emulated camera and plate solver."""
+        from ..emulation import EmulatedCamera, EmulatedPlateSolver
+
+        camera = EmulatedCamera()
+        self.plate_solver = EmulatedPlateSolver(camera)
 
     def _get_mount_alt_az(self) -> SkyCoord:
         """Get the current motor positions as AltAz coordinates.
@@ -117,7 +126,15 @@ class MountController:
         self._position_loop_task.cancel()
         await self._position_loop_task
         self._position_loop_task = asyncio.create_task(self.position_loop())
-        await self.plate_solver.open_camera()
+        await self.load_camera_and_plate_solver()
+        assert self.plate_solver is not None
+        try:
+            await self.plate_solver.open_camera()
+        except Exception:
+            self.log.exception(
+                "Error loading configured camera. Loading emulated camera now."
+            )
+            await self.load_emulated_camera_and_plate_solver()
         await self.plate_solver.set_gain_and_exposure_time(
             gain=80, exposure_time=150000
         )
@@ -219,6 +236,7 @@ class MountController:
         The right ascention and declination.
         """
         try:
+            assert self.plate_solver is not None
             camera_ra_dec = await self.plate_solver.solve()
             camera_alt_az = await get_altaz_from_radec(
                 camera_ra_dec, self.observing_location, DatetimeUtil.get_timestamp()
@@ -274,6 +292,7 @@ class MountController:
 
         # Get the camera AltAz and determine the offset w.r.t. the mount.
         try:
+            assert self.plate_solver is not None
             camera_ra_dec = await self.plate_solver.solve()
             camera_alt_az = await get_altaz_from_radec(
                 camera_ra_dec, self.observing_location, DatetimeUtil.get_timestamp()
