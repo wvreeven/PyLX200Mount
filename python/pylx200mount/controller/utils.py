@@ -50,7 +50,7 @@ def load_config() -> types.SimpleNamespace:
         "alt_module_name",
         (
             config["alt"]["module"]
-            if config["alt"]["module"]
+            if "alt" in config and config["alt"]["module"]
             else DEFAULT_CONFIG["alt"]["module"]
         ),
     )
@@ -59,7 +59,7 @@ def load_config() -> types.SimpleNamespace:
         "alt_class_name",
         (
             config["alt"]["class_name"]
-            if config["alt"]["class_name"]
+            if "alt" in config and config["alt"]["class_name"]
             else DEFAULT_CONFIG["alt"]["class_name"]
         ),
     )
@@ -68,7 +68,7 @@ def load_config() -> types.SimpleNamespace:
         "alt_hub_port",
         (
             config["alt"]["hub_port"]
-            if config["alt"]["hub_port"]
+            if "alt" in config and config["alt"]["hub_port"]
             else DEFAULT_CONFIG["alt"]["hub_port"]
         ),
     )
@@ -77,7 +77,7 @@ def load_config() -> types.SimpleNamespace:
         "alt_gear_reduction",
         (
             config["alt"]["gear_reduction"]
-            if config["alt"]["gear_reduction"]
+            if "alt" in config and config["alt"]["gear_reduction"]
             else DEFAULT_CONFIG["alt"]["gear_reduction"]
         ),
     )
@@ -86,7 +86,7 @@ def load_config() -> types.SimpleNamespace:
         "az_module_name",
         (
             config["az"]["module"]
-            if config["az"]["module"]
+            if "az" in config and config["az"]["module"]
             else DEFAULT_CONFIG["az"]["module"]
         ),
     )
@@ -95,7 +95,7 @@ def load_config() -> types.SimpleNamespace:
         "az_class_name",
         (
             config["az"]["class_name"]
-            if config["az"]["class_name"]
+            if "az" in config and config["az"]["class_name"]
             else DEFAULT_CONFIG["az"]["class_name"]
         ),
     )
@@ -104,7 +104,7 @@ def load_config() -> types.SimpleNamespace:
         "az_hub_port",
         (
             config["az"]["hub_port"]
-            if config["az"]["hub_port"]
+            if "az" in config and config["az"]["hub_port"]
             else DEFAULT_CONFIG["az"]["hub_port"]
         ),
     )
@@ -113,7 +113,7 @@ def load_config() -> types.SimpleNamespace:
         "az_gear_reduction",
         (
             config["az"]["gear_reduction"]
-            if config["az"]["gear_reduction"]
+            if "az" in config and config["az"]["gear_reduction"]
             else DEFAULT_CONFIG["az"]["gear_reduction"]
         ),
     )
@@ -122,7 +122,7 @@ def load_config() -> types.SimpleNamespace:
         "camera_module_name",
         (
             config["camera"]["module"]
-            if config["camera"]["module"]
+            if "camera" in config and config["camera"]["module"]
             else DEFAULT_CONFIG["camera"]["module"]
         ),
     )
@@ -131,7 +131,7 @@ def load_config() -> types.SimpleNamespace:
         "camera_class_name",
         (
             config["camera"]["class_name"]
-            if config["camera"]["class_name"]
+            if "camera" in config and config["camera"]["class_name"]
             else DEFAULT_CONFIG["camera"]["class_name"]
         ),
     )
