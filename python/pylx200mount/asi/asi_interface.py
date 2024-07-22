@@ -8,13 +8,13 @@ import enum
 import pathlib
 import platform
 import time
+import typing
 
 import numpy as np
 
 from ..camera import BaseCamera
 
 EXTENSIONS = {"Linux": "so", "Darwin": "dylib"}
-LIB_DIR = {"Darwin": "mac"}
 
 
 class AsiBayerPattern(enum.Enum):
@@ -190,11 +190,45 @@ class AsiSupportedModeStruct(ctypes.Structure):
     _fields_ = [("SupportedCameraMode", ctypes.c_int * 16)]
 
 
+def _get_lib_dir_and_extension() -> typing.Tuple[str, str]:
+    """Use the platform module to get the lib_dir and extension.
+
+    Linux uses the ".so" extension and macOS ".dylib". For Linux several Intel and ARM architectures are
+    supported by the ASI SDK and this function attempts to support them all as well.
+
+    Returns
+    -------
+    typing.Tuple[str, str]
+        A tuple containing the lib_dir and extension.
+    """
+    pf = platform.system()
+    arch = platform.machine()
+    extension = EXTENSIONS[pf]
+    lib_dir = ""
+    match pf:
+        case "Darwin":
+            if arch == "arm64":
+                lib_dir = "mac"
+            if arch == "x86_64":
+                lib_dir = "mac"
+        case "Linux":
+            match arch:
+                case "armv6":
+                    lib_dir = "armv6"
+                case "armv7":
+                    lib_dir = "armv7"
+                case "aarch64":
+                    lib_dir = "armv8"
+                case "x86_64":
+                    lib_dir = "x64"
+                case "x86":
+                    lib_dir = "x86"
+    return lib_dir, extension
+
+
 class AsiLib:
     def __init__(self) -> None:
-        pf = platform.system()
-        extension = EXTENSIONS[pf]
-        lib_dir = LIB_DIR[pf]
+        lib_dir, extension = _get_lib_dir_and_extension()
         libname = (
             pathlib.Path(__file__).parent
             / "zwo"
