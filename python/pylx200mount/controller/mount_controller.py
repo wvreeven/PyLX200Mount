@@ -235,11 +235,12 @@ class MountController:
         -------
         The right ascention and declination.
         """
+        now = DatetimeUtil.get_timestamp()
         try:
             assert self.plate_solver is not None
             camera_ra_dec = await self.plate_solver.solve()
-            camera_alt_az = await get_altaz_from_radec(
-                camera_ra_dec, self.observing_location, DatetimeUtil.get_timestamp()
+            camera_alt_az = get_altaz_from_radec(
+                camera_ra_dec, self.observing_location, now
             )
             self.log.debug(
                 f"camera_ra_dec=[{camera_ra_dec.ra.deg}, {camera_ra_dec.dec.deg}], "
@@ -256,7 +257,7 @@ class MountController:
             else:
                 mount_alt_az = self._get_mount_alt_az()
 
-        sky_alt_az = self.alignment_handler.reverse_matrix_transform(mount_alt_az)
+        sky_alt_az = self.alignment_handler.reverse_matrix_transform(mount_alt_az, now)
         ra_dec = get_radec_from_altaz(alt_az=sky_alt_az)
         return ra_dec
 
@@ -275,10 +276,9 @@ class MountController:
             The Declination of the mount in degrees. The format is "+dd*mm:ss".
         """
         sky_ra_dec = get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
+        now = DatetimeUtil.get_timestamp()
         # Compute the sky AltAz from the sky RaDec.
-        sky_alt_az = get_altaz_from_radec(
-            sky_ra_dec, self.observing_location, DatetimeUtil.get_timestamp()
-        )
+        sky_alt_az = get_altaz_from_radec(sky_ra_dec, self.observing_location, now)
 
         # Add an alignment point and compute the alignment matrix.
         self.alignment_handler.add_alignment_position(
@@ -286,7 +286,7 @@ class MountController:
         )
 
         # Compute the mount AltAz from the sky AltAz and pass on to the motor controllers.
-        mount_alt_az = self.alignment_handler.matrix_transform(sky_alt_az)
+        mount_alt_az = self.alignment_handler.matrix_transform(sky_alt_az, now)
         self.motor_controller_az.position = mount_alt_az.az
         self.motor_controller_alt.position = mount_alt_az.alt
 
@@ -294,8 +294,8 @@ class MountController:
         try:
             assert self.plate_solver is not None
             camera_ra_dec = await self.plate_solver.solve()
-            camera_alt_az = await get_altaz_from_radec(
-                camera_ra_dec, self.observing_location, DatetimeUtil.get_timestamp()
+            camera_alt_az = get_altaz_from_radec(
+                camera_ra_dec, self.observing_location, now
             )
             self.camera_mount_offset = camera_alt_az.spherical_offsets_to(mount_alt_az)
             self.log.info(f"{self.camera_mount_offset=}")
