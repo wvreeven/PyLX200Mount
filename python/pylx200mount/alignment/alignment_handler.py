@@ -10,7 +10,6 @@ from itertools import combinations
 import numpy as np
 from astropy.coordinates import SkyCoord
 
-from ..datetime_util import DatetimeUtil
 from ..enums import IDENTITY
 from ..my_math.astropy_util import get_radec_from_altaz, get_skycoord_from_alt_az
 from ..observing_location import ObservingLocation
@@ -21,13 +20,13 @@ def _altaz_to_3d_ndarray(altaz: SkyCoord) -> np.ndarray:
 
 
 def _ndarray_to_altaz(
-    array: np.ndarray, observing_location: ObservingLocation
+    array: np.ndarray, observing_location: ObservingLocation, timestamp: float
 ) -> SkyCoord:
     return get_skycoord_from_alt_az(
         az=float(array[0]),
         alt=float(array[1]),
         observing_location=observing_location,
-        timestamp=DatetimeUtil.get_timestamp(),
+        timestamp=timestamp,
     )
 
 
@@ -187,7 +186,7 @@ class AlignmentHandler:
             self.matrix = np.mean(transformation_matrices, axis=0)
         self.inv_matrix = np.linalg.inv(self.matrix)
 
-    def matrix_transform(self, altaz_coord: SkyCoord) -> SkyCoord:
+    def matrix_transform(self, altaz_coord: SkyCoord, timestamp: float) -> SkyCoord:
         """Perform an affine transformation of the computed AltAz coordinates to the observed telescope frame
         coordinates.
 
@@ -195,6 +194,8 @@ class AlignmentHandler:
         ----------
         altaz_coord : `SkyCoord`
             The computed AltAz coordinates to transform to telescope frame coordinates.
+        timestamp : `float`
+            The timestamp to get the AltAz coordinates for.
 
         Returns
         -------
@@ -205,15 +206,19 @@ class AlignmentHandler:
         observing_location.location = altaz_coord.location
         altaz = _altaz_to_3d_ndarray(altaz_coord)
         telescope = np.dot(altaz, self.matrix)
-        return _ndarray_to_altaz(telescope, observing_location)
+        return _ndarray_to_altaz(telescope, observing_location, timestamp)
 
-    def reverse_matrix_transform(self, telescope_coord: SkyCoord) -> SkyCoord:
+    def reverse_matrix_transform(
+        self, telescope_coord: SkyCoord, timestamp: float
+    ) -> SkyCoord:
         """Perform an affine transformation of the observed telescope frame coordinates to AltAz coordinates.
 
         Parameters
         ----------
         telescope_coord : `SkyCoord`
             The observed telescope frame coordinates to transform to AltAz coordinates.
+        timestamp : `float`
+            The timestamp to get the AltAz coordinates for.
 
         Returns
         -------
@@ -224,4 +229,4 @@ class AlignmentHandler:
         observing_location.location = telescope_coord.location
         telescope = _altaz_to_3d_ndarray(telescope_coord)
         altaz = np.dot(telescope, self.inv_matrix)
-        return _ndarray_to_altaz(altaz, observing_location)
+        return _ndarray_to_altaz(altaz, observing_location, timestamp)
