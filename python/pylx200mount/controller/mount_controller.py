@@ -62,6 +62,7 @@ class MountController:
         # The plate solver.
         self.plate_solver: BasePlateSolver | None = None
         self.camera_mount_offset = (0.0 * u.deg, 0.0 * u.deg)
+        self.align_with_plate_solver = False
 
         # Keep track of the previous mount AltAz in case the plate solver fails.
         self.previous_mount_alt_az: SkyCoord | None = None
@@ -94,6 +95,7 @@ class MountController:
                 self.configuration.camera_focal_length,
                 self.configuration.camera_save_images,
             )
+            self.align_with_plate_solver = True
 
     async def load_emulated_camera_and_plate_solver(self) -> None:
         """Helper method to load the emulated camera and plate solver."""
@@ -104,6 +106,7 @@ class MountController:
             camera,
             self.configuration.camera_focal_length,
         )
+        self.align_with_plate_solver = False
 
     def _get_mount_alt_az(self) -> SkyCoord:
         """Get the current motor positions as AltAz coordinates.
@@ -264,7 +267,12 @@ class MountController:
             else:
                 mount_alt_az = self._get_mount_alt_az()
 
-        sky_alt_az = self.alignment_handler.reverse_matrix_transform(mount_alt_az, now)
+        if self.align_with_plate_solver:
+            sky_alt_az = mount_alt_az
+        else:
+            sky_alt_az = self.alignment_handler.reverse_matrix_transform(
+                mount_alt_az, now
+            )
         ra_dec = get_radec_from_altaz(alt_az=sky_alt_az)
         return ra_dec
 
@@ -287,27 +295,33 @@ class MountController:
         # Compute the sky AltAz from the sky RaDec.
         sky_alt_az = get_altaz_from_radec(sky_ra_dec, self.observing_location, now)
 
-        # Add an alignment point and compute the alignment matrix.
-        self.alignment_handler.add_alignment_position(
-            sky_alt_az, self._get_mount_alt_az
-        )
+        if self.align_with_plate_solver:
+            mount_alt_az = sky_alt_az
 
-        # Compute the mount AltAz from the sky AltAz and pass on to the motor controllers.
-        mount_alt_az = self.alignment_handler.matrix_transform(sky_alt_az, now)
+            # Get the camera AltAz and determine the offset w.r.t. the mount.
+            try:
+                assert self.plate_solver is not None
+                camera_ra_dec = await self.plate_solver.solve()
+                camera_alt_az = get_altaz_from_radec(
+                    camera_ra_dec, self.observing_location, now
+                )
+                self.camera_mount_offset = camera_alt_az.spherical_offsets_to(
+                    mount_alt_az
+                )
+                self.log.info(f"{self.camera_mount_offset=}")
+            except RuntimeError:
+                self.log.exception("Error calculating camera_mount_offset.")
+        else:
+            # Add an alignment point and compute the alignment matrix.
+            self.alignment_handler.add_alignment_position(
+                sky_alt_az, self._get_mount_alt_az
+            )
+
+            # Compute the mount AltAz from the sky AltAz and pass on to the motor controllers.
+            mount_alt_az = self.alignment_handler.matrix_transform(sky_alt_az, now)
+
         self.motor_controller_az.position = mount_alt_az.az
         self.motor_controller_alt.position = mount_alt_az.alt
-
-        # Get the camera AltAz and determine the offset w.r.t. the mount.
-        try:
-            assert self.plate_solver is not None
-            camera_ra_dec = await self.plate_solver.solve()
-            camera_alt_az = get_altaz_from_radec(
-                camera_ra_dec, self.observing_location, now
-            )
-            self.camera_mount_offset = camera_alt_az.spherical_offsets_to(mount_alt_az)
-            self.log.info(f"{self.camera_mount_offset=}")
-        except RuntimeError:
-            self.log.exception("Error calculating camera_mount_offset.")
 
     async def set_slew_rate(self, cmd: str) -> None:
         """Set the slew rate.
