@@ -38,6 +38,7 @@ class PlateSolver(BasePlateSolver):
         RuntimeError
             In case no image can be taken or solving it fails.
         """
+        start = DatetimeUtil.get_timestamp()
         if math.isclose(self.fov_estimate, 0.0):
             # Estimate of the size of the field of view [deg].
             min_img_size = min(self.camera.img_width, self.camera.img_height)
@@ -67,4 +68,7 @@ class PlateSolver(BasePlateSolver):
             self.fov_estimate = result["FOV"]
         except Exception as e:
             raise RuntimeError(e)
+        finally:
+            end = DatetimeUtil.get_timestamp()
+            self.log.debug(f"Solving took {end - start} ms.")
         return center
