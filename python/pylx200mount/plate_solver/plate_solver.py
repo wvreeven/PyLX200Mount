@@ -4,6 +4,7 @@ import tetra3  # type: ignore
 from astropy.coordinates import SkyCoord  # type: ignore
 
 from ..camera import BaseCamera
+from ..datetime_util import DatetimeUtil
 from ..my_math import get_skycoord_from_ra_dec
 from .base_plate_solver import BasePlateSolver
 
@@ -20,9 +21,7 @@ class PlateSolver(BasePlateSolver):
         super().__init__(camera=camera, focal_length=focal_length)
         self.t3 = tetra3.Tetra3(load_database="asi120mm_database")
 
-        # Estimate of the size of the field of view [deg].
-        min_img_size = min(self.camera.img_width, self.camera.img_height)
-        self.fov_estimate = min_img_size * 3.76 * 202.265 / self.focal_length / 60 / 60
+        self.fov_estimate = 0.0
 
         self.save_images = save_images
 
@@ -39,6 +38,22 @@ class PlateSolver(BasePlateSolver):
         RuntimeError
             In case no image can be taken or solving it fails.
         """
+        if math.isclose(self.fov_estimate, 0.0):
+            # Estimate of the size of the field of view [deg].
+            min_img_size = min(self.camera.img_width, self.camera.img_height)
+            self.fov_estimate = (
+                min_img_size
+                * self.camera.pixel_size
+                * 202.265
+                / self.focal_length
+                / 60
+                / 60
+            )
+            self.log.info(
+                f"{self.camera.img_width=}, {self.camera.img_height=}, "
+                f"{self.focal_length=}, {self.fov_estimate=}"
+            )
+
         img = await self.take_image(save_image=self.save_images)
         try:
             centroids = tetra3.get_centroids_from_image(image=img)
