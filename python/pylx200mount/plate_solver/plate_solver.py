@@ -1,5 +1,9 @@
 __all__ = ["PlateSolver"]
 
+import asyncio
+import concurrent
+import typing
+
 import tetra3  # type: ignore
 from astropy.coordinates import SkyCoord  # type: ignore
 
@@ -57,18 +61,24 @@ class PlateSolver(BasePlateSolver):
 
         img = await self.take_image(save_image=self.save_images)
         try:
-            centroids = tetra3.get_centroids_from_image(image=img)
-            result = self.t3.solve_from_centroids(
-                centroids,
-                (img.width, img.height),
-                fov_estimate=self.fov_estimate,
-                fov_max_error=FOV_MAX_ERROR,
-            )
-            center = get_skycoord_from_ra_dec(result["RA"], result["Dec"])
-            self.fov_estimate = result["FOV"]
+            loop = asyncio.get_running_loop()
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                center = await loop.run_in_executor(pool, self._blocking_solve, img)
         except Exception as e:
             raise RuntimeError(e)
         finally:
             end = DatetimeUtil.get_timestamp()
             self.log.debug(f"Solving took {end - start} ms.")
+        return center
+
+    def _blocking_solve(self, img: Image.Image) -> SkyCoord:
+        centroids = tetra3.get_centroids_from_image(image=img)
+        result = self.t3.solve_from_centroids(
+            centroids,
+            (img.width, img.height),
+            fov_estimate=self.fov_estimate,
+            fov_max_error=FOV_MAX_ERROR,
+        )
+        center = get_skycoord_from_ra_dec(result["RA"], result["Dec"])
+        self.fov_estimate = result["FOV"]
         return center

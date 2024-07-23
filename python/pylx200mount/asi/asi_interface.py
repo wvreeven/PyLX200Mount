@@ -3,6 +3,8 @@
 
 __all__ = ["AsiCamera"]
 
+import asyncio
+import concurrent
 import ctypes
 import enum
 import pathlib
@@ -441,6 +443,11 @@ class AsiCamera(BaseCamera):
         assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
 
     async def take_and_get_image(self) -> np.ndarray:
+        loop = asyncio.get_running_loop()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return await loop.run_in_executor(pool, self._blocking_take_and_get_image)
+
+    def _blocking_take_and_get_image(self) -> np.ndarray:
         error_code = AsiErrorCode(
             self.asi_lib.lib.ASIStartExposure(self.camera_id, AsiBool.ASI_FALSE.value)
         )
