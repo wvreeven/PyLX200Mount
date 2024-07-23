@@ -10,7 +10,7 @@ from PIL import Image
 from ..camera import BaseCamera
 from ..datetime_util import DatetimeUtil
 
-SAVE_DIR = pathlib.Path("/Users/wouter/PyLX200")
+SAVE_DIR = pathlib.Path.home() / "PyLX200"
 
 
 class BasePlateSolver(abc.ABC):
