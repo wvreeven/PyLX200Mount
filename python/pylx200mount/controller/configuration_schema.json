@@ -22,11 +22,21 @@
         "module": {
           "type": "string",
           "description": "The Python module for the camera class."
+        },
+        "focal_length": {
+          "type": "number",
+          "description": "The focal length of the lens or telescope used."
+        },
+        "save_images": {
+          "type": "boolean",
+          "description": "Save the images taken with the camera or not."
         }
       },
       "required": [
         "class_name",
-        "module"
+        "module",
+        "focal_length",
+        "save_images"
       ],
       "additionalProperties": false
     }

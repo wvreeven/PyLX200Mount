@@ -391,7 +391,7 @@ class AsiCamera(BaseCamera):
         error_code = AsiErrorCode(self.asi_lib.lib.ASIInitCamera(self.camera_id))
         assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
 
-    async def set_max_image_size(self) -> None:
+    async def get_image_parameters(self) -> None:
         camera_info_struct = AsiCameraInfoStruct()
         error_code = AsiErrorCode(
             self.asi_lib.lib.ASIGetCameraPropertyByID(
@@ -402,6 +402,8 @@ class AsiCamera(BaseCamera):
 
         self.img_width = camera_info_struct.MaxWidth
         self.img_height = camera_info_struct.MaxHeight
+        self.pixel_size = camera_info_struct.PixelSize
+
         error_code = AsiErrorCode(
             self.asi_lib.lib.ASISetROIFormat(
                 self.camera_id,

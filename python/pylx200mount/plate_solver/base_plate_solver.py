@@ -16,19 +16,18 @@ SAVE_DIR = pathlib.Path.home() / "PyLX200"
 class BasePlateSolver(abc.ABC):
     """Base class for plate solvers."""
 
-    def __init__(self, camera: BaseCamera) -> None:
+    def __init__(self, camera: BaseCamera, focal_length: float) -> None:
         self.log = logging.getLogger(type(self).__name__)
         self.camera = camera
-        now = DatetimeUtil.get_datetime()
-        now_string = now.strftime("%Y-%m-%d")
-        self.out_dir: pathlib.Path = SAVE_DIR / now_string
+        self.focal_length = focal_length
+        self.out_dir: pathlib.Path = SAVE_DIR
         self.out_dir.mkdir(parents=True, exist_ok=True)
 
     async def open_camera(self) -> None:
         """Open the camera and make sure it uses the full sensor."""
         self.log.debug("Opening camera.")
         await self.camera.open()
-        await self.camera.set_max_image_size()
+        await self.camera.get_image_parameters()
 
     async def set_gain_and_exposure_time(self, gain: int, exposure_time: int) -> None:
         """Set the gain and exposure time.
