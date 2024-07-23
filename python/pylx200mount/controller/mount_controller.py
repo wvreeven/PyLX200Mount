@@ -89,14 +89,21 @@ class MountController:
         else:
             from ..plate_solver import PlateSolver
 
-            self.plate_solver = PlateSolver(camera)
+            self.plate_solver = PlateSolver(
+                camera,
+                self.configuration.camera_focal_length,
+                self.configuration.camera_save_images,
+            )
 
     async def load_emulated_camera_and_plate_solver(self) -> None:
         """Helper method to load the emulated camera and plate solver."""
         from ..emulation import EmulatedCamera, EmulatedPlateSolver
 
         camera = EmulatedCamera()
-        self.plate_solver = EmulatedPlateSolver(camera)
+        self.plate_solver = EmulatedPlateSolver(
+            camera,
+            self.configuration.camera_focal_length,
+        )
 
     def _get_mount_alt_az(self) -> SkyCoord:
         """Get the current motor positions as AltAz coordinates.

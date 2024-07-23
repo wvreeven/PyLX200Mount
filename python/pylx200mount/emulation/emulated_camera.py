@@ -10,7 +10,7 @@ class EmulatedCamera(BaseCamera):
         # Deliberately left empty.
         pass
 
-    async def set_max_image_size(self) -> None:
+    async def get_image_parameters(self) -> None:
         # Deliberately left empty.
         pass
 

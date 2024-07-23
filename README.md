@@ -37,12 +37,12 @@ Then set `module` to the python module and `class_name` to the python class for 
 
 ## Using plate solving
 
-You can also set the `module` and `class_name` for your camera to enable plate solving.
+You can also set the `module` and `class_name` for your camera, the focal length of the lens or telescope [mm] and whether or not to save the images taken with the camera to enable plate solving.
 Currently only ASI120MM-S/MC-S cameras are supported.
 If you want to use a different camera then create a new subclass of  `pylx200mount.camera.base_camera.BaseCamera` and implement the following methods:
 
   * open: open and connect to the camera
-  * set_max_image_size: set the maximum image size and the bit depth of the camera
+  * get_image_parameters: get the maximum image size and pixel size from the camera and set and the bit depth
   * set_gain: set the gain of the camera
   * set_exposure_time: set the exposure time of the camera
   * take_and_get_image: take an image with the camera and return it as a numpy araay
@@ -95,7 +95,9 @@ A configuration file for push-to with an ASI120MM-S camera looks like this:
 {
   "camera": {
     "module": "pylx200mount.asi",
-    "class_name": "AsiCamera"
+    "class_name": "AsiCamera",
+    "focal_length": 25.0,
+    "save_images": true
   }
 }
 ```
@@ -137,7 +139,9 @@ A configuration file GOTO with Phidgets motor controllers and an ASI120MM-S came
   },
   "camera": {
     "module": "pylx200mount.asi",
-    "class_name": "AsiCamera"
+    "class_name": "AsiCamera",
+    "focal_length": 25.0,
+    "save_images": true
   }
 }
 ```

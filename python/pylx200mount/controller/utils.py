@@ -27,6 +27,8 @@ DEFAULT_CONFIG: dict[str, typing.Any] = {
     "camera": {
         "module": "pylx200mount.emulation.emulated_camera",
         "class_name": "EmulatedCamera",
+        "focal_length": 0.0,
+        "save_images": False,
     },
 }
 
@@ -34,7 +36,7 @@ DEFAULT_CONFIG: dict[str, typing.Any] = {
 def load_config() -> types.SimpleNamespace:
     """Load the configuration file.
 
-    The configuration file is expected to be at ~/.config/pylx200mount/config.json
+    The configuration file is expected to be at ${HOME}/.config/pylx200mount/config.json
     If it doesn't exist then a default configuration with emulators only is loaded.
 
     Returns
@@ -68,6 +70,8 @@ def load_config() -> types.SimpleNamespace:
         az_gear_reduction=config["az"]["gear_reduction"],
         camera_module_name=config["camera"]["module"],
         camera_class_name=config["camera"]["class_name"],
+        camera_focal_length=config["camera"]["focal_length"],
+        camera_save_images=config["camera"]["save_images"],
     )
 
     return configuration

@@ -12,6 +12,7 @@ class BaseCamera(abc.ABC):
         self.camera_id = 0
         self.img_width = 0
         self.img_height = 0
+        self.pixel_size = 0.0
 
     @abc.abstractmethod
     async def open(self) -> None:
@@ -19,10 +20,11 @@ class BaseCamera(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def set_max_image_size(self) -> None:
-        """Set the maximum image size.
+    async def get_image_parameters(self) -> None:
+        """Get the image parameters from the camera.
 
-        Also set the bit depth to the required value.
+        The parameters gotten are image width and height and the pixel size. Also set the bit depth to a
+        default value.
         """
         raise NotImplementedError
 
