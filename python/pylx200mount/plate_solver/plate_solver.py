@@ -2,10 +2,11 @@ __all__ = ["PlateSolver"]
 
 import asyncio
 import concurrent
-import typing
+import math
 
 import tetra3  # type: ignore
 from astropy.coordinates import SkyCoord  # type: ignore
+from PIL import Image
 
 from ..camera import BaseCamera
 from ..datetime_util import DatetimeUtil
