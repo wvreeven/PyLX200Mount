@@ -146,8 +146,8 @@ class LX200Mount:
             outputs = output.split(REPLY_SEPARATOR)
             for i in range(len(outputs)):
                 await self.write(outputs[i])
-                # self.log.debug(f"Sleeping for {SEND_COMMAND_SLEEP} sec.")
-                await asyncio.sleep(SEND_COMMAND_SLEEP)
+                if len(outputs) > 1:
+                    await asyncio.sleep(SEND_COMMAND_SLEEP)
 
 
 async def run_lx200_mount() -> None:
