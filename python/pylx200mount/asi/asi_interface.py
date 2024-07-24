@@ -475,7 +475,7 @@ class AsiCamera(BaseCamera):
         assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
 
     async def get_image(self) -> np.ndarray:
-        self.log.debug("Getting the latest image.")
+        self.log.debug("Get the latest image.")
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self._blocking_get_image)
 
@@ -483,7 +483,7 @@ class AsiCamera(BaseCamera):
         img_start = DatetimeUtil.get_timestamp()
         img_buffer_size = self.img_width * self.img_height * 2  # 16 bit data == 2 bytes
         img_buffer = ctypes.create_string_buffer(img_buffer_size)
-        self.log.debug("Getting the latest image.")
+        self.log.debug("Blocking get the latest image.")
         error_code = AsiErrorCode(
             self.asi_lib.lib.ASIGetVideoData(
                 self.camera_id, img_buffer, img_buffer_size, self.exposure_time

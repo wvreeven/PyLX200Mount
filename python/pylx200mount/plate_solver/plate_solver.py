@@ -57,9 +57,10 @@ class PlateSolver(BasePlateSolver):
                 min_img_size * self.camera.pixel_size * FOV_FACTOR / self.focal_length
             )
             self.log.info(
-                f"{self.camera.img_width=}, {self.camera.img_height=}, "
-                f"{self.focal_length=}, {self.fov_estimate=}"
+                f"{self.camera.img_width=}, {self.camera.img_height=}, {self.focal_length=}"
             )
+
+        self.log.info(f"{self.fov_estimate=}")
 
         img = await self.get_image(save_image=self.save_images)
         try:
@@ -74,13 +75,19 @@ class PlateSolver(BasePlateSolver):
         return center
 
     def _blocking_solve(self, img: Image.Image) -> SkyCoord:
+        start = DatetimeUtil.get_timestamp()
         centroids = tetra3.get_centroids_from_image(image=img)
+        end = DatetimeUtil.get_timestamp()
+        self.log.debug(f"Centroids {end - start} s.")
+        start = DatetimeUtil.get_timestamp()
         result = self.t3.solve_from_centroids(
             centroids,
             (img.width, img.height),
             fov_estimate=self.fov_estimate,
             fov_max_error=FOV_MAX_ERROR,
         )
+        end = DatetimeUtil.get_timestamp()
+        self.log.debug(f"Solve from centroids took {end - start} s.")
         center = get_skycoord_from_ra_dec(result["RA"], result["Dec"])
         self.fov_estimate = result["FOV"]
         return center
