@@ -275,7 +275,7 @@ class MountController:
             )
         ra_dec = get_radec_from_altaz(alt_az=sky_alt_az)
         end = DatetimeUtil.get_timestamp()
-        self.log.debug(f"get_ra_dec took {end - now} ms.")
+        self.log.debug(f"get_ra_dec took {end - now} s.")
         return ra_dec
 
     async def set_ra_dec(self, ra_str: str, dec_str: str) -> None:

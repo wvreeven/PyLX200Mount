@@ -14,6 +14,7 @@ from .base_plate_solver import BasePlateSolver
 
 # Max FOV error [deg].
 FOV_MAX_ERROR = 0.25
+FOV_FACTOR = 202.265 / 60 / 60
 
 
 class PlateSolver(BasePlateSolver):
@@ -47,19 +48,17 @@ class PlateSolver(BasePlateSolver):
             # Estimate of the size of the field of view [deg].
             min_img_size = min(self.camera.img_width, self.camera.img_height)
             self.fov_estimate = (
-                min_img_size
-                * self.camera.pixel_size
-                * 202.265
-                / self.focal_length
-                / 60
-                / 60
+                min_img_size * self.camera.pixel_size * FOV_FACTOR / self.focal_length
             )
             self.log.info(
                 f"{self.camera.img_width=}, {self.camera.img_height=}, "
                 f"{self.focal_length=}, {self.fov_estimate=}"
             )
 
+        img_start = DatetimeUtil.get_timestamp()
         img = await self.take_image(save_image=self.save_images)
+        img_end = DatetimeUtil.get_timestamp()
+        self.log.debug(f"Taking an image took {img_end - img_start} s.")
         try:
             loop = asyncio.get_running_loop()
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
@@ -68,7 +67,7 @@ class PlateSolver(BasePlateSolver):
             raise RuntimeError(e)
         finally:
             end = DatetimeUtil.get_timestamp()
-            self.log.debug(f"Solving took {end - start} ms.")
+            self.log.debug(f"Solving took {end - start} s.")
         return center
 
     def _blocking_solve(self, img: Image.Image) -> SkyCoord:
