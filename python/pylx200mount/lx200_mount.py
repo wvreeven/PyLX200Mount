@@ -23,11 +23,6 @@ EMPTY_REPLY = "A"
 # Sleep time between sending replies that contain a newline character.
 SEND_COMMAND_SLEEP = 0.01
 
-logging.basicConfig(
-    format="%(asctime)s:%(levelname)s:%(name)s:%(message)s",
-    level=logging.DEBUG,
-)
-
 
 class LX200Mount:
     def __init__(self) -> None:
