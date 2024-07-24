@@ -8,7 +8,6 @@ from astropy.coordinates import SkyCoord  # type: ignore
 from PIL import Image
 
 from ..camera import BaseCamera
-from ..datetime_util import DatetimeUtil
 
 SAVE_DIR = pathlib.Path.home() / "PyLX200"
 
@@ -49,13 +48,8 @@ class BasePlateSolver(abc.ABC):
         """Instruct the camera to start imaging."""
         await self.camera.start_imaging()
 
-    async def get_image(self, save_image: bool = False) -> Image.Image:
+    async def get_image(self) -> Image.Image:
         """Get the latest image from the camera.
-
-        Parameters
-        ----------
-        save_image : `bool`, optional
-            Save the image (True) or not (False). Defaults to False.
 
         Returns
         -------
@@ -64,11 +58,6 @@ class BasePlateSolver(abc.ABC):
         """
         data = await self.camera.get_image()
         img = Image.fromarray(data)
-
-        if save_image:
-            timestamp = DatetimeUtil.get_timestamp()
-            img.save(self.out_dir / f"{timestamp}.png")
-
         return img
 
     async def stop_imaging(self) -> None:

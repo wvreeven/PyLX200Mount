@@ -94,7 +94,6 @@ class MountController:
                 camera,
                 self.configuration.camera_focal_length,
                 self.log,
-                self.configuration.camera_save_images,
             )
             self.align_with_plate_solver = True
 

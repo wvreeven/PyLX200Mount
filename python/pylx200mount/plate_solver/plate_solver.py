@@ -1,7 +1,6 @@
 __all__ = ["PlateSolver"]
 
 import asyncio
-import concurrent
 import logging
 import math
 
@@ -27,14 +26,11 @@ class PlateSolver(BasePlateSolver):
         camera: BaseCamera,
         focal_length: float,
         log: logging.Logger,
-        save_images: bool = False,
     ) -> None:
         super().__init__(camera=camera, focal_length=focal_length, log=log)
         self.t3 = tetra3.Tetra3(load_database="asi120mm_database")
 
         self.fov_estimate = 0.0
-
-        self.save_images = save_images
 
     async def solve(self) -> SkyCoord:
         """Take an image and solve it.
@@ -49,6 +45,7 @@ class PlateSolver(BasePlateSolver):
         RuntimeError
             In case no image can be taken or solving it fails.
         """
+        self.log.debug("Start solve.")
         start = DatetimeUtil.get_timestamp()
         if math.isclose(self.fov_estimate, 0.0):
             # Estimate of the size of the field of view [deg].
@@ -62,11 +59,13 @@ class PlateSolver(BasePlateSolver):
 
         self.log.info(f"{self.fov_estimate=}")
 
-        img = await self.get_image(save_image=self.save_images)
+        img_start = DatetimeUtil.get_timestamp()
+        img = await self.get_image()
+        img_end = DatetimeUtil.get_timestamp()
+        self.log.debug(f"Async get_image took {img_end - img_start} s.")
         try:
             loop = asyncio.get_running_loop()
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                center = await loop.run_in_executor(pool, self._blocking_solve, img)
+            center = await loop.run_in_executor(None, self._blocking_solve, img)
         except Exception as e:
             raise RuntimeError(e)
         finally:
@@ -85,6 +84,7 @@ class PlateSolver(BasePlateSolver):
             (img.width, img.height),
             fov_estimate=self.fov_estimate,
             fov_max_error=FOV_MAX_ERROR,
+            solve_timeout=200,
         )
         end = DatetimeUtil.get_timestamp()
         self.log.debug(f"Solve from centroids took {end - start} s.")

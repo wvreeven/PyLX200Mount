@@ -96,8 +96,7 @@ A configuration file for push-to with an ASI120MM-S camera looks like this:
   "camera": {
     "module": "pylx200mount.asi",
     "class_name": "AsiCamera",
-    "focal_length": 25.0,
-    "save_images": true
+    "focal_length": 25.0
   }
 }
 ```
@@ -140,8 +139,7 @@ A configuration file GOTO with Phidgets motor controllers and an ASI120MM-S came
   "camera": {
     "module": "pylx200mount.asi",
     "class_name": "AsiCamera",
-    "focal_length": 25.0,
-    "save_images": true
+    "focal_length": 25.0
   }
 }
 ```
