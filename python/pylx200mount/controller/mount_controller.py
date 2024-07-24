@@ -148,6 +148,7 @@ class MountController:
         await self.plate_solver.set_gain_and_exposure_time(
             gain=80, exposure_time=150000
         )
+        await self.plate_solver.start_imaging()
         self.log.info("Started.")
 
     async def attach_motors(self) -> None:
@@ -221,6 +222,8 @@ class MountController:
         down actions.
         """
         self.log.info("Stop called.")
+        assert self.plate_solver is not None
+        await self.plate_solver.stop_imaging()
         self.should_run_loop = False
         self._position_loop_task.cancel()
         await self._position_loop_task

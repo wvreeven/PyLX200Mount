@@ -4,12 +4,10 @@
 __all__ = ["AsiCamera"]
 
 import asyncio
-import concurrent
 import ctypes
 import enum
 import pathlib
 import platform
-import time
 import typing
 
 import numpy as np
@@ -383,14 +381,25 @@ class AsiLib:
 class AsiCamera(BaseCamera):
     def __init__(self) -> None:
         super().__init__()
+
         self.asi_lib = AsiLib()
         self.asi_lib.lib.ASIGetNumOfConnectedCameras()
+
+        self.exposure_time = 0
 
     async def open(self) -> None:
         error_code = AsiErrorCode(self.asi_lib.lib.ASIOpenCamera(self.camera_id))
         assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
 
         error_code = AsiErrorCode(self.asi_lib.lib.ASIInitCamera(self.camera_id))
+        assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
+
+    async def start_imaging(self) -> None:
+        error_code = AsiErrorCode(self.asi_lib.lib.ASIStartVideoCapture(self.camera_id))
+        assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
+
+    async def stop_imaging(self) -> None:
+        error_code = AsiErrorCode(self.asi_lib.lib.ASIStopVideoCapture(self.camera_id))
         assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
 
     async def get_image_parameters(self) -> None:
@@ -405,6 +414,17 @@ class AsiCamera(BaseCamera):
         self.img_width = camera_info_struct.MaxWidth
         self.img_height = camera_info_struct.MaxHeight
         self.pixel_size = camera_info_struct.PixelSize
+
+        # Make sure that the camera is in NORMAL mode.
+        camera_support_mode_struct = AsiSupportedModeStruct()
+        error_code = AsiErrorCode(
+            self.asi_lib.lib.ASIGetCameraSupportMode(
+                self.camera_id, camera_support_mode_struct
+            )
+        )
+        assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
+        assert camera_support_mode_struct.SupportedCameraMode[0] == 0
+        assert camera_support_mode_struct.SupportedCameraMode[1] == -1
 
         error_code = AsiErrorCode(
             self.asi_lib.lib.ASISetROIFormat(
@@ -432,48 +452,27 @@ class AsiCamera(BaseCamera):
         assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
 
     async def set_exposure_time(self, exposure_time: int) -> None:
+        self.exposure_time = exposure_time
         error_code = AsiErrorCode(
             self.asi_lib.lib.ASISetControlValue(
                 self.camera_id,
                 AsiControlType.ASI_EXPOSURE.value,
-                exposure_time,
+                self.exposure_time,
                 AsiBool.ASI_FALSE.value,
             )
         )
         assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
 
-    async def take_and_get_image(self) -> np.ndarray:
+    async def get_image(self) -> np.ndarray:
         loop = asyncio.get_running_loop()
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            return await loop.run_in_executor(pool, self._blocking_take_and_get_image)
+        return await loop.run_in_executor(None, self._blocking_get_image)
 
-    def _blocking_take_and_get_image(self) -> np.ndarray:
-        error_code = AsiErrorCode(
-            self.asi_lib.lib.ASIStartExposure(self.camera_id, AsiBool.ASI_FALSE.value)
-        )
-        assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
-
-        exposure_status = ctypes.c_int(0)
-        exp_status = AsiExposureStatus(
-            self.asi_lib.lib.ASIGetExpStatus(
-                self.camera_id, ctypes.byref(exposure_status)
-            )
-        )
-        while exposure_status.value == AsiExposureStatus.ASI_EXP_WORKING.value:
-            time.sleep(0.02)
-            exp_status = AsiExposureStatus(
-                self.asi_lib.lib.ASIGetExpStatus(
-                    self.camera_id, ctypes.byref(exposure_status)
-                )
-            )
-        if exp_status == AsiExposureStatus.ASI_EXP_FAILED:
-            raise RuntimeError("Exposure failed.")
-
+    def _blocking_get_image(self) -> np.ndarray:
         img_buffer_size = self.img_width * self.img_height * 2  # 16 bit data == 2 bytes
         img_buffer = ctypes.create_string_buffer(img_buffer_size)
         error_code = AsiErrorCode(
-            self.asi_lib.lib.ASIGetDataAfterExp(
-                self.camera_id, img_buffer, img_buffer_size
+            self.asi_lib.lib.ASIGetVideoData(
+                self.camera_id, img_buffer, img_buffer_size, self.exposure_time
             )
         )
         assert error_code == AsiErrorCode.ASI_SUCCESS, error_code

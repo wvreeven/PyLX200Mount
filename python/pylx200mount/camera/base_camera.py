@@ -20,6 +20,16 @@ class BaseCamera(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    async def start_imaging(self) -> None:
+        """Close the camera."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def stop_imaging(self) -> None:
+        """Close the camera."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
     async def get_image_parameters(self) -> None:
         """Get the image parameters from the camera.
 
@@ -51,8 +61,8 @@ class BaseCamera(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def take_and_get_image(self) -> np.ndarray:
-        """Take and image and return it.
+    async def get_image(self) -> np.ndarray:
+        """Get the latest image.
 
         Returns
         -------

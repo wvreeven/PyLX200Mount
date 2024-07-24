@@ -57,7 +57,7 @@ class PlateSolver(BasePlateSolver):
             )
 
         img_start = DatetimeUtil.get_timestamp()
-        img = await self.take_image(save_image=self.save_images)
+        img = await self.get_image(save_image=self.save_images)
         img_end = DatetimeUtil.get_timestamp()
         self.log.debug(f"Taking an image took {img_end - img_start} s.")
         try:
