@@ -1,3 +1,4 @@
+import logging
 import pathlib
 from typing import Tuple
 from unittest import IsolatedAsyncioTestCase, mock
@@ -21,7 +22,8 @@ class TestMountController(IsolatedAsyncioTestCase):
         with mock.patch(
             "pylx200mount.controller.utils.CONFIG_FILE", pathlib.Path("/does_not_exist")
         ):
-            self.mount_controller = pylx200mount.controller.MountController()
+            log = logging.getLogger(type(self).__name__)
+            self.mount_controller = pylx200mount.controller.MountController(log=log)
             alt_az = pylx200mount.my_math.get_skycoord_from_alt_az(
                 alt=45.0,
                 az=175.0,

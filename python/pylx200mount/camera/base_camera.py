@@ -1,6 +1,7 @@
 __all__ = ["BaseCamera"]
 
 import abc
+import logging
 
 import numpy as np
 
@@ -8,7 +9,8 @@ import numpy as np
 class BaseCamera(abc.ABC):
     """Interface for all camera implementations."""
 
-    def __init__(self) -> None:
+    def __init__(self, log: logging.Logger) -> None:
+        self.log = log.getChild(type(self).__name__)
         self.camera_id = 0
         self.img_width = 0
         self.img_height = 0

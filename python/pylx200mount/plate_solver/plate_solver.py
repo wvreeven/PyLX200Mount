@@ -2,6 +2,7 @@ __all__ = ["PlateSolver"]
 
 import asyncio
 import concurrent
+import logging
 import math
 
 import tetra3  # type: ignore
@@ -22,9 +23,13 @@ class PlateSolver(BasePlateSolver):
     """Plate solver that uses tetra3 to solve images."""
 
     def __init__(
-        self, camera: BaseCamera, focal_length: float, save_images: bool = False
+        self,
+        camera: BaseCamera,
+        focal_length: float,
+        log: logging.Logger,
+        save_images: bool = False,
     ) -> None:
-        super().__init__(camera=camera, focal_length=focal_length)
+        super().__init__(camera=camera, focal_length=focal_length, log=log)
         self.t3 = tetra3.Tetra3(load_database="asi120mm_database")
 
         self.fov_estimate = 0.0
@@ -56,10 +61,7 @@ class PlateSolver(BasePlateSolver):
                 f"{self.focal_length=}, {self.fov_estimate=}"
             )
 
-        img_start = DatetimeUtil.get_timestamp()
         img = await self.get_image(save_image=self.save_images)
-        img_end = DatetimeUtil.get_timestamp()
-        self.log.debug(f"Taking an image took {img_end - img_start} s.")
         try:
             loop = asyncio.get_running_loop()
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:

@@ -34,8 +34,8 @@ POSITION_INTERVAL = 0.5
 class MountController:
     """Control the Mount."""
 
-    def __init__(self) -> None:
-        self.log = logging.getLogger(type(self).__name__)
+    def __init__(self, log: logging.Logger) -> None:
+        self.log = log.getChild(type(self).__name__)
         self.observing_location = ObservingLocation()
 
         self.configuration = load_config()
@@ -84,7 +84,7 @@ class MountController:
         """Helper method to load the configured camera and plate solver."""
         camera_module = importlib.import_module(self.configuration.camera_module_name)
         camera_class = getattr(camera_module, self.configuration.camera_class_name)
-        camera: BaseCamera = camera_class()
+        camera: BaseCamera = camera_class(log=self.log)
         if self.configuration.camera_class_name == "EmulatedCamera":
             await self.load_emulated_camera_and_plate_solver()
         else:
@@ -93,6 +93,7 @@ class MountController:
             self.plate_solver = PlateSolver(
                 camera,
                 self.configuration.camera_focal_length,
+                self.log,
                 self.configuration.camera_save_images,
             )
             self.align_with_plate_solver = True
@@ -101,10 +102,11 @@ class MountController:
         """Helper method to load the emulated camera and plate solver."""
         from ..emulation import EmulatedCamera, EmulatedPlateSolver
 
-        camera = EmulatedCamera()
+        camera = EmulatedCamera(log=self.log)
         self.plate_solver = EmulatedPlateSolver(
             camera,
             self.configuration.camera_focal_length,
+            self.log,
         )
         self.align_with_plate_solver = False
 
@@ -276,6 +278,7 @@ class MountController:
             sky_alt_az = self.alignment_handler.reverse_matrix_transform(
                 mount_alt_az, now
             )
+        self.log.debug(f"{mount_alt_az=}, {sky_alt_az=}")
         ra_dec = get_radec_from_altaz(alt_az=sky_alt_az)
         end = DatetimeUtil.get_timestamp()
         self.log.debug(f"get_ra_dec took {end - now} s.")

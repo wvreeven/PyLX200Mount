@@ -26,12 +26,12 @@ SEND_COMMAND_SLEEP = 0.01
 
 class LX200Mount:
     def __init__(self) -> None:
+        self.log: logging.Logger = logging.getLogger(type(self).__name__)
+
         self.port: int = 11880
         self._server: asyncio.AbstractServer | None = None
         self._writer: asyncio.StreamWriter | None = None
-        self.responder = Lx200CommandResponder()
-
-        self.log: logging.Logger = logging.getLogger(type(self).__name__)
+        self.responder = Lx200CommandResponder(log=self.log)
 
     async def start(self) -> None:
         """Start the TCP/IP server."""

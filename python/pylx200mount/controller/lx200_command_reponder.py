@@ -50,8 +50,8 @@ class Lx200CommandResponder:
         xmtel-indi-6.0/xmtel-6.0l/support/lx200/CommandSet.html
     """
 
-    def __init__(self) -> None:
-        self.log = logging.getLogger(type(self).__name__)
+    def __init__(self, log: logging.Logger) -> None:
+        self.log = log.getChild(type(self).__name__)
 
         # Variables holding the status of the mount
         self.autoguide_speed = 0
@@ -60,7 +60,7 @@ class Lx200CommandResponder:
         self.target_ra = "0.0"
         self.target_dec = "0.0"
 
-        self.mount_controller = MountController()
+        self.mount_controller = MountController(log=self.log)
 
         # The received command. This is kept as a reference for the slews.
         self.cmd: str = ""

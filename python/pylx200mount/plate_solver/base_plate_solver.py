@@ -16,8 +16,10 @@ SAVE_DIR = pathlib.Path.home() / "PyLX200"
 class BasePlateSolver(abc.ABC):
     """Base class for plate solvers."""
 
-    def __init__(self, camera: BaseCamera, focal_length: float) -> None:
-        self.log = logging.getLogger(type(self).__name__)
+    def __init__(
+        self, camera: BaseCamera, focal_length: float, log: logging.Logger
+    ) -> None:
+        self.log = log.getChild(type(self).__name__)
         self.camera = camera
         self.focal_length = focal_length
         self.out_dir: pathlib.Path = SAVE_DIR
