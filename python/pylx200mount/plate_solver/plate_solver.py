@@ -17,6 +17,9 @@ from .base_plate_solver import BasePlateSolver
 FOV_MAX_ERROR = 0.25
 FOV_FACTOR = 202.265 / 60 / 60
 
+# Solver timout [s].
+SOLVER_TIMEOUT = 0.25
+
 
 class PlateSolver(BasePlateSolver):
     """Plate solver that uses tetra3 to solve images."""
@@ -29,6 +32,9 @@ class PlateSolver(BasePlateSolver):
     ) -> None:
         super().__init__(camera=camera, focal_length=focal_length, log=log)
         self.t3 = tetra3.Tetra3(load_database="asi120mm_database")
+
+        self.center = get_skycoord_from_ra_dec(0.0, 0.0)
+        self.previous_center = self.center
 
         self.fov_estimate = 0.0
 
@@ -65,15 +71,19 @@ class PlateSolver(BasePlateSolver):
         self.log.debug(f"Async get_image took {img_end - img_start} s.")
         try:
             loop = asyncio.get_running_loop()
-            center = await loop.run_in_executor(None, self._blocking_solve, img)
-        except Exception as e:
-            raise RuntimeError(e)
+            await asyncio.wait_for(
+                loop.run_in_executor(None, self._blocking_solve, img),
+                timeout=SOLVER_TIMEOUT,
+            )
+        except Exception:
+            self.center = self.previous_center
         finally:
             end = DatetimeUtil.get_timestamp()
             self.log.debug(f"Solving took {end - start} s.")
-        return center
+        return self.center
 
-    def _blocking_solve(self, img: Image.Image) -> SkyCoord:
+    def _blocking_solve(self, img: Image.Image) -> None:
+        self.previous_center = self.center
         start = DatetimeUtil.get_timestamp()
         centroids = tetra3.get_centroids_from_image(image=img)
         end = DatetimeUtil.get_timestamp()
@@ -84,10 +94,8 @@ class PlateSolver(BasePlateSolver):
             (img.width, img.height),
             fov_estimate=self.fov_estimate,
             fov_max_error=FOV_MAX_ERROR,
-            solve_timeout=200,
         )
         end = DatetimeUtil.get_timestamp()
         self.log.debug(f"Solve from centroids took {end - start} s.")
-        center = get_skycoord_from_ra_dec(result["RA"], result["Dec"])
+        self.center = get_skycoord_from_ra_dec(result["RA"], result["Dec"])
         self.fov_estimate = result["FOV"]
-        return center
