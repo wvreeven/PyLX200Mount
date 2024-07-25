@@ -58,7 +58,7 @@ def get_altaz_at_different_time(
 def get_altaz_from_radec(
     ra_dec: SkyCoord, observing_location: ObservingLocation, timestamp: float
 ) -> SkyCoord:
-    return ra_dec.transform_to(
+    alt_az = ra_dec.transform_to(
         AltAz(
             obstime=datetime.fromtimestamp(timestamp, observing_location.tz),
             location=observing_location.location,
@@ -67,6 +67,9 @@ def get_altaz_from_radec(
             relative_humidity=DEFAULT_RELATIVE_HUMIDITY,
             obswl=DEFAULT_WAVELENGTH,
         )
+    )
+    return get_skycoord_from_alt_az(
+        alt_az.alt.deg, alt_az.az.deg, observing_location, timestamp
     )
 
 
