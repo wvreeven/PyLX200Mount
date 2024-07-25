@@ -64,8 +64,11 @@ class MountController:
         self.camera_mount_offset = (0.0 * u.deg, 0.0 * u.deg)
         self.align_with_plate_solver = False
 
-        # Keep track of the previous mount AltAz in case the plate solver fails.
-        self.previous_mount_alt_az: SkyCoord | None = None
+        # Keep track of the current and previous mount AltAz in case the plate solver fails.
+        self.mount_alt_az: SkyCoord = get_skycoord_from_alt_az(
+            0.0, 0.0, self.observing_location, DatetimeUtil.get_timestamp()
+        )
+        self.previous_mount_alt_az: SkyCoord = self.mount_alt_az
 
         # Slew related variables.
         self.slew_direction = SlewDirection.NONE
@@ -239,6 +242,34 @@ class MountController:
         await self.motor_controller_alt.disconnect()
         await self.motor_controller_az.disconnect()
 
+    async def get_mount_alt_az(self) -> None:
+        now = DatetimeUtil.get_timestamp()
+        if self.align_with_plate_solver:
+            try:
+                assert self.plate_solver is not None
+                self.previous_mount_alt_az = self.mount_alt_az
+                camera_ra_dec = await self.plate_solver.solve()
+                camera_alt_az = get_altaz_from_radec(
+                    camera_ra_dec, self.observing_location, now
+                )
+                self.log.debug(
+                    f"camera_ra_dec=[{camera_ra_dec.ra.deg}, {camera_ra_dec.dec.deg}], "
+                    f"camera_alt_az=[{camera_alt_az.az.deg}, {camera_alt_az.alt.deg}]."
+                )
+                self.mount_alt_az = camera_alt_az.spherical_offsets_by(
+                    self.camera_mount_offset[0], self.camera_mount_offset[1]
+                )
+            except RuntimeError:
+                self.log.exception("Error solving.")
+                self.mount_alt_az = self.previous_mount_alt_az
+        else:
+            mount_alt_az = self._get_mount_alt_az()
+            self.mount_alt_az = self.alignment_handler.reverse_matrix_transform(
+                mount_alt_az, now
+            )
+        end = DatetimeUtil.get_timestamp()
+        self.log.debug(f"Get mount AltAz took {end - now} s.")
+
     async def get_ra_dec(self) -> SkyCoord:
         """Get the current RA and DEC of the mount.
 
@@ -249,38 +280,8 @@ class MountController:
         -------
         The right ascention and declination.
         """
-        now = DatetimeUtil.get_timestamp()
-        try:
-            assert self.plate_solver is not None
-            camera_ra_dec = await self.plate_solver.solve()
-            camera_alt_az = get_altaz_from_radec(
-                camera_ra_dec, self.observing_location, now
-            )
-            self.log.debug(
-                f"camera_ra_dec=[{camera_ra_dec.ra.deg}, {camera_ra_dec.dec.deg}], "
-                f"camera_alt_az=[{camera_alt_az.az.deg}, {camera_alt_az.alt.deg}]."
-            )
-            mount_alt_az = camera_alt_az.spherical_offsets_by(
-                self.camera_mount_offset[0], self.camera_mount_offset[1]
-            )
-            self.previous_mount_alt_az = mount_alt_az
-        except RuntimeError:
-            self.log.exception("Error solving.")
-            if self.previous_mount_alt_az is not None:
-                mount_alt_az = self.previous_mount_alt_az
-            else:
-                mount_alt_az = self._get_mount_alt_az()
-
-        if self.align_with_plate_solver:
-            sky_alt_az = mount_alt_az
-        else:
-            sky_alt_az = self.alignment_handler.reverse_matrix_transform(
-                mount_alt_az, now
-            )
-        self.log.debug(f"{mount_alt_az=}, {sky_alt_az=}")
-        ra_dec = get_radec_from_altaz(alt_az=sky_alt_az)
-        end = DatetimeUtil.get_timestamp()
-        self.log.debug(f"get_ra_dec took {end - now} s.")
+        await self.get_mount_alt_az()
+        ra_dec = get_radec_from_altaz(alt_az=self.mount_alt_az)
         return ra_dec
 
     async def set_ra_dec(self, ra_str: str, dec_str: str) -> None:
@@ -303,21 +304,11 @@ class MountController:
         sky_alt_az = get_altaz_from_radec(sky_ra_dec, self.observing_location, now)
 
         if self.align_with_plate_solver:
-            mount_alt_az = sky_alt_az
-
             # Get the camera AltAz and determine the offset w.r.t. the mount.
-            try:
-                assert self.plate_solver is not None
-                camera_ra_dec = await self.plate_solver.solve()
-                camera_alt_az = get_altaz_from_radec(
-                    camera_ra_dec, self.observing_location, now
-                )
-                self.camera_mount_offset = camera_alt_az.spherical_offsets_to(
-                    mount_alt_az
-                )
-                self.log.info(f"{self.camera_mount_offset=}")
-            except RuntimeError:
-                self.log.exception("Error calculating camera_mount_offset.")
+            self.camera_mount_offset = self.mount_alt_az.spherical_offsets_to(
+                sky_alt_az
+            )
+            self.log.info(f"{self.camera_mount_offset=}")
         else:
             # Add an alignment point and compute the alignment matrix.
             self.alignment_handler.add_alignment_position(
@@ -325,10 +316,10 @@ class MountController:
             )
 
             # Compute the mount AltAz from the sky AltAz and pass on to the motor controllers.
-            mount_alt_az = self.alignment_handler.matrix_transform(sky_alt_az, now)
+            sky_alt_az = self.alignment_handler.matrix_transform(sky_alt_az, now)
 
-        self.motor_controller_az.position = mount_alt_az.az
-        self.motor_controller_alt.position = mount_alt_az.alt
+        self.motor_controller_az.position = sky_alt_az.az
+        self.motor_controller_alt.position = sky_alt_az.alt
 
     async def set_slew_rate(self, cmd: str) -> None:
         """Set the slew rate.
