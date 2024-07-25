@@ -28,7 +28,6 @@ DEFAULT_CONFIG: dict[str, typing.Any] = {
         "module": "pylx200mount.emulation.emulated_camera",
         "class_name": "EmulatedCamera",
         "focal_length": 0.0,
-        "save_images": False,
     },
 }
 
@@ -71,7 +70,6 @@ def load_config() -> types.SimpleNamespace:
         camera_module_name=config["camera"]["module"],
         camera_class_name=config["camera"]["class_name"],
         camera_focal_length=config["camera"]["focal_length"],
-        camera_save_images=config["camera"]["save_images"],
     )
 
     return configuration

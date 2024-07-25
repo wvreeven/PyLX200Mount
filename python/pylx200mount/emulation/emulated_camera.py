@@ -10,6 +10,14 @@ class EmulatedCamera(BaseCamera):
         # Deliberately left empty.
         pass
 
+    async def start_imaging(self) -> None:
+        # Deliberately left empty.
+        pass
+
+    async def stop_imaging(self) -> None:
+        # Deliberately left empty.
+        pass
+
     async def get_image_parameters(self) -> None:
         # Deliberately left empty.
         pass
@@ -22,5 +30,5 @@ class EmulatedCamera(BaseCamera):
         # Deliberately left empty.
         pass
 
-    async def take_and_get_image(self) -> np.ndarray:
+    async def get_image(self) -> np.ndarray:
         return np.zeros([1280, 960])

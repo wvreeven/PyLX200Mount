@@ -1,3 +1,4 @@
+import logging
 import pathlib
 from unittest import IsolatedAsyncioTestCase, mock
 
@@ -9,8 +10,11 @@ class TestLx200CommandResponder(IsolatedAsyncioTestCase):
         with mock.patch(
             "pylx200mount.controller.utils.CONFIG_FILE", pathlib.Path("/does_not_exist")
         ):
+            log = logging.getLogger(type(self).__name__)
             self.responder = (
-                pylx200mount.controller.lx200_command_reponder.Lx200CommandResponder()
+                pylx200mount.controller.lx200_command_reponder.Lx200CommandResponder(
+                    log=log
+                )
             )
             await self.responder.start()
 

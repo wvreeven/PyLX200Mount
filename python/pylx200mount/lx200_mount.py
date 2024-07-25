@@ -23,20 +23,15 @@ EMPTY_REPLY = "A"
 # Sleep time between sending replies that contain a newline character.
 SEND_COMMAND_SLEEP = 0.01
 
-logging.basicConfig(
-    format="%(asctime)s:%(levelname)s:%(name)s:%(message)s",
-    level=logging.DEBUG,
-)
-
 
 class LX200Mount:
     def __init__(self) -> None:
+        self.log: logging.Logger = logging.getLogger(type(self).__name__)
+
         self.port: int = 11880
         self._server: asyncio.AbstractServer | None = None
         self._writer: asyncio.StreamWriter | None = None
-        self.responder = Lx200CommandResponder()
-
-        self.log: logging.Logger = logging.getLogger(type(self).__name__)
+        self.responder = Lx200CommandResponder(log=self.log)
 
     async def start(self) -> None:
         """Start the TCP/IP server."""
@@ -151,8 +146,8 @@ class LX200Mount:
             outputs = output.split(REPLY_SEPARATOR)
             for i in range(len(outputs)):
                 await self.write(outputs[i])
-                # self.log.debug(f"Sleeping for {SEND_COMMAND_SLEEP} sec.")
-                await asyncio.sleep(SEND_COMMAND_SLEEP)
+                if len(outputs) > 1:
+                    await asyncio.sleep(SEND_COMMAND_SLEEP)
 
 
 async def run_lx200_mount() -> None:

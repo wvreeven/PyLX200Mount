@@ -4,17 +4,17 @@
 __all__ = ["AsiCamera"]
 
 import asyncio
-import concurrent
 import ctypes
 import enum
+import logging
 import pathlib
 import platform
-import time
 import typing
 
 import numpy as np
 
 from ..camera import BaseCamera
+from ..datetime_util import DatetimeUtil
 
 EXTENSIONS = {"Linux": "so", "Darwin": "dylib"}
 
@@ -381,19 +381,34 @@ class AsiLib:
 
 
 class AsiCamera(BaseCamera):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, log: logging.Logger) -> None:
+        super().__init__(log=log)
+
         self.asi_lib = AsiLib()
         self.asi_lib.lib.ASIGetNumOfConnectedCameras()
 
+        self.exposure_time = 0
+
     async def open(self) -> None:
+        self.log.debug("Opening.")
         error_code = AsiErrorCode(self.asi_lib.lib.ASIOpenCamera(self.camera_id))
         assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
 
         error_code = AsiErrorCode(self.asi_lib.lib.ASIInitCamera(self.camera_id))
         assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
 
+    async def start_imaging(self) -> None:
+        self.log.debug("Start imaging.")
+        error_code = AsiErrorCode(self.asi_lib.lib.ASIStartVideoCapture(self.camera_id))
+        assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
+
+    async def stop_imaging(self) -> None:
+        self.log.debug("Stop imaging.")
+        error_code = AsiErrorCode(self.asi_lib.lib.ASIStopVideoCapture(self.camera_id))
+        assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
+
     async def get_image_parameters(self) -> None:
+        self.log.debug("Getting image parameters.")
         camera_info_struct = AsiCameraInfoStruct()
         error_code = AsiErrorCode(
             self.asi_lib.lib.ASIGetCameraPropertyByID(
@@ -405,7 +420,21 @@ class AsiCamera(BaseCamera):
         self.img_width = camera_info_struct.MaxWidth
         self.img_height = camera_info_struct.MaxHeight
         self.pixel_size = camera_info_struct.PixelSize
+        self.log.debug(f"{self.img_width=}, {self.img_height=}, {self.pixel_size=}")
 
+        # Make sure that the camera is in NORMAL mode.
+        self.log.debug("Ensuring NORMAL mode.")
+        camera_support_mode_struct = AsiSupportedModeStruct()
+        error_code = AsiErrorCode(
+            self.asi_lib.lib.ASIGetCameraSupportMode(
+                self.camera_id, camera_support_mode_struct
+            )
+        )
+        assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
+        assert camera_support_mode_struct.SupportedCameraMode[0] == 0
+        assert camera_support_mode_struct.SupportedCameraMode[1] == -1
+
+        self.log.debug("Setting 16 bits.")
         error_code = AsiErrorCode(
             self.asi_lib.lib.ASISetROIFormat(
                 self.camera_id,
@@ -421,6 +450,7 @@ class AsiCamera(BaseCamera):
         assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
 
     async def set_gain(self, gain: int) -> None:
+        self.log.debug(f"Setting {gain=}.")
         error_code = AsiErrorCode(
             self.asi_lib.lib.ASISetControlValue(
                 self.camera_id,
@@ -432,52 +462,37 @@ class AsiCamera(BaseCamera):
         assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
 
     async def set_exposure_time(self, exposure_time: int) -> None:
+        self.log.debug(f"Setting {exposure_time=}.")
+        self.exposure_time = exposure_time
         error_code = AsiErrorCode(
             self.asi_lib.lib.ASISetControlValue(
                 self.camera_id,
                 AsiControlType.ASI_EXPOSURE.value,
-                exposure_time,
+                self.exposure_time,
                 AsiBool.ASI_FALSE.value,
             )
         )
         assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
 
-    async def take_and_get_image(self) -> np.ndarray:
+    async def get_image(self) -> np.ndarray:
+        self.log.debug("Get the latest image.")
         loop = asyncio.get_running_loop()
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            return await loop.run_in_executor(pool, self._blocking_take_and_get_image)
+        return await loop.run_in_executor(None, self._blocking_get_image)
 
-    def _blocking_take_and_get_image(self) -> np.ndarray:
-        error_code = AsiErrorCode(
-            self.asi_lib.lib.ASIStartExposure(self.camera_id, AsiBool.ASI_FALSE.value)
-        )
-        assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
-
-        exposure_status = ctypes.c_int(0)
-        exp_status = AsiExposureStatus(
-            self.asi_lib.lib.ASIGetExpStatus(
-                self.camera_id, ctypes.byref(exposure_status)
-            )
-        )
-        while exposure_status.value == AsiExposureStatus.ASI_EXP_WORKING.value:
-            time.sleep(0.02)
-            exp_status = AsiExposureStatus(
-                self.asi_lib.lib.ASIGetExpStatus(
-                    self.camera_id, ctypes.byref(exposure_status)
-                )
-            )
-        if exp_status == AsiExposureStatus.ASI_EXP_FAILED:
-            raise RuntimeError("Exposure failed.")
-
+    def _blocking_get_image(self) -> np.ndarray:
+        img_start = DatetimeUtil.get_timestamp()
         img_buffer_size = self.img_width * self.img_height * 2  # 16 bit data == 2 bytes
         img_buffer = ctypes.create_string_buffer(img_buffer_size)
+        self.log.debug("Blocking get the latest image.")
         error_code = AsiErrorCode(
-            self.asi_lib.lib.ASIGetDataAfterExp(
-                self.camera_id, img_buffer, img_buffer_size
+            self.asi_lib.lib.ASIGetVideoData(
+                self.camera_id, img_buffer, img_buffer_size, self.exposure_time
             )
         )
         assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
 
         data_array = np.frombuffer(img_buffer, dtype=np.uint16)
         data = data_array.reshape(self.img_height, self.img_width)
+        img_end = DatetimeUtil.get_timestamp()
+        self.log.debug(f"Getting latest image took {img_end - img_start} s.")
         return data

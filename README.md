@@ -96,8 +96,7 @@ A configuration file for push-to with an ASI120MM-S camera looks like this:
   "camera": {
     "module": "pylx200mount.asi",
     "class_name": "AsiCamera",
-    "focal_length": 25.0,
-    "save_images": true
+    "focal_length": 25.0
   }
 }
 ```
@@ -140,8 +139,7 @@ A configuration file GOTO with Phidgets motor controllers and an ASI120MM-S came
   "camera": {
     "module": "pylx200mount.asi",
     "class_name": "AsiCamera",
-    "focal_length": 25.0,
-    "save_images": true
+    "focal_length": 25.0
   }
 }
 ```
@@ -158,7 +156,8 @@ In the menu bar click Telescope and select Setup...
 Set the following properties:
   * Scope Type: `Meade LX200 Classic` 
   * Mount Type: `Alt-Az GoTo`
-  * Connection: `WiFo or Ethernet (TCP/IP)`
+  * Connection: `WiFi or Ethernet (TCP/IP)`
+  * Readout Rate: `2 per second`
 
 Enter the IP address and port as indicated above and click the Connect button on the bottom left.
 
@@ -171,8 +170,9 @@ Set the following properties:
   * Mount Type: `Alt-Az GoTo`
   * Scope Type: `Meade LX200 Classic`
 
-Press `Next...` to the upper right.  
-Enter the IP address and port as indicated above and press `Next...` to the upper right.  
+Press `Next...` to the upper right.
+Enter the IP address and port as indicated above and press `Next...` to the upper right.
+Set Readout Rate to `2 per second`.
 Enter a name if you like and press `Save Preset`.  
 Back in the main screen, press the `Scope` button and then the `Connnect` button.  
 

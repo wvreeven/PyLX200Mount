@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import datetime
 
@@ -6,6 +7,7 @@ from astropy.coordinates import Angle, Latitude, Longitude, SkyCoord
 
 from ..datetime_util import DatetimeUtil
 from ..enums import CommandName, CoordinatePrecision
+from ..my_math import get_skycoord_from_ra_dec
 from .mount_controller import MountController
 
 _all__ = ["Lx200CommandResponder", "REPLY_SEPARATOR"]
@@ -50,17 +52,20 @@ class Lx200CommandResponder:
         xmtel-indi-6.0/xmtel-6.0l/support/lx200/CommandSet.html
     """
 
-    def __init__(self) -> None:
-        self.log = logging.getLogger(type(self).__name__)
+    def __init__(self, log: logging.Logger) -> None:
+        self.log = log.getChild(type(self).__name__)
 
         # Variables holding the status of the mount
         self.autoguide_speed = 0
+        self.ra_dec: SkyCoord = get_skycoord_from_ra_dec(0.0, 0.0)
+        self.ra_dec_task: asyncio.Future = asyncio.Future()
+        self.ra_dec_task.set_result(None)
 
         # Variables holding the target position
         self.target_ra = "0.0"
         self.target_dec = "0.0"
 
-        self.mount_controller = MountController()
+        self.mount_controller = MountController(log=self.log)
 
         # The received command. This is kept as a reference for the slews.
         self.cmd: str = ""
@@ -124,17 +129,24 @@ class Lx200CommandResponder:
         self.log.info("Stop called.")
         await self.mount_controller.stop()
 
+    async def get_ra_dec(self) -> None:
+        self.log.debug("Task get_ra_dec starting.")
+        self.ra_dec = await self.mount_controller.get_ra_dec()
+        self.log.debug("Task get_ra_dec done.")
+
     async def get_ra(self) -> str:
         """Get the RA that the mount currently is pointing at."""
-        ra_dec: SkyCoord = await self.mount_controller.get_ra_dec()
-        ra = ra_dec.ra
+        if self.ra_dec_task.done():
+            self.ra_dec_task = asyncio.create_task(self.get_ra_dec())
+
+        await self.ra_dec_task
+        ra = self.ra_dec.ra
         hms = ra.hms
         if self.coordinate_precision == CoordinatePrecision.HIGH:
             ra_str = f"{hms.h:02.0f}:{hms.m:02.0f}:{hms.s:02.0f}"
         else:
             m = hms.m + (hms.s / 60.0)
             ra_str = f"{hms.h:02.0f}:{m:02.1f}"
-        # self.log.debug(f"{ra_str=}")
         return ra_str + HASH
 
     async def set_ra(self, data: str) -> str:
@@ -156,15 +168,16 @@ class Lx200CommandResponder:
 
     async def get_dec(self) -> str:
         """Get the DEC that the mount currently is pointing at."""
-        ra_dec: SkyCoord = await self.mount_controller.get_ra_dec()
-        return (
-            await get_angle_as_lx200_string(
-                angle=ra_dec.dec,
-                digits=2,
-                coordinate_precision=self.coordinate_precision,
-            )
-            + HASH
+        if self.ra_dec_task.done():
+            self.ra_dec_task = asyncio.create_task(self.get_ra_dec())
+
+        await self.ra_dec_task
+        dec_str = await get_angle_as_lx200_string(
+            angle=self.ra_dec.dec,
+            digits=2,
+            coordinate_precision=self.coordinate_precision,
         )
+        return dec_str + HASH
 
     async def set_dec(self, data: str) -> str:
         """Set the DEC that the mount should slew to.

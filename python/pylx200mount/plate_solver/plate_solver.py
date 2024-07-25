@@ -1,11 +1,12 @@
 __all__ = ["PlateSolver"]
 
 import asyncio
-import concurrent
-import typing
+import logging
+import math
 
 import tetra3  # type: ignore
 from astropy.coordinates import SkyCoord  # type: ignore
+from PIL import Image
 
 from ..camera import BaseCamera
 from ..datetime_util import DatetimeUtil
@@ -14,20 +15,28 @@ from .base_plate_solver import BasePlateSolver
 
 # Max FOV error [deg].
 FOV_MAX_ERROR = 0.25
+FOV_FACTOR = 202.265 / 60 / 60
+
+# Solver timout [s].
+SOLVER_TIMEOUT = 0.25
 
 
 class PlateSolver(BasePlateSolver):
     """Plate solver that uses tetra3 to solve images."""
 
     def __init__(
-        self, camera: BaseCamera, focal_length: float, save_images: bool = False
+        self,
+        camera: BaseCamera,
+        focal_length: float,
+        log: logging.Logger,
     ) -> None:
-        super().__init__(camera=camera, focal_length=focal_length)
+        super().__init__(camera=camera, focal_length=focal_length, log=log)
         self.t3 = tetra3.Tetra3(load_database="asi120mm_database")
 
-        self.fov_estimate = 0.0
+        self.center = get_skycoord_from_ra_dec(0.0, 0.0)
+        self.previous_center = self.center
 
-        self.save_images = save_images
+        self.fov_estimate = 0.0
 
     async def solve(self) -> SkyCoord:
         """Take an image and solve it.
@@ -42,43 +51,51 @@ class PlateSolver(BasePlateSolver):
         RuntimeError
             In case no image can be taken or solving it fails.
         """
+        self.log.debug("Start solve.")
         start = DatetimeUtil.get_timestamp()
         if math.isclose(self.fov_estimate, 0.0):
             # Estimate of the size of the field of view [deg].
             min_img_size = min(self.camera.img_width, self.camera.img_height)
             self.fov_estimate = (
-                min_img_size
-                * self.camera.pixel_size
-                * 202.265
-                / self.focal_length
-                / 60
-                / 60
+                min_img_size * self.camera.pixel_size * FOV_FACTOR / self.focal_length
             )
             self.log.info(
-                f"{self.camera.img_width=}, {self.camera.img_height=}, "
-                f"{self.focal_length=}, {self.fov_estimate=}"
+                f"{self.camera.img_width=}, {self.camera.img_height=}, {self.focal_length=}"
             )
 
-        img = await self.take_image(save_image=self.save_images)
+        self.log.info(f"{self.fov_estimate=}")
+
+        img_start = DatetimeUtil.get_timestamp()
+        img = await self.get_image()
+        img_end = DatetimeUtil.get_timestamp()
+        self.log.debug(f"Async get_image took {img_end - img_start} s.")
         try:
             loop = asyncio.get_running_loop()
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                center = await loop.run_in_executor(pool, self._blocking_solve, img)
-        except Exception as e:
-            raise RuntimeError(e)
+            await asyncio.wait_for(
+                loop.run_in_executor(None, self._blocking_solve, img),
+                timeout=SOLVER_TIMEOUT,
+            )
+        except Exception:
+            self.center = self.previous_center
         finally:
             end = DatetimeUtil.get_timestamp()
-            self.log.debug(f"Solving took {end - start} ms.")
-        return center
+            self.log.debug(f"Solving took {end - start} s.")
+        return self.center
 
-    def _blocking_solve(self, img: Image.Image) -> SkyCoord:
+    def _blocking_solve(self, img: Image.Image) -> None:
+        self.previous_center = self.center
+        start = DatetimeUtil.get_timestamp()
         centroids = tetra3.get_centroids_from_image(image=img)
+        end = DatetimeUtil.get_timestamp()
+        self.log.debug(f"Centroids {end - start} s.")
+        start = DatetimeUtil.get_timestamp()
         result = self.t3.solve_from_centroids(
             centroids,
             (img.width, img.height),
             fov_estimate=self.fov_estimate,
             fov_max_error=FOV_MAX_ERROR,
         )
-        center = get_skycoord_from_ra_dec(result["RA"], result["Dec"])
+        end = DatetimeUtil.get_timestamp()
+        self.log.debug(f"Solve from centroids took {end - start} s.")
+        self.center = get_skycoord_from_ra_dec(result["RA"], result["Dec"])
         self.fov_estimate = result["FOV"]
-        return center
