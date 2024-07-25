@@ -333,12 +333,19 @@ class MountController:
         """
         sky_ra_dec = get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
         now = DatetimeUtil.get_timestamp()
-        # Compute the sky AltAz from the sky RaDec.
+
+        # Make sure that the mount AltAz and sky AltAz have the same frame.
+        current_mount_alt_az = get_skycoord_from_alt_az(
+            self.mount_alt_az.alt.deg,
+            self.mount_alt_az.az.deg,
+            self.observing_location,
+            now,
+        )
         sky_alt_az = get_altaz_from_radec(sky_ra_dec, self.observing_location, now)
 
         if self.align_with_plate_solver:
             # Get the camera AltAz and determine the offset w.r.t. the mount.
-            self.camera_mount_offset = self.mount_alt_az.spherical_offsets_to(
+            self.camera_mount_offset = current_mount_alt_az.spherical_offsets_to(
                 sky_alt_az
             )
             self.log.info(f"{self.camera_mount_offset=}")
