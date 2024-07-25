@@ -29,6 +29,8 @@ NINETY = Angle(90.0, u.deg)
 ZERO = Angle(0.0, u.deg)
 # Position loop task interval [sec].
 POSITION_INTERVAL = 0.5
+# Plate solve loop task interval [sec].
+PLATE_SOLVE_INTERVAL = 0.5
 
 
 class MountController:
@@ -64,6 +66,11 @@ class MountController:
         self.camera_mount_offset = (0.0 * u.deg, 0.0 * u.deg)
         self.align_with_plate_solver = False
 
+        # Plate solve loop that is done, so it can be safely canceled at all times.
+        self._plate_solve_loop_task: asyncio.Future = asyncio.Future()
+        self._plate_solve_loop_task.set_result(None)
+        self.should_run_plate_solve_loop = True
+
         # Keep track of the current and previous mount AltAz in case the plate solver fails.
         self.mount_alt_az: SkyCoord = get_skycoord_from_alt_az(
             0.0, 0.0, self.observing_location, DatetimeUtil.get_timestamp()
@@ -78,7 +85,7 @@ class MountController:
         # Position loop that is done, so it can be safely canceled at all times.
         self._position_loop_task: asyncio.Future = asyncio.Future()
         self._position_loop_task.set_result(None)
-        self.should_run_loop = True
+        self.should_run_position_loop = True
 
         # Alignment handler.
         self.alignment_handler = AlignmentHandler()
@@ -136,10 +143,12 @@ class MountController:
         """
         self.log.info("Start called.")
         await self.attach_motors()
-        self.should_run_loop = True
+
+        self.should_run_position_loop = True
         self._position_loop_task.cancel()
         await self._position_loop_task
         self._position_loop_task = asyncio.create_task(self.position_loop())
+
         await self.load_camera_and_plate_solver()
         assert self.plate_solver is not None
         try:
@@ -153,6 +162,12 @@ class MountController:
             gain=80, exposure_time=150000
         )
         await self.plate_solver.start_imaging()
+
+        self.should_run_plate_solve_loop = True
+        self._plate_solve_loop_task.cancel()
+        await self._plate_solve_loop_task
+        self._plate_solve_loop_task = asyncio.create_task(self.plate_solve_loop())
+
         self.log.info("Started.")
 
     async def attach_motors(self) -> None:
@@ -168,7 +183,7 @@ class MountController:
         """
         start_time = DatetimeUtil.get_timestamp()
         self.log.debug(f"position_loop starts at {start_time}")
-        while self.should_run_loop:
+        while self.should_run_position_loop:
             self.check_motor_tracking(self.motor_controller_az)
             self.check_motor_tracking(self.motor_controller_alt)
 
@@ -226,11 +241,18 @@ class MountController:
         down actions.
         """
         self.log.info("Stop called.")
+
+        self.should_run_plate_solve_loop = False
+        self._plate_solve_loop_task.cancel()
+        await self._plate_solve_loop_task
+
         assert self.plate_solver is not None
         await self.plate_solver.stop_imaging()
-        self.should_run_loop = False
+
+        self.should_run_position_loop = False
         self._position_loop_task.cancel()
         await self._position_loop_task
+
         await self.detach_motors()
 
     async def detach_motors(self) -> None:
@@ -242,33 +264,45 @@ class MountController:
         await self.motor_controller_alt.disconnect()
         await self.motor_controller_az.disconnect()
 
-    async def get_mount_alt_az(self) -> None:
-        now = DatetimeUtil.get_timestamp()
-        if self.align_with_plate_solver:
+    async def plate_solve_loop(self) -> None:
+        start_time = DatetimeUtil.get_timestamp()
+        self.log.debug(f"plate_solve_loop starts at {start_time}")
+        while self.should_run_plate_solve_loop:
+            now = DatetimeUtil.get_timestamp()
+            if self.align_with_plate_solver:
+                try:
+                    assert self.plate_solver is not None
+                    self.previous_mount_alt_az = self.mount_alt_az
+                    camera_ra_dec = await self.plate_solver.solve()
+                    camera_alt_az = get_altaz_from_radec(
+                        camera_ra_dec, self.observing_location, now
+                    )
+                    self.log.debug(
+                        f"camera_ra_dec=[{camera_ra_dec.ra.deg}, {camera_ra_dec.dec.deg}], "
+                        f"camera_alt_az=[{camera_alt_az.az.deg}, {camera_alt_az.alt.deg}]."
+                    )
+                    self.mount_alt_az = camera_alt_az.spherical_offsets_by(
+                        self.camera_mount_offset[0], self.camera_mount_offset[1]
+                    )
+                except RuntimeError:
+                    self.log.exception("Error solving.")
+                    self.mount_alt_az = self.previous_mount_alt_az
+            else:
+                mount_alt_az = self._get_mount_alt_az()
+                self.mount_alt_az = self.alignment_handler.reverse_matrix_transform(
+                    mount_alt_az, now
+                )
+            end = DatetimeUtil.get_timestamp()
+            self.log.debug(f"Get mount AltAz took {end - now} s.")
+
+            remainder = (
+                DatetimeUtil.get_timestamp() - start_time
+            ) % PLATE_SOLVE_INTERVAL
             try:
-                assert self.plate_solver is not None
-                self.previous_mount_alt_az = self.mount_alt_az
-                camera_ra_dec = await self.plate_solver.solve()
-                camera_alt_az = get_altaz_from_radec(
-                    camera_ra_dec, self.observing_location, now
-                )
-                self.log.debug(
-                    f"camera_ra_dec=[{camera_ra_dec.ra.deg}, {camera_ra_dec.dec.deg}], "
-                    f"camera_alt_az=[{camera_alt_az.az.deg}, {camera_alt_az.alt.deg}]."
-                )
-                self.mount_alt_az = camera_alt_az.spherical_offsets_by(
-                    self.camera_mount_offset[0], self.camera_mount_offset[1]
-                )
-            except RuntimeError:
-                self.log.exception("Error solving.")
-                self.mount_alt_az = self.previous_mount_alt_az
-        else:
-            mount_alt_az = self._get_mount_alt_az()
-            self.mount_alt_az = self.alignment_handler.reverse_matrix_transform(
-                mount_alt_az, now
-            )
-        end = DatetimeUtil.get_timestamp()
-        self.log.debug(f"Get mount AltAz took {end - now} s.")
+                await asyncio.sleep(PLATE_SOLVE_INTERVAL - remainder)
+            except asyncio.CancelledError:
+                # Ignore.
+                pass
 
     async def get_ra_dec(self) -> SkyCoord:
         """Get the current RA and DEC of the mount.
@@ -280,7 +314,6 @@ class MountController:
         -------
         The right ascention and declination.
         """
-        await self.get_mount_alt_az()
         ra_dec = get_radec_from_altaz(alt_az=self.mount_alt_az)
         return ra_dec
 
