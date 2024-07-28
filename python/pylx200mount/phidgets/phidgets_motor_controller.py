@@ -32,7 +32,7 @@ class PhidgetsMotorController(BaseMotorController):
         try:
             from Phidget22.Devices.Stepper import Stepper
             from Phidget22.Net import Net, PhidgetServerType
-            from Phidget22.PhidgetException import PhidgetException
+            from Phidget22.PhidgetException import PhidgetException  # noqa
         except ImportError:
             self.log.warn(
                 "Couldn't import the Phidgets22 module. Continuing without Phidgets support."
@@ -64,7 +64,7 @@ class PhidgetsMotorController(BaseMotorController):
         """Connect the stepper motor."""
         try:
             self.stepper.openWaitForAttachment(ATTACH_WAIT_TIME)
-        except PhidgetException as e:
+        except PhidgetException as e:  # type: ignore  # noqa
             raise RuntimeError(e)
         assert self.attached
         self.stepper.setEngaged(True)
