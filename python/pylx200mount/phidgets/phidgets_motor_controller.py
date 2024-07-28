@@ -3,9 +3,6 @@ __all__ = ["PhidgetsMotorController"]
 import logging
 
 from astropy.coordinates import Angle
-from Phidget22.Devices.Stepper import Stepper
-from Phidget22.Net import Net, PhidgetServerType
-from Phidget22.PhidgetException import PhidgetException
 
 from ..motor.base_motor_controller import BaseMotorController
 
@@ -31,6 +28,15 @@ class PhidgetsMotorController(BaseMotorController):
     ) -> None:
         name = "Alt" if hub_port == 0 else "Az"
         super().__init__(log=log, name=name, conversion_factor=conversion_factor)
+
+        try:
+            from Phidget22.Devices.Stepper import Stepper
+            from Phidget22.Net import Net, PhidgetServerType
+            from Phidget22.PhidgetException import PhidgetException
+        except ImportError:
+            self.log.warn(
+                "Couldn't import the Phidgets22 module. Continuing without Phidgets support."
+            )
 
         if is_remote:
             Net.enableServerDiscovery(PhidgetServerType.PHIDGETSERVER_DEVICEREMOTE)
