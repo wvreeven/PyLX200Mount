@@ -68,7 +68,6 @@ class LX200Mount:
         st: `str`
             The string to append a HASH character to and then write.
         """
-        # self.log.debug(f"Writing reply {st}")
         if self._writer is not None:
             reply = st.encode()
             self._writer.write(reply)

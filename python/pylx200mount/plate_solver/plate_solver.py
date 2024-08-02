@@ -63,7 +63,7 @@ class PlateSolver(BasePlateSolver):
                 f"{self.camera.img_width=}, {self.camera.img_height=}, {self.focal_length=}"
             )
 
-        self.log.info(f"{self.fov_estimate=}")
+        self.log.debug(f"{self.fov_estimate=}")
 
         img_start = DatetimeUtil.get_timestamp()
         img = await self.get_image()

@@ -76,6 +76,7 @@ class MountController:
             0.0, 0.0, self.observing_location, DatetimeUtil.get_timestamp()
         )
         self.previous_mount_alt_az: SkyCoord = self.mount_alt_az
+        self.camera_alt_az = self.mount_alt_az
 
         # Slew related variables.
         self.slew_direction = SlewDirection.NONE
@@ -274,14 +275,10 @@ class MountController:
                     assert self.plate_solver is not None
                     self.previous_mount_alt_az = self.mount_alt_az
                     camera_ra_dec = await self.plate_solver.solve()
-                    camera_alt_az = get_altaz_from_radec(
+                    self.camera_alt_az = get_altaz_from_radec(
                         camera_ra_dec, self.observing_location, now
                     )
-                    self.log.debug(
-                        f"camera_ra_dec=[{camera_ra_dec.ra.deg}, {camera_ra_dec.dec.deg}], "
-                        f"camera_alt_az=[{camera_alt_az.az.deg}, {camera_alt_az.alt.deg}]."
-                    )
-                    self.mount_alt_az = camera_alt_az.spherical_offsets_by(
+                    self.mount_alt_az = self.camera_alt_az.spherical_offsets_by(
                         self.camera_mount_offset[0], self.camera_mount_offset[1]
                     )
                 except RuntimeError:
@@ -331,24 +328,22 @@ class MountController:
         dec_str: `str`
             The Declination of the mount in degrees. The format is "+dd*mm:ss".
         """
-        sky_ra_dec = get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
         now = DatetimeUtil.get_timestamp()
 
-        # Make sure that the mount AltAz and sky AltAz have the same frame.
-        current_mount_alt_az = get_skycoord_from_alt_az(
-            self.mount_alt_az.alt.deg,
-            self.mount_alt_az.az.deg,
-            self.observing_location,
-            now,
-        )
+        # Determine the sky AltAz.
+        sky_ra_dec = get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
         sky_alt_az = get_altaz_from_radec(sky_ra_dec, self.observing_location, now)
 
         if self.align_with_plate_solver:
-            # Get the camera AltAz and determine the offset w.r.t. the mount.
-            self.camera_mount_offset = current_mount_alt_az.spherical_offsets_to(
-                sky_alt_az
+            camera_alt_az = get_skycoord_from_alt_az(
+                self.camera_alt_az.alt.deg,
+                self.camera_alt_az.az.deg,
+                self.observing_location,
+                now,
             )
-            self.log.info(f"{self.camera_mount_offset=}")
+            # Get the camera AltAz and determine the offset w.r.t. the sky.
+            self.camera_mount_offset = camera_alt_az.spherical_offsets_to(sky_alt_az)
+            self.log.debug(f"{self.camera_mount_offset=}")
         else:
             # Add an alignment point and compute the alignment matrix.
             self.alignment_handler.add_alignment_position(

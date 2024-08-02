@@ -2,14 +2,11 @@ __all__ = ["BasePlateSolver"]
 
 import abc
 import logging
-import pathlib
 
 from astropy.coordinates import SkyCoord  # type: ignore
 from PIL import Image
 
 from ..camera import BaseCamera
-
-SAVE_DIR = pathlib.Path.home() / "PyLX200"
 
 
 class BasePlateSolver(abc.ABC):
@@ -21,8 +18,6 @@ class BasePlateSolver(abc.ABC):
         self.log = log.getChild(type(self).__name__)
         self.camera = camera
         self.focal_length = focal_length
-        self.out_dir: pathlib.Path = SAVE_DIR
-        self.out_dir.mkdir(parents=True, exist_ok=True)
 
     async def open_camera(self) -> None:
         """Open the camera and make sure it uses the full sensor."""

@@ -1,13 +1,11 @@
-import asyncio
 import logging
 from datetime import datetime
 
 from astropy import units as u
-from astropy.coordinates import Angle, Latitude, Longitude, SkyCoord
+from astropy.coordinates import Angle, Latitude, Longitude
 
 from ..datetime_util import DatetimeUtil
 from ..enums import CommandName, CoordinatePrecision
-from ..my_math import get_skycoord_from_ra_dec
 from .mount_controller import MountController
 
 _all__ = ["Lx200CommandResponder", "REPLY_SEPARATOR"]
