@@ -23,21 +23,6 @@ class BasePlateSolver(abc.ABC):
         """Open the camera and make sure it uses the full sensor."""
         self.log.debug("Opening camera.")
         await self.camera.open()
-        await self.camera.get_image_parameters()
-
-    async def set_gain_and_exposure_time(self, gain: int, exposure_time: int) -> None:
-        """Set the gain and exposure time.
-
-        Parameters
-        ----------
-        gain : `int`
-            The gain.
-        exposure_time : `float`
-            The exposure time [ms]
-        """
-        self.log.debug(f"Setting {gain=} and {exposure_time=}.")
-        await self.camera.set_gain(gain)
-        await self.camera.set_exposure_time(exposure_time)
 
     async def start_imaging(self) -> None:
         """Instruct the camera to start imaging."""

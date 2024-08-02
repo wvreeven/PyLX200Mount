@@ -18,6 +18,11 @@ from ..datetime_util import DatetimeUtil
 
 EXTENSIONS = {"Linux": "so", "Darwin": "dylib"}
 
+# The camera gain.
+GAIN = 80
+# The exposure time [µs].
+EXPOSURE_TIME = 150000
+
 
 class AsiBayerPattern(enum.Enum):
     """Bayer filter type."""
@@ -397,6 +402,10 @@ class AsiCamera(BaseCamera):
         error_code = AsiErrorCode(self.asi_lib.lib.ASIInitCamera(self.camera_id))
         assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
 
+        await self._get_image_parameters()
+        await self._set_gain()
+        await self._set_exposure_time()
+
     async def start_imaging(self) -> None:
         self.log.debug("Start imaging.")
         error_code = AsiErrorCode(self.asi_lib.lib.ASIStartVideoCapture(self.camera_id))
@@ -407,7 +416,7 @@ class AsiCamera(BaseCamera):
         error_code = AsiErrorCode(self.asi_lib.lib.ASIStopVideoCapture(self.camera_id))
         assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
 
-    async def get_image_parameters(self) -> None:
+    async def _get_image_parameters(self) -> None:
         self.log.debug("Getting image parameters.")
         camera_info_struct = AsiCameraInfoStruct()
         error_code = AsiErrorCode(
@@ -449,21 +458,21 @@ class AsiCamera(BaseCamera):
         error_code = AsiErrorCode(self.asi_lib.lib.ASISetStartPos(self.camera_id, 0, 0))
         assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
 
-    async def set_gain(self, gain: int) -> None:
-        self.log.debug(f"Setting {gain=}.")
+    async def _set_gain(self) -> None:
+        self.log.debug(f"Setting gain={GAIN}.")
         error_code = AsiErrorCode(
             self.asi_lib.lib.ASISetControlValue(
                 self.camera_id,
                 AsiControlType.ASI_GAIN.value,
-                gain,
+                GAIN,
                 AsiBool.ASI_FALSE.value,
             )
         )
         assert error_code == AsiErrorCode.ASI_SUCCESS, error_code
 
-    async def set_exposure_time(self, exposure_time: int) -> None:
-        self.log.debug(f"Setting {exposure_time=}.")
-        self.exposure_time = exposure_time
+    async def _set_exposure_time(self) -> None:
+        self.log.debug(f"Setting exposure_time={EXPOSURE_TIME}.")
+        self.exposure_time = EXPOSURE_TIME
         error_code = AsiErrorCode(
             self.asi_lib.lib.ASISetControlValue(
                 self.camera_id,

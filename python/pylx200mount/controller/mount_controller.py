@@ -159,9 +159,6 @@ class MountController:
                 "Error loading configured camera. Loading emulated camera now."
             )
             await self.load_emulated_camera_and_plate_solver()
-        await self.plate_solver.set_gain_and_exposure_time(
-            gain=80, exposure_time=150000
-        )
         await self.plate_solver.start_imaging()
 
         self.should_run_plate_solve_loop = True
