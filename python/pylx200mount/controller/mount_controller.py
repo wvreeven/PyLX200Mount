@@ -63,7 +63,11 @@ class MountController:
 
         # The plate solver.
         self.plate_solver: BasePlateSolver | None = None
-        self.camera_mount_offset = load_camera_offsets()
+        camera_mount_offset = load_camera_offsets()
+        self.camera_mount_offset = (
+            camera_mount_offset[0] * u.deg,
+            camera_mount_offset[1] * u.deg,
+        )
         self.align_with_plate_solver = False
 
         # Plate solve loop that is done, so it can be safely canceled at all times.
@@ -341,7 +345,7 @@ class MountController:
             # Get the camera AltAz and determine the offset w.r.t. the sky.
             self.camera_mount_offset = camera_alt_az.spherical_offsets_to(sky_alt_az)
             save_camera_offsets(
-                self.camera_mount_offset[0], self.camera_mount_offset[1]
+                self.camera_mount_offset[0].deg, self.camera_mount_offset[1].deg
             )
             self.log.debug(f"{self.camera_mount_offset=}")
         else:

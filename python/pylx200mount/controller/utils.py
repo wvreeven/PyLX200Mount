@@ -90,7 +90,7 @@ def load_camera_offsets() -> typing.Tuple[float, float]:
     """
     if CAMERA_OFFSETS_FILE.exists():
         config = configparser.ConfigParser()
-        config.read(CONFIG_FILE)
+        config.read(CAMERA_OFFSETS_FILE)
         camera_offsets = config["camera_offsets"]
         return camera_offsets.getfloat("az"), camera_offsets.getfloat("alt")
 
