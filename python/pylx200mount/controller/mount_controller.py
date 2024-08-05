@@ -21,7 +21,7 @@ from ..my_math.astropy_util import (
 )
 from ..observing_location import ObservingLocation
 from ..plate_solver import BasePlateSolver
-from .utils import load_config
+from .utils import load_camera_offsets, load_config, save_camera_offsets
 
 # Angle of 90º.
 NINETY = Angle(90.0, u.deg)
@@ -63,7 +63,7 @@ class MountController:
 
         # The plate solver.
         self.plate_solver: BasePlateSolver | None = None
-        self.camera_mount_offset = (0.0 * u.deg, 0.0 * u.deg)
+        self.camera_mount_offset = load_camera_offsets()
         self.align_with_plate_solver = False
 
         # Plate solve loop that is done, so it can be safely canceled at all times.
@@ -340,6 +340,9 @@ class MountController:
             )
             # Get the camera AltAz and determine the offset w.r.t. the sky.
             self.camera_mount_offset = camera_alt_az.spherical_offsets_to(sky_alt_az)
+            save_camera_offsets(
+                self.camera_mount_offset[0], self.camera_mount_offset[1]
+            )
             self.log.debug(f"{self.camera_mount_offset=}")
         else:
             # Add an alignment point and compute the alignment matrix.

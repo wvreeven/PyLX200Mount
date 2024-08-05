@@ -1,5 +1,6 @@
-__all__ = ["load_config"]
+__all__ = ["load_camera_offsets", "load_config", "save_camera_offsets"]
 
+import configparser
 import json
 import pathlib
 import types
@@ -7,8 +8,8 @@ import typing
 
 import jsonschema
 
-JSON_SCHEMA_FILE = pathlib.Path(__file__).parents[0] / "configuration_schema.json"
-CONFIG_FILE = pathlib.Path.home() / ".config" / "pylx200mount" / "config.json"
+CONFIG_PATH = pathlib.Path.home() / ".config" / "pylx200mount"
+CONFIG_FILE = CONFIG_PATH / "config.json"
 DEFAULT_CONFIG: dict[str, typing.Any] = {
     "alt": {
         "module": "pylx200mount.emulation.emulated_motor_controller",
@@ -30,6 +31,10 @@ DEFAULT_CONFIG: dict[str, typing.Any] = {
         "focal_length": 0.0,
     },
 }
+
+CAMERA_OFFSETS_FILE = CONFIG_PATH / "camera_offsets.ini"
+
+JSON_SCHEMA_FILE = pathlib.Path(__file__).parents[0] / "configuration_schema.json"
 
 
 def load_config() -> types.SimpleNamespace:
@@ -73,3 +78,27 @@ def load_config() -> types.SimpleNamespace:
     )
 
     return configuration
+
+
+def load_camera_offsets() -> typing.Tuple[float, float]:
+    """Load the camera offsets from file.
+
+    Returns
+    -------
+    typing.Tuple[float, float]
+        The camera [az, alt] offsets.
+    """
+    if CAMERA_OFFSETS_FILE.exists():
+        config = configparser.ConfigParser()
+        config.read(CONFIG_FILE)
+        camera_offsets = config["camera_offsets"]
+        return camera_offsets.getfloat("az"), camera_offsets.getfloat("alt")
+
+    return 0.0, 0.0
+
+
+def save_camera_offsets(az: float, alt: float) -> None:
+    with open(CAMERA_OFFSETS_FILE, "w") as f:
+        config = configparser.ConfigParser()
+        config["camera_offsets"] = {"az": str(az), "alt": str(alt)}
+        config.write(f)
