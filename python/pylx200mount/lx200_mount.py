@@ -45,7 +45,6 @@ class LX200Mount:
             f"{self._server.sockets[0].getsockname()[0]}"
             f":{self._server.sockets[0].getsockname()[1]}"
         )
-        await self._server.wait_closed()
 
     async def stop(self) -> None:
         """Stop the TCP/IP server."""
@@ -87,14 +86,12 @@ class LX200Mount:
                 c = (await reader.read(1)).decode()
                 # self.log.debug(f"Processing {c=}")
                 # SkySafari connects and disconnects all the time and expects a reply when it does.
-                if c == "":
+                if c == "" or c == AQ:
                     await self.write(EMPTY_REPLY)
                 # AstroPlanner appends all commands with a HASH that can safely be ignored.
                 elif c == HASH:
                     # self.log.debug(f"Ignoring {c=}.")
                     pass
-                elif c == AQ:
-                    await self.write("A")
                 # A colon indicates a command so process that.
                 elif c == COLON:
                     await self._read_and_process_line(reader)
