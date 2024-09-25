@@ -35,6 +35,14 @@ class TestLx200CommandResponder(IsolatedAsyncioTestCase):
         de = await self.responder.get_dec()
         self.assertEndsInHash(de)
 
+    async def test_set_ra(self) -> None:
+        reply = await self.responder.set_ra("")
+        assert reply == "1"
+
+    async def test_set_dec(self) -> None:
+        reply = await self.responder.set_dec("")
+        assert reply == "1"
+
     async def test_get_clock_format(self) -> None:
         clock_format = await self.responder.get_clock_format()
         self.assertEndsInHash(clock_format)
@@ -79,19 +87,29 @@ class TestLx200CommandResponder(IsolatedAsyncioTestCase):
         current_site_latitude = await self.responder.get_current_site_latitude()
         self.assertEndsInHash(current_site_latitude)
 
-    async def test_set_current_site_latitude(self) -> None:
+    async def test_set_current_site_latitude_indi(self) -> None:
         current_site_latitude = await self.responder.set_current_site_latitude(
             "-29:56:29.7"
         )
+        self.assertDoesNotEndInHash(current_site_latitude)
+
+    async def test_set_current_site_latitude_misc(self) -> None:
+        current_site_latitude = await self.responder.set_current_site_latitude("-29*56")
         self.assertDoesNotEndInHash(current_site_latitude)
 
     async def test_get_current_site_longitude(self) -> None:
         current_site_longitude = await self.responder.get_current_site_longitude()
         self.assertEndsInHash(current_site_longitude)
 
-    async def test_set_current_site_longitude(self) -> None:
+    async def test_set_current_site_longitude_indi(self) -> None:
         current_site_longitude = await self.responder.set_current_site_longitude(
             "-071:14:12.5"
+        )
+        self.assertDoesNotEndInHash(current_site_longitude)
+
+    async def test_set_current_site_longitude_misc(self) -> None:
+        current_site_longitude = await self.responder.set_current_site_longitude(
+            "-071*14"
         )
         self.assertDoesNotEndInHash(current_site_longitude)
 
@@ -102,3 +120,14 @@ class TestLx200CommandResponder(IsolatedAsyncioTestCase):
     async def test_set_slew_rate(self) -> None:
         self.responder.cmd = pylx200mount.CommandName.RS.value
         await self.responder.set_slew_rate()
+
+    async def test_stop_slew(self) -> None:
+        await self.responder.stop_slew()
+
+    async def test_set_utc_offset_time_date(self) -> None:
+        reply = await self.responder.set_utc_offset("+1.0")
+        assert reply == "1"
+        reply = await self.responder.set_local_time("00:00:00")
+        assert reply == "1"
+        reply = await self.responder.set_local_date("02/02/22")
+        assert reply[0] == "1"
