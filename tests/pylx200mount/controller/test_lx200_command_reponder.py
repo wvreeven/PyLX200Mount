@@ -16,10 +16,6 @@ class TestLx200CommandResponder(IsolatedAsyncioTestCase):
                     log=log
                 )
             )
-            await self.responder.start()
-
-    async def asyncTearDown(self) -> None:
-        await self.responder.stop()
 
     def assertEndsInHash(self, s: str) -> None:
         assert s.endswith("#")

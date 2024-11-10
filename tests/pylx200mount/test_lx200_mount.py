@@ -8,7 +8,7 @@ import pylx200mount
 class TestLx200Mount(IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.log = logging.getLogger(type(self).__name__)
-        self.lx200_mount = pylx200mount.LX200Mount()
+        self.lx200_mount = pylx200mount.LX200Mount(run_forever=False)
         self.log.debug("Before lx200_mount.start()")
         await self.lx200_mount.start()
         self.log.debug("After lx200_mount.start()")
