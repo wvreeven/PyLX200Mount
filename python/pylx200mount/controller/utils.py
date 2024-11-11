@@ -10,30 +10,7 @@ import jsonschema
 
 CONFIG_PATH = pathlib.Path.home() / ".config" / "pylx200mount"
 CONFIG_FILE = CONFIG_PATH / "config.json"
-DEFAULT_CONFIG: dict[str, typing.Any] = {
-    "alt": {
-        "module": "pylx200mount.emulation.emulated_motor_controller",
-        "class_name": "EmulatedMotorController",
-        "hub_port": 0,
-        # 200 steps per revolution, 16 microsteps per step and a gear reduction of 2000x.
-        "gear_reduction": 0.00005625,
-    },
-    "az": {
-        "module": "pylx200mount.emulation.emulated_motor_controller",
-        "class_name": "EmulatedMotorController",
-        "hub_port": 1,
-        # 200 steps per revolution, 16 microsteps per step and a gear reduction of 2000x.
-        "gear_reduction": 0.00005625,
-    },
-    "camera": {
-        "module": "pylx200mount.emulation.emulated_camera",
-        "class_name": "EmulatedCamera",
-        "focal_length": 0.0,
-    },
-}
-
 CAMERA_OFFSETS_FILE = CONFIG_PATH / "camera_offsets.ini"
-
 JSON_SCHEMA_FILE = pathlib.Path(__file__).parents[0] / "configuration_schema.json"
 
 
@@ -48,34 +25,32 @@ def load_config() -> types.SimpleNamespace:
     types.SimpleNamespace
         A SimpleNamespace containing the configuration.
     """
-    config = DEFAULT_CONFIG
-    loaded_config: dict[str, typing.Any] = {}
+    config: dict[str, typing.Any] = {}
 
     if CONFIG_FILE.exists():
         with open(CONFIG_FILE, "r") as f:
-            loaded_config = json.load(f)
+            config = json.load(f)
 
     with open(JSON_SCHEMA_FILE, "r") as f:
         json_schema = json.load(f)
     validator = jsonschema.Draft7Validator(schema=json_schema)
-    validator.validate(DEFAULT_CONFIG)
-    validator.validate(loaded_config)
+    validator.validate(config)
 
-    config = config | loaded_config
-
-    configuration = types.SimpleNamespace(
-        alt_module_name=config["alt"]["module"],
-        alt_class_name=config["alt"]["class_name"],
-        alt_hub_port=config["alt"]["hub_port"],
-        alt_gear_reduction=config["alt"]["gear_reduction"],
-        az_module_name=config["az"]["module"],
-        az_class_name=config["az"]["class_name"],
-        az_hub_port=config["az"]["hub_port"],
-        az_gear_reduction=config["az"]["gear_reduction"],
-        camera_module_name=config["camera"]["module"],
-        camera_class_name=config["camera"]["class_name"],
-        camera_focal_length=config["camera"]["focal_length"],
-    )
+    configuration = types.SimpleNamespace()
+    if "alt" in config:
+        configuration.alt_module_name = config["alt"]["module"]
+        configuration.alt_class_name = config["alt"]["class_name"]
+        configuration.alt_hub_port = config["alt"]["hub_port"]
+        configuration.alt_gear_reduction = config["alt"]["gear_reduction"]
+    if "az" in config:
+        configuration.az_module_name = config["az"]["module"]
+        configuration.az_class_name = config["az"]["class_name"]
+        configuration.az_hub_port = config["az"]["hub_port"]
+        configuration.az_gear_reduction = config["az"]["gear_reduction"]
+    if "camera" in config:
+        configuration.camera_module_name = config["camera"]["module"]
+        configuration.camera_class_name = config["camera"]["class_name"]
+        configuration.camera_focal_length = config["camera"]["focal_length"]
 
     return configuration
 

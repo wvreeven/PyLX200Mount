@@ -1,24 +1,14 @@
+from __future__ import annotations
+
 __all__ = ["LX200Mount", "run_lx200_mount"]
 
 import asyncio
 import logging
 import socket
+import types
 
-from pylx200mount.controller import REPLY_SEPARATOR, Lx200CommandResponder
-from pylx200mount.enums import CommandName
-
-# Algnment query.
-AQ = "\x06"
-
-# Command start with a colon symbol.
-COLON: str = ":"
-
-# Commands and some replies are terminated by the hash symbol.
-HASH = "#"
-HASH_BYTES: bytes = b"#"
-
-# SkySafari expects a reply to an emtpy request.
-EMPTY_REPLY = "A"
+from .controller import REPLY_SEPARATOR, Lx200CommandResponder
+from .enums import AQ, COLON, EMPTY_REPLY, HASH, CommandName
 
 # Sleep time between sending replies that contain a newline character.
 SEND_COMMAND_SLEEP = 0.01
@@ -86,10 +76,10 @@ class LX200Mount:
         try:
             while True:
                 # First read only one character.
-                c = (await reader.read(1)).decode()
+                c = await reader.read(1)
                 # self.log.debug(f"Processing {c=}")
                 # SkySafari connects and disconnects all the time and expects a reply when it does.
-                if c == "" or c == AQ:
+                if c == b"" or c == AQ:
                     await self.write(EMPTY_REPLY)
                 # AstroPlanner appends all commands with a HASH that can safely be ignored.
                 elif c == HASH:
@@ -108,7 +98,7 @@ class LX200Mount:
     async def _read_and_process_line(self, reader: asyncio.StreamReader) -> None:
         # All the next commands end in a # so we simply read all incoming
         # strings up to # and parse them.
-        line_b = await reader.readuntil(HASH_BYTES)
+        line_b = await reader.readuntil(HASH)
         line = line_b.decode().strip()
         if CommandName.GD.value not in line and CommandName.GR.value not in line:
             self.log.debug(f"Read command line: {line!r}")
@@ -148,13 +138,23 @@ class LX200Mount:
                 if len(outputs) > 1:
                     await asyncio.sleep(SEND_COMMAND_SLEEP)
 
+    async def __aenter__(self) -> LX200Mount:
+        await self.start()
+        return self
+
+    async def __aexit__(
+        self,
+        type: None | BaseException,
+        value: None | BaseException,
+        traceback: None | types.TracebackType,
+    ) -> None:
+        await self.stop()
+
 
 async def run_lx200_mount() -> None:
-    lx200_mount = LX200Mount()
-    try:
-        await lx200_mount.start()
-    except (asyncio.CancelledError, KeyboardInterrupt):
-        await lx200_mount.stop()
+    async with LX200Mount():
+        # No need to call any methods.
+        pass
 
 
 if __name__ == "__main__":

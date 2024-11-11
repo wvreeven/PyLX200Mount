@@ -1,4 +1,8 @@
 __all__ = [
+    "AQ",
+    "COLON",
+    "EMPTY_REPLY",
+    "HASH",
     "IDENTITY",
     "TELESCOPE_REDUCTION_06INCH",
     "TELESCOPE_REDUCTION_12INCH",
@@ -6,6 +10,7 @@ __all__ = [
     "CommandName",
     "CoordinatePrecision",
     "MotorControllerState",
+    "MotorControllerType",
     "SlewDirection",
     "SlewRate",
 ]
@@ -13,6 +18,18 @@ __all__ = [
 import enum
 
 import numpy as np
+
+# Algnment query.
+AQ = b"\x06"
+
+# Commands start with a colon symbol.
+COLON = b":"
+
+# Commands and some replies are terminated by the hash symbol.
+HASH: bytes = b"#"
+
+# SkySafari expects a reply to an emtpy request.
+EMPTY_REPLY = "A"
 
 # Reduction of the telescope gear additional to the motor gear reduction.
 TELESCOPE_REDUCTION_06INCH = 10.82
@@ -86,6 +103,15 @@ class MotorControllerState(enum.IntEnum):
     STOPPING = enum.auto()
     TRACKING = enum.auto()
     SLEWING = enum.auto()
+
+
+class MotorControllerType(enum.IntEnum):
+    """Type of motor controller."""
+
+    NONE = enum.auto()
+    CAMERA_ONLY = enum.auto()
+    MOTORS_ONLY = enum.auto()
+    CAMERA_AND_MOTORS = enum.auto()
 
 
 class SlewDirection(enum.StrEnum):

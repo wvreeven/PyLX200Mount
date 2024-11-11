@@ -319,7 +319,7 @@ class Lx200CommandResponder:
         return self.mount_controller.observing_location.name + HASH
 
     async def set_slew_rate(self) -> None:
-        """Set the slew rate at the commanded rate."""
+        """Set the slew rate to the commanded rate."""
         self.log.debug(f"Setting slew rate to value determined by command {self.cmd}")
         await self.mount_controller.set_slew_rate(cmd=self.cmd)
 

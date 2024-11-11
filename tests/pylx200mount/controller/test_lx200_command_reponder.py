@@ -3,6 +3,7 @@ import pathlib
 from unittest import IsolatedAsyncioTestCase, mock
 
 import pylx200mount
+import pytest
 
 
 class TestLx200CommandResponder(IsolatedAsyncioTestCase):
@@ -118,7 +119,8 @@ class TestLx200CommandResponder(IsolatedAsyncioTestCase):
         await self.responder.set_slew_rate()
 
     async def test_stop_slew(self) -> None:
-        await self.responder.stop_slew()
+        with pytest.raises(AssertionError):
+            await self.responder.stop_slew()
 
     async def test_set_utc_offset_time_date(self) -> None:
         reply = await self.responder.set_utc_offset("+1.0")
