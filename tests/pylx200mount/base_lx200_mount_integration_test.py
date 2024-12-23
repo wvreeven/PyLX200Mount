@@ -20,7 +20,7 @@ class BaseLx200MountIntegrationTest(IsolatedAsyncioTestCase):
 
     @contextlib.asynccontextmanager
     async def start_lx200_mount(
-        self, config_file: pathlib.Path, camera_offsets_file: pathlib.Path
+        self, config_file: pathlib.Path
     ) -> typing.AsyncGenerator[None, None]:
         """Start the LX200 mount class and perform basic plumbing.
 
@@ -38,14 +38,8 @@ class BaseLx200MountIntegrationTest(IsolatedAsyncioTestCase):
             datetime.timezone(offset=datetime.timedelta(hours=tz_offset_hours))
         )
 
-        with mock.patch(
-            "pylx200mount.controller.utils.CONFIG_FILE", config_file
-        ), mock.patch(
-            "pylx200mount.controller.utils.CAMERA_OFFSETS_FILE", camera_offsets_file
-        ):
+        with mock.patch("pylx200mount.controller.utils.CONFIG_FILE", config_file):
             async with pylx200mount.LX200Mount(run_forever=False) as self.lx200_mount:
-                self.lx200_mount.responder.mount_controller.plate_solver.solve = self.solve  # type: ignore
-
                 self.reader, self.writer = await asyncio.open_connection(
                     host="localhost", port=11880
                 )

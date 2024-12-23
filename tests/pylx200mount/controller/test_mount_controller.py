@@ -38,8 +38,11 @@ class TestMountController(IsolatedAsyncioTestCase):
         self.target_ra_str, self.target_dec_str = self.get_ra_dec_str_from_alt_az(
             alt=40.0, az=179.0
         )
+        ra_dec = pylx200mount.my_math.get_skycoord_from_ra_dec_str(
+            ra_str=ra_str, dec_str=dec_str
+        )
         await self.mount_controller.start()
-        await self.mount_controller.set_ra_dec(ra_str=ra_str, dec_str=dec_str)
+        await self.mount_controller.set_ra_dec(ra_dec=ra_dec)
 
     async def asyncTearDown(self) -> None:
         await self.mount_controller.stop()

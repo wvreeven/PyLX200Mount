@@ -187,8 +187,7 @@ class AlignmentHandler:
         self.inv_matrix = np.linalg.inv(self.matrix)
 
     def matrix_transform(self, altaz_coord: SkyCoord, timestamp: float) -> SkyCoord:
-        """Perform an affine transformation of the computed AltAz coordinates to the observed telescope frame
-        coordinates.
+        """Perform a transformation of the computed AltAz coordinates to the telescope frame coordinates.
 
         Parameters
         ----------
@@ -200,7 +199,7 @@ class AlignmentHandler:
         Returns
         -------
         SkyCoord
-            The telescope frame coordinates after performing the affine transformation.
+            The telescope frame coordinates after performing the transformation.
         """
         observing_location = ObservingLocation()
         observing_location.location = altaz_coord.location
@@ -211,7 +210,7 @@ class AlignmentHandler:
     def reverse_matrix_transform(
         self, telescope_coord: SkyCoord, timestamp: float
     ) -> SkyCoord:
-        """Perform an affine transformation of the observed telescope frame coordinates to AltAz coordinates.
+        """Perform a transformation of the observed telescope frame coordinates to AltAz coordinates.
 
         Parameters
         ----------
@@ -223,7 +222,7 @@ class AlignmentHandler:
         Returns
         -------
         SkyCoord
-            The AltAz coordinates after performing the affine transformation.
+            The AltAz coordinates after performing the transformation.
         """
         observing_location = ObservingLocation()
         observing_location.location = telescope_coord.location

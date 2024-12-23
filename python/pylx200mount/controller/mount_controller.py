@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __all__ = ["MountController"]
 
 import asyncio
@@ -22,7 +24,7 @@ from ..my_math.astropy_util import (
 )
 from ..observing_location import ObservingLocation
 from ..plate_solver import BasePlateSolver
-from .utils import load_camera_offsets, load_config, save_camera_offsets
+from .utils import load_config
 
 # Angle of 90º.
 NINETY = Angle(90.0, u.deg)
@@ -69,7 +71,6 @@ class MountController:
 
         # The plate solver.
         self.plate_solver: BasePlateSolver | None = None
-        self.camera_mount_offset = (0.0 * u.deg, 0.0 * u.deg)
 
         # Plate solve loop that is done, so it can be safely canceled at all times.
         self._plate_solve_loop_task: asyncio.Future = asyncio.Future()
@@ -79,7 +80,8 @@ class MountController:
         self.previous_camera_alt_az = ZERO_ALT_AZ
 
         # Alignment handler.
-        self.alignment_handler = AlignmentHandler()
+        self.camera_alignment_handler = AlignmentHandler()
+        self.mount_alignment_handler = AlignmentHandler()
 
     async def load_motors_camera_and_plate_solver(self) -> None:
         """Helper method to load the configured motors, camera and plate solver."""
@@ -147,12 +149,6 @@ class MountController:
                     self.configuration.camera_focal_length,
                     self.log,
                 )
-
-            camera_mount_offset = load_camera_offsets()
-            self.camera_mount_offset = (
-                camera_mount_offset[0] * u.deg,
-                camera_mount_offset[1] * u.deg,
-            )
         else:
             self.log.debug("No camera connected.")
 
@@ -376,27 +372,39 @@ class MountController:
         -------
         The right ascention and declination.
         """
+        alignment_handler: AlignmentHandler | None = None
         match self.controller_type:
             case MotorControllerType.CAMERA_ONLY:
-                mount_alt_az = self.camera_alt_az.spherical_offsets_by(
-                    self.camera_mount_offset[0], self.camera_mount_offset[1]
-                )
+                mount_alt_az = self.camera_alt_az
+                alignment_handler = self.camera_alignment_handler
             case MotorControllerType.MOTORS_ONLY:
                 mount_alt_az = self.motor_alt_az
+                alignment_handler = self.mount_alignment_handler
             case MotorControllerType.CAMERA_AND_MOTORS:
                 if self.is_slewing:
                     mount_alt_az = self.motor_alt_az
+                    alignment_handler = self.camera_alignment_handler
                 else:
-                    mount_alt_az = self.camera_alt_az.spherical_offsets_by(
-                        self.camera_mount_offset[0], self.camera_mount_offset[1]
-                    )
+                    mount_alt_az = self.camera_alt_az
+                    alignment_handler = self.mount_alignment_handler
             case _:
                 mount_alt_az = ZERO_ALT_AZ
 
-        ra_dec = get_radec_from_altaz(alt_az=mount_alt_az)
+        if alignment_handler is not None:
+            now = DatetimeUtil.get_timestamp()
+            transformed_mount_alt_az = alignment_handler.reverse_matrix_transform(
+                mount_alt_az, now
+            )
+        else:
+            transformed_mount_alt_az = mount_alt_az
+        self.log.info(f"Mount AltAz = {mount_alt_az.to_string('dms')}")
+        self.log.info(
+            f"Transformed Mount AltAz = {transformed_mount_alt_az.to_string('dms')}"
+        )
+        ra_dec = get_radec_from_altaz(alt_az=transformed_mount_alt_az)
         return ra_dec
 
-    async def set_ra_dec(self, ra_str: str, dec_str: str) -> None:
+    async def set_ra_dec(self, ra_dec: SkyCoord) -> None:
         """Set the current RA and DEC of the mount.
 
         In case the mount has not been aligned yet, the AzAlt rotated frame of the
@@ -404,17 +412,13 @@ class MountController:
 
         Parameters
         ----------
-        ra_str: `str`
-            The Right Ascension of the mount in degrees. The format is
-            "HH:mm:ss".
-        dec_str: `str`
-            The Declination of the mount in degrees. The format is "+dd*mm:ss".
+        ra_dec: `SkyCoord`
+            The RA and Dec of the mount.
         """
         now = DatetimeUtil.get_timestamp()
 
         # Determine the sky AltAz.
-        sky_ra_dec = get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
-        sky_alt_az = get_altaz_from_radec(sky_ra_dec, self.observing_location, now)
+        sky_alt_az = get_altaz_from_radec(ra_dec, self.observing_location, now)
 
         if self.controller_type in [
             MotorControllerType.CAMERA_ONLY,
@@ -426,12 +430,13 @@ class MountController:
                 self.observing_location,
                 now,
             )
-            # Get the camera AltAz and determine the offset w.r.t. the sky.
-            self.camera_mount_offset = camera_alt_az.spherical_offsets_to(sky_alt_az)
-            save_camera_offsets(
-                self.camera_mount_offset[0].deg, self.camera_mount_offset[1].deg
+            self.camera_alignment_handler.add_alignment_position(
+                altaz=sky_alt_az, telescope=camera_alt_az
             )
-            self.log.debug(f"{self.camera_mount_offset=}")
+            self.log.info(
+                f"New alignment point SkyAltAz={sky_alt_az.to_string('dms')} "
+                f"and CameraAltAz={camera_alt_az.to_string('dms')}."
+            )
         if self.controller_type in [
             MotorControllerType.MOTORS_ONLY,
             MotorControllerType.CAMERA_AND_MOTORS,
@@ -445,12 +450,13 @@ class MountController:
                 observing_location=self.observing_location,
                 timestamp=DatetimeUtil.get_timestamp(),
             )
-            self.alignment_handler.add_alignment_position(sky_alt_az, mount_alt_az)
-
-            # Compute the mount AltAz from the sky AltAz and pass on to the motor controllers.
-            sky_alt_az = self.alignment_handler.matrix_transform(sky_alt_az, now)
-            self.motor_controller_az.position = sky_alt_az.az
-            self.motor_controller_alt.position = sky_alt_az.alt
+            self.mount_alignment_handler.add_alignment_position(
+                altaz=sky_alt_az, telescope=mount_alt_az
+            )
+            self.log.debug(
+                f"New alignment point SkyAltAz={sky_alt_az.to_string('dms')} "
+                f"and MountAltAz={mount_alt_az.to_string('dms')}."
+            )
 
     async def set_slew_rate(self, cmd: str) -> None:
         """Set the slew rate.
@@ -569,3 +575,15 @@ class MountController:
         Also stay pointed at the same altitude and azimuth.
         """
         pass
+
+    async def __aenter__(self) -> MountController:
+        await self.start()
+        return self
+
+    async def __aexit__(
+        self,
+        type: None | BaseException,
+        value: None | BaseException,
+        traceback: None | types.TracebackType,
+    ) -> None:
+        await self.stop()

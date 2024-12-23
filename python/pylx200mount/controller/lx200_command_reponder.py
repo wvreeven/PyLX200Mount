@@ -6,6 +6,7 @@ from astropy.coordinates import Angle, Latitude, Longitude
 
 from ..datetime_util import DatetimeUtil
 from ..enums import CommandName, CoordinatePrecision
+from ..my_math.astropy_util import get_skycoord_from_ra_dec_str
 from .mount_controller import MountController
 
 _all__ = ["Lx200CommandResponder", "REPLY_SEPARATOR"]
@@ -399,9 +400,10 @@ class Lx200CommandResponder:
 
     async def sync(self) -> str:
         self.log.debug("sync received.")
-        await self.mount_controller.set_ra_dec(
+        ra_dec = get_skycoord_from_ra_dec_str(
             ra_str=self.target_ra, dec_str=self.target_dec
         )
+        await self.mount_controller.set_ra_dec(ra_dec)
         return "RANDOM NAME" + HASH
 
     async def get_distance_bars(self) -> str:

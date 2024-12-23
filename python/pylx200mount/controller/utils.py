@@ -1,6 +1,5 @@
-__all__ = ["load_camera_offsets", "load_config", "save_camera_offsets"]
+__all__ = ["load_config"]
 
-import configparser
 import json
 import pathlib
 import types
@@ -53,27 +52,3 @@ def load_config() -> types.SimpleNamespace:
         configuration.camera_focal_length = config["camera"]["focal_length"]
 
     return configuration
-
-
-def load_camera_offsets() -> typing.Tuple[float, float]:
-    """Load the camera offsets from file.
-
-    Returns
-    -------
-    typing.Tuple[float, float]
-        The camera [az, alt] offsets.
-    """
-    if CAMERA_OFFSETS_FILE.exists():
-        config = configparser.ConfigParser()
-        config.read(CAMERA_OFFSETS_FILE)
-        camera_offsets = config["camera_offsets"]
-        return camera_offsets.getfloat("az"), camera_offsets.getfloat("alt")
-
-    return 0.0, 0.0
-
-
-def save_camera_offsets(az: float, alt: float) -> None:
-    with open(CAMERA_OFFSETS_FILE, "w") as f:
-        config = configparser.ConfigParser()
-        config["camera_offsets"] = {"az": str(az), "alt": str(alt)}
-        config.write(f)
