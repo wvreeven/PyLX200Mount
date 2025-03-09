@@ -55,9 +55,9 @@ class PlateSolver(BasePlateSolver):
         start = DatetimeUtil.get_timestamp()
         if math.isclose(self.fov_estimate, 0.0):
             # Estimate of the size of the field of view [deg].
-            min_img_size = min(self.camera.img_width, self.camera.img_height)
+            max_img_size = max(self.camera.img_width, self.camera.img_height)
             self.fov_estimate = (
-                min_img_size * self.camera.pixel_size * FOV_FACTOR / self.focal_length
+                max_img_size * self.camera.pixel_size * FOV_FACTOR / self.focal_length
             )
             self.log.info(
                 f"{self.camera.img_width=}, {self.camera.img_height=}, {self.focal_length=}"
@@ -91,7 +91,7 @@ class PlateSolver(BasePlateSolver):
         start = DatetimeUtil.get_timestamp()
         result = self.t3.solve_from_centroids(
             centroids,
-            (img.width, img.height),
+            (img.height, img.width),
             fov_estimate=self.fov_estimate,
             fov_max_error=FOV_MAX_ERROR,
         )
