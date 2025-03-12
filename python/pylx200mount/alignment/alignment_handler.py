@@ -1,6 +1,9 @@
 __all__ = [
     "AlignmentHandler",
     "AlignmentPoint",
+    "AlignmentTriplet",
+    "TelescopeAltAzFrame",
+    "add_telescope_frame_transforms",
 ]
 
 import math
@@ -8,26 +11,35 @@ from dataclasses import dataclass
 from itertools import combinations
 
 import numpy as np
-from astropy.coordinates import SkyCoord
+import numpy.typing as npt
+from astropy.coordinates import (
+    ICRS,
+    BaseCoordinateFrame,
+    RepresentationMapping,
+    SkyCoord,
+    SphericalRepresentation,
+    StaticMatrixTransform,
+    UnitSphericalRepresentation,
+    frame_transform_graph,
+)
+from astropy.coordinates.matrix_utilities import matrix_transpose
 
 from ..enums import IDENTITY
-from ..my_math.astropy_util import get_radec_from_altaz, get_skycoord_from_alt_az
+from ..my_math import get_radec_from_altaz, get_skycoord_from_alt_az
 from ..observing_location import ObservingLocation
 
 
-def _altaz_to_3d_ndarray(altaz: SkyCoord) -> np.ndarray:
-    return np.array([altaz.az.deg, altaz.alt.deg, 1.0])
+class TelescopeAltAzFrame(BaseCoordinateFrame):
+    """Telescope coordinate frame."""
 
+    default_representation = UnitSphericalRepresentation
 
-def _ndarray_to_altaz(
-    array: np.ndarray, observing_location: ObservingLocation, timestamp: float
-) -> SkyCoord:
-    return get_skycoord_from_alt_az(
-        az=float(array[0]),
-        alt=float(array[1]),
-        observing_location=observing_location,
-        timestamp=timestamp,
-    )
+    frame_specific_representation_info = {
+        SphericalRepresentation: [
+            RepresentationMapping("lon", "az"),
+            RepresentationMapping("lat", "alt"),
+        ]
+    }
 
 
 @dataclass(frozen=True)
@@ -80,29 +92,30 @@ class AlignmentTriplet:
     two: AlignmentPoint
     three: AlignmentPoint
 
-    def as_3d_ndarrays(self) -> tuple[np.ndarray, np.ndarray]:
-        """Return the altaz and telescope coordinates of the three `AlignmentPoint`s as two 3D arrays.
-
-        Each arrays contains three values: the azimuth [deg], the altitude [deg] and 1.0. The latter is needed
-        for the affine transformation to work.
+    def altaz_as_altaz(self) -> SkyCoord:
+        """Return the altaz coordinates of the three `AlignmentPoint`s as a single `SkyCoord`.
 
         Returns
         -------
-        tuple[np.ndarray, np.ndarray]
-            The altaz coordinates and telescope coordinates in a numpy array format.
+        SkyCoord
+            The altaz coordinates as a single `SkyCoord`.
         """
-        return np.array(
-            (
-                _altaz_to_3d_ndarray(self.one.altaz),
-                _altaz_to_3d_ndarray(self.two.altaz),
-                _altaz_to_3d_ndarray(self.three.altaz),
-            )
-        ), np.array(
-            (
-                _altaz_to_3d_ndarray(self.one.telescope),
-                _altaz_to_3d_ndarray(self.two.telescope),
-                _altaz_to_3d_ndarray(self.three.telescope),
-            )
+        return SkyCoord(
+            [self.one.altaz.az, self.two.altaz.az, self.three.altaz.az],
+            [self.one.altaz.alt, self.two.altaz.alt, self.three.altaz.alt],
+        )
+
+    def telescope_as_altaz(self) -> SkyCoord:
+        """Return the telescope coordinates of the three `AlignmentPoint`s as a single `SkyCoord`.
+
+        Returns
+        -------
+        SkyCoord
+            The telescope coordinates as a single `SkyCoord`.
+        """
+        return SkyCoord(
+            [self.one.telescope.az, self.two.telescope.az, self.three.telescope.az],
+            [self.one.telescope.alt, self.two.telescope.alt, self.three.telescope.alt],
         )
 
 
@@ -123,8 +136,9 @@ class AlignmentHandler:
 
     def __init__(self) -> None:
         self._alignment_data: list[AlignmentPoint] = list()
+        self.telescope_frame = TelescopeAltAzFrame()
         self.matrix = IDENTITY
-        self.inv_matrix = IDENTITY
+        self._observing_location = ObservingLocation()
 
     def add_alignment_position(self, altaz: SkyCoord, telescope: SkyCoord) -> None:
         """Add an alignment point and compute the alignment matrix.
@@ -138,6 +152,7 @@ class AlignmentHandler:
         """
         alignment_point = AlignmentPoint(altaz=altaz, telescope=telescope)
         ra_dec = get_radec_from_altaz(altaz)
+
         for ad in self._alignment_data:
             ad_ra_dec = get_radec_from_altaz(ad.altaz)
             if math.isclose(ra_dec.ra.deg, ad_ra_dec.ra.deg) and math.isclose(
@@ -166,13 +181,15 @@ class AlignmentHandler:
             for triplet in combinations(self._alignment_data, 3)
         ]
         for alignment_triplet in alignment_triplets:
-            altaz_coords, telescope_coords = alignment_triplet.as_3d_ndarrays()
-            det = np.linalg.det(altaz_coords)
-            if det != 0:
-                matrix = np.dot(np.linalg.inv(altaz_coords), telescope_coords)
-                transformation_matrices.append(matrix)
-            else:
-                print(f"Not using {altaz_coords=} because det == 0.")
+            altaz_coords = alignment_triplet.altaz_as_altaz()
+            telescope_coords = alignment_triplet.telescope_as_altaz()
+
+            altaz_car = np.transpose(np.array(altaz_coords.cartesian.xyz.value))
+            telescope_car = np.transpose(np.array(telescope_coords.cartesian.xyz.value))
+
+            matrix = np.dot(np.linalg.inv(telescope_car), altaz_car)
+            transformation_matrices.append(matrix)
+
         if len(transformation_matrices) == 0:
             self.matrix = IDENTITY
         elif len(transformation_matrices) == 1:
@@ -184,48 +201,35 @@ class AlignmentHandler:
             ]
             # Compute the mean.
             self.matrix = np.mean(transformation_matrices, axis=0)
-        self.inv_matrix = np.linalg.inv(self.matrix)
 
-    def matrix_transform(self, altaz_coord: SkyCoord, timestamp: float) -> SkyCoord:
-        """Perform a transformation of the computed AltAz coordinates to the telescope frame coordinates.
+        add_telescope_frame_transforms(self.matrix)
 
-        Parameters
-        ----------
-        altaz_coord : `SkyCoord`
-            The computed AltAz coordinates to transform to telescope frame coordinates.
-        timestamp : `float`
-            The timestamp to get the AltAz coordinates for.
+    def get_telescope_coords_from_altaz(self, altaz_coord: SkyCoord) -> SkyCoord:
+        altaz_as_icrs = SkyCoord(altaz_coord.az, altaz_coord.alt)
+        telescope_coord = altaz_as_icrs.transform_to(self.telescope_frame)
+        return telescope_coord
 
-        Returns
-        -------
-        SkyCoord
-            The telescope frame coordinates after performing the transformation.
-        """
-        observing_location = ObservingLocation()
-        observing_location.location = altaz_coord.location
-        altaz = _altaz_to_3d_ndarray(altaz_coord)
-        telescope = np.dot(altaz, self.matrix)
-        return _ndarray_to_altaz(telescope, observing_location, timestamp)
-
-    def reverse_matrix_transform(
+    def get_altaz_from_telescope_coords(
         self, telescope_coord: SkyCoord, timestamp: float
     ) -> SkyCoord:
-        """Perform a transformation of the observed telescope frame coordinates to AltAz coordinates.
+        self._observing_location.location = telescope_coord.location
+        altaz_coord = telescope_coord.transform_to(ICRS)
+        return get_skycoord_from_alt_az(
+            altaz_coord.dec.deg,
+            altaz_coord.ra.deg,
+            self._observing_location,
+            timestamp,
+        )
 
-        Parameters
-        ----------
-        telescope_coord : `SkyCoord`
-            The observed telescope frame coordinates to transform to AltAz coordinates.
-        timestamp : `float`
-            The timestamp to get the AltAz coordinates for.
 
-        Returns
-        -------
-        SkyCoord
-            The AltAz coordinates after performing the transformation.
-        """
-        observing_location = ObservingLocation()
-        observing_location.location = telescope_coord.location
-        telescope = _altaz_to_3d_ndarray(telescope_coord)
-        altaz = np.dot(telescope, self.inv_matrix)
-        return _ndarray_to_altaz(altaz, observing_location, timestamp)
+def add_telescope_frame_transforms(matrix: npt.ArrayLike) -> None:
+    to_telescope = StaticMatrixTransform(
+        matrix=matrix, fromsys=ICRS, tosys=TelescopeAltAzFrame
+    )
+    to_altaz = StaticMatrixTransform(
+        matrix=matrix_transpose(matrix),
+        fromsys=TelescopeAltAzFrame,
+        tosys=ICRS,
+    )
+    frame_transform_graph.add_transform(ICRS, TelescopeAltAzFrame, to_telescope)
+    frame_transform_graph.add_transform(TelescopeAltAzFrame, ICRS, to_altaz)

@@ -14,9 +14,9 @@ CONFIG_DIR = pathlib.Path(__file__).parents[1] / "test_data"
 # RaDec of Polaris.
 POLARIS = SkyCoord(37.95456067 * u.deg, 89.26410897 * u.deg)
 # Camera offset for Alt [deg].
-CAM_OFFSET_ALT = 1.0
+CAM_OFFSET_ALT = 0.0
 # Camera offset for Az [deg].
-CAM_OFFSET_AZ = 2.0
+CAM_OFFSET_AZ = 1.0
 # Position offset tolerance [arcsec].
 POSITION_OFFSET_TOLERANCE = 10
 
@@ -34,9 +34,10 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
             ) as self.mount_controller:
                 self.mount_controller.plate_solver.solve = self.solve  # type: ignore
                 await self.add_camera_position(target=POLARIS)
+                polaris_altaz = self.mount_controller.camera_alt_az
 
                 altaz = pylx200mount.my_math.get_skycoord_from_alt_az(
-                    alt=78.0,
+                    alt=polaris_altaz.alt.deg,
                     az=320.0,
                     observing_location=self.mount_controller.observing_location,
                     timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
@@ -45,7 +46,7 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
                 await self.add_camera_position(target=radec)
 
                 altaz = pylx200mount.my_math.get_skycoord_from_alt_az(
-                    alt=61.0,
+                    alt=polaris_altaz.alt.deg,
                     az=243.0,
                     observing_location=self.mount_controller.observing_location,
                     timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
@@ -54,7 +55,7 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
                 await self.add_camera_position(target=radec)
 
                 target_altaz = pylx200mount.my_math.get_skycoord_from_alt_az(
-                    alt=63.0,
+                    alt=polaris_altaz.alt.deg,
                     az=211.0,
                     observing_location=self.mount_controller.observing_location,
                     timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
@@ -62,8 +63,7 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
                 radec = pylx200mount.my_math.get_radec_from_altaz(target_altaz)
                 self.target_radec = radec
                 await asyncio.sleep(0.5)
-                self.log.debug(target_altaz.to_string("dms"))
-                self.log.debug(self.mount_controller.camera_alt_az.to_string("dms"))
+
                 now = pylx200mount.DatetimeUtil.get_timestamp()
                 target_altaz = pylx200mount.my_math.get_skycoord_from_alt_az(
                     target_altaz.alt.deg,
@@ -77,15 +77,24 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
                     self.mount_controller.observing_location,
                     now,
                 )
-                self.log.debug(target_altaz.to_string("dms"))
-                self.log.debug(camera_altaz.to_string("dms"))
+                telescope_radec = await self.mount_controller.get_ra_dec()
+                telescope_altaz = pylx200mount.my_math.get_altaz_from_radec(
+                    telescope_radec, self.mount_controller.observing_location, now
+                )
+                self.log.debug(f"target_altaz={target_altaz.to_string("dms")}")
+                self.log.debug(f"camera_altaz={camera_altaz.to_string("dms")}")
+                self.log.debug(f"telescope_altaz={telescope_altaz.to_string("dms")}")
 
-                sep = target_altaz.separation(camera_altaz).arcsecond
-                assert sep < 6.0
+                target_camera_sep = target_altaz.separation(camera_altaz).arcsecond
+                assert target_camera_sep < 3.0
 
-                mount_radec = await self.mount_controller.get_ra_dec()
-                sep = radec.separation(mount_radec).deg
-                assert sep < math.sqrt(CAM_OFFSET_AZ**2 + CAM_OFFSET_ALT**2)
+                telescope_camera_sep = telescope_altaz.separation(camera_altaz).deg
+                assert math.isclose(
+                    telescope_camera_sep,
+                    math.sqrt(CAM_OFFSET_ALT**2 + CAM_OFFSET_AZ**2)
+                    * math.cos(telescope_altaz.alt.rad),
+                    rel_tol=1e-3,
+                )
 
     async def add_camera_position(self, target: SkyCoord) -> None:
         self.num_alignment_points_added += 1

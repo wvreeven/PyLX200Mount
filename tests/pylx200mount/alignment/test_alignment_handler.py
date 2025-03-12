@@ -1,221 +1,175 @@
+import math
 import unittest
 
+import astropy.units as u
 import numpy as np
 import pylx200mount
-import pytest
-from numpy import testing as np_testing
+from astropy.coordinates import ICRS, SkyCoord
+from pylx200mount.my_math import get_skycoord_from_alt_az
 
 
 class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
-    async def test_alignment_transform_identity(self) -> None:
+
+    # Rotation of 1º around the x-axis.
+    angle = math.radians(1.0)
+    matrix = np.array(
+        [
+            [math.cos(angle), -math.sin(angle), 0.0],
+            [math.sin(angle), math.cos(angle), 0.0],
+            [0.0, 0.0, 1.0],
+        ],
+    )
+
+    async def test_telescope_frame(self) -> None:
         observing_location = pylx200mount.observing_location.ObservingLocation()
         now = pylx200mount.DatetimeUtil.get_timestamp()
-        telescope = pylx200mount.my_math.get_skycoord_from_alt_az(
-            alt=5.732050807,
-            az=2.4142135623,
-            observing_location=observing_location,
-            timestamp=now,
+
+        pylx200mount.alignment.add_telescope_frame_transforms(self.matrix)
+
+        coo = SkyCoord([0.0, 90.0, 120.0] * u.deg, [41.3, 86.8, 77.9] * u.deg)
+        expected = SkyCoord([1.0, 91.0, 121.0] * u.deg, [41.3, 86.8, 77.9] * u.deg)
+        tel_coo = coo.transform_to(pylx200mount.alignment.TelescopeAltAzFrame)
+        assert np.all(np.isclose(tel_coo.az, expected.ra))
+        assert np.all(np.isclose(tel_coo.alt, expected.dec))
+        coo2 = tel_coo.transform_to(ICRS)
+        assert np.all(np.isclose(coo.ra, coo2.ra))
+        assert np.all(np.isclose(coo.dec, coo2.dec))
+
+        altaz = get_skycoord_from_alt_az(
+            az=0.0, alt=41.3, observing_location=observing_location, timestamp=now
         )
-        alignment_handler = pylx200mount.alignment.AlignmentHandler()
+        altaz_as_icrs = SkyCoord(altaz.az, altaz.alt)
+        tel_coo = altaz_as_icrs.transform_to(pylx200mount.alignment.TelescopeAltAzFrame)
+        assert math.isclose(tel_coo.az.deg, expected[0].ra.deg)
+        assert math.isclose(tel_coo.alt.deg, expected[0].dec.deg)
 
-        telescope2 = alignment_handler.matrix_transform(telescope, now)
-        assert telescope2.alt.deg == pytest.approx(telescope.alt.deg)
-        assert telescope2.az.deg == pytest.approx(telescope.az.deg)
+    async def test_create_matrix(self) -> None:
+        coo = SkyCoord([0.0, 90.0, 120.0] * u.deg, [41.3, 86.8, 77.9] * u.deg)
+        tel_coo = SkyCoord(
+            [1.0, 91.0, 121.0] * u.deg,
+            [41.3, 86.8, 77.9] * u.deg,
+            frame=pylx200mount.alignment.TelescopeAltAzFrame,
+        )
 
-    async def test_alignment_handler_with_translation_only(self) -> None:
+        coo_car = np.transpose(np.array(coo.cartesian.xyz.value))
+        tel_coo_car = np.transpose(np.array(tel_coo.cartesian.xyz.value))
+
+        m = np.dot(np.linalg.inv(tel_coo_car), coo_car)
+        assert np.all(np.isclose(m, self.matrix))
+
+    async def test_create_matrix_using_alignment_points(self) -> None:
         observing_location = pylx200mount.observing_location.ObservingLocation()
         now = pylx200mount.DatetimeUtil.get_timestamp()
-        alignment_handler = pylx200mount.alignment.AlignmentHandler()
-        alignment_handler.add_alignment_position(
+        ap1 = pylx200mount.alignment.AlignmentPoint(
             altaz=pylx200mount.my_math.get_skycoord_from_alt_az(
-                az=1.0,
-                alt=2.0,
+                az=0.0,
+                alt=41.3,
                 observing_location=observing_location,
                 timestamp=now,
             ),
             telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
-                az=2.0,
-                alt=0.0,
+                az=1.0,
+                alt=41.3,
+                observing_location=observing_location,
+                timestamp=now,
+                frame=pylx200mount.alignment.TelescopeAltAzFrame,
+            ),
+        )
+        ap2 = pylx200mount.alignment.AlignmentPoint(
+            altaz=pylx200mount.my_math.get_skycoord_from_alt_az(
+                az=90.0,
+                alt=41.3,
                 observing_location=observing_location,
                 timestamp=now,
             ),
+            telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
+                az=91.0,
+                alt=41.3,
+                observing_location=observing_location,
+                timestamp=now,
+                frame=pylx200mount.alignment.TelescopeAltAzFrame,
+            ),
         )
-        alignment_handler.add_alignment_position(
+        ap3 = pylx200mount.alignment.AlignmentPoint(
             altaz=pylx200mount.my_math.get_skycoord_from_alt_az(
                 az=120.0,
-                alt=70.0,
+                alt=41.3,
                 observing_location=observing_location,
                 timestamp=now,
             ),
             telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
                 az=121.0,
-                alt=68.0,
+                alt=41.3,
                 observing_location=observing_location,
                 timestamp=now,
+                frame=pylx200mount.alignment.TelescopeAltAzFrame,
             ),
         )
-        alignment_handler.add_alignment_position(
-            altaz=pylx200mount.my_math.get_skycoord_from_alt_az(
-                az=300.0,
-                alt=20.0,
-                observing_location=observing_location,
-                timestamp=now,
-            ),
-            telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
-                az=301.0,
-                alt=18.0,
-                observing_location=observing_location,
-                timestamp=now,
-            ),
-        )
-        altaz = pylx200mount.my_math.get_skycoord_from_alt_az(
-            az=359.5,
-            alt=-7.0,
-            observing_location=observing_location,
-            timestamp=now,
-        )
-        telescope = alignment_handler.matrix_transform(altaz, now)
-        assert telescope.az.deg == pytest.approx(0.5)
-        assert telescope.alt.deg == pytest.approx(-9.0)
-        altaz = alignment_handler.reverse_matrix_transform(telescope, now)
-        assert altaz.az.deg == pytest.approx(359.5)
-        assert altaz.alt.deg == pytest.approx(-7.0)
+        aps = pylx200mount.alignment.AlignmentTriplet(ap1, ap2, ap3)
 
-    async def test_alignment_handler_with_tree_alignment_points(self) -> None:
+        coo = aps.altaz_as_altaz()
+        tel_coo = aps.telescope_as_altaz()
+
+        coo_car = np.transpose(np.array(coo.cartesian.xyz.value))
+        tel_coo_car = np.transpose(np.array(tel_coo.cartesian.xyz.value))
+
+        m = np.dot(np.linalg.inv(tel_coo_car), coo_car)
+        assert np.all(np.isclose(m, self.matrix))
+
+    async def test_alignment_handler(self) -> None:
         observing_location = pylx200mount.observing_location.ObservingLocation()
         now = pylx200mount.DatetimeUtil.get_timestamp()
-        alignment_handler = pylx200mount.alignment.AlignmentHandler()
-        np_testing.assert_array_equal(
-            alignment_handler.matrix, pylx200mount.enums.IDENTITY
+        ah = pylx200mount.alignment.AlignmentHandler()
+        altaz = get_skycoord_from_alt_az(
+            az=0.0, alt=41.3, observing_location=observing_location, timestamp=now
         )
-        alignment_handler.compute_transformation_matrix()
-        np_testing.assert_array_equal(
-            alignment_handler.matrix, pylx200mount.enums.IDENTITY
-        )
-
-        altaz = pylx200mount.my_math.get_skycoord_from_alt_az(
-            az=1.0,
-            alt=1.0,
-            observing_location=observing_location,
-            timestamp=now,
-        )
-        telescope = pylx200mount.my_math.get_skycoord_from_alt_az(
-            az=2.4142135623,
-            alt=5.732050807,
-            observing_location=observing_location,
-            timestamp=now,
-        )
-        alignment_handler.add_alignment_position(
-            altaz=altaz,
-            telescope=telescope,
-        )
-        alignment_handler.add_alignment_position(
-            altaz=pylx200mount.my_math.get_skycoord_from_alt_az(
+        ah.add_alignment_position(
+            altaz,
+            telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
                 az=1.0,
-                alt=2.0,
+                alt=41.3,
                 observing_location=observing_location,
                 timestamp=now,
-            ),
-            telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
-                az=2.7677669529,
-                alt=6.665063509,
-                observing_location=observing_location,
-                timestamp=now,
+                frame=pylx200mount.alignment.TelescopeAltAzFrame,
             ),
         )
-        alignment_handler.add_alignment_position(
+        ah.add_alignment_position(
             altaz=pylx200mount.my_math.get_skycoord_from_alt_az(
-                az=2.0,
-                alt=1.0,
+                az=90.0,
+                alt=41.3,
                 observing_location=observing_location,
                 timestamp=now,
             ),
             telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
-                az=2.7677669529,
-                alt=5.665063509,
+                az=91.0,
+                alt=41.3,
                 observing_location=observing_location,
                 timestamp=now,
+                frame=pylx200mount.alignment.TelescopeAltAzFrame,
             ),
         )
-        assert (
-            np.not_equal(alignment_handler.matrix, pylx200mount.enums.IDENTITY)
-        ).any()
-
-        telescope2 = alignment_handler.matrix_transform(altaz, now)
-        assert telescope2.alt.deg == pytest.approx(telescope.alt.deg)
-        assert telescope2.az.deg == pytest.approx(telescope.az.deg)
-
-        altaz2 = alignment_handler.reverse_matrix_transform(telescope, now)
-        assert altaz2.alt.deg == pytest.approx(altaz.alt.deg)
-        assert altaz2.az.deg == pytest.approx(altaz.az.deg)
-
-    async def test_alignment_handler_with_four_alignment_points(self) -> None:
-        observing_location = pylx200mount.observing_location.ObservingLocation()
-        now = pylx200mount.DatetimeUtil.get_timestamp()
-        altaz = pylx200mount.my_math.get_skycoord_from_alt_az(
-            az=1.0,
-            alt=1.0,
-            observing_location=observing_location,
-            timestamp=now,
-        )
-        telescope = pylx200mount.my_math.get_skycoord_from_alt_az(
-            az=2.4142135623,
-            alt=5.732050807,
-            observing_location=observing_location,
-            timestamp=now,
-        )
-        alignment_handler = pylx200mount.alignment.AlignmentHandler()
-        alignment_handler.add_alignment_position(
-            altaz=altaz,
-            telescope=telescope,
-        )
-        alignment_handler.add_alignment_position(
+        ah.add_alignment_position(
             altaz=pylx200mount.my_math.get_skycoord_from_alt_az(
-                az=1.0,
-                alt=2.0,
+                az=120.0,
+                alt=41.3,
                 observing_location=observing_location,
                 timestamp=now,
             ),
             telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
-                az=2.7677669529,
-                alt=6.665063509,
+                az=121.0,
+                alt=41.3,
                 observing_location=observing_location,
                 timestamp=now,
+                frame=pylx200mount.alignment.TelescopeAltAzFrame,
             ),
         )
-        alignment_handler.add_alignment_position(
-            altaz=pylx200mount.my_math.get_skycoord_from_alt_az(
-                az=2.0,
-                alt=1.0,
-                observing_location=observing_location,
-                timestamp=now,
-            ),
-            telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
-                az=2.7677669529,
-                alt=5.665063509,
-                observing_location=observing_location,
-                timestamp=now,
-            ),
-        )
-        alignment_handler.add_alignment_position(
-            altaz=pylx200mount.my_math.get_skycoord_from_alt_az(
-                az=2.2,
-                alt=0.9,
-                observing_location=observing_location,
-                timestamp=now,
-            ),
-            telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
-                az=2.80312229,
-                alt=5.55836478,
-                observing_location=observing_location,
-                timestamp=now,
-            ),
-        )
+        assert np.all(np.isclose(ah.matrix, self.matrix))
 
-        telescope2 = alignment_handler.matrix_transform(altaz, now)
-        assert telescope2.alt.deg == pytest.approx(telescope.alt.deg)
-        assert telescope2.az.deg == pytest.approx(telescope.az.deg)
+        tel = ah.get_telescope_coords_from_altaz(altaz)
+        assert math.isclose(tel.az.deg, 1.0)
+        assert math.isclose(tel.alt.deg, 41.3)
 
-        altaz2 = alignment_handler.reverse_matrix_transform(telescope, now)
-        assert altaz2.alt.deg == pytest.approx(altaz.alt.deg)
-        assert altaz2.az.deg == pytest.approx(altaz.az.deg)
+        coo = ah.get_altaz_from_telescope_coords(tel, now)
+        coo_az = coo.az.wrap_at(180 * u.deg)
+        assert math.isclose(coo_az.deg, 0.0, abs_tol=1.0e-10)
+        assert math.isclose(coo.alt.deg, 41.3)

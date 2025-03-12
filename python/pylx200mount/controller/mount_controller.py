@@ -10,7 +10,7 @@ import types
 from astropy import units as u
 from astropy.coordinates import Angle, SkyCoord
 
-from ..alignment import AlignmentHandler
+from ..alignment import AlignmentHandler, TelescopeAltAzFrame
 from ..camera import BaseCamera
 from ..datetime_util import DatetimeUtil
 from ..enums import MotorControllerState, MotorControllerType, SlewDirection, SlewRate
@@ -40,6 +40,7 @@ ZERO_ALT_AZ = get_skycoord_from_alt_az(
     az=0.0,
     observing_location=ObservingLocation(),
     timestamp=DatetimeUtil.get_timestamp(),
+    frame=TelescopeAltAzFrame,
 )
 
 
@@ -237,6 +238,7 @@ class MountController:
                 az=self.motor_controller_az.position.deg,
                 observing_location=self.observing_location,
                 timestamp=DatetimeUtil.get_timestamp(),
+                frame=TelescopeAltAzFrame,
             )
 
             self.check_motor_tracking(self.motor_controller_az)
@@ -336,7 +338,10 @@ class MountController:
                 self.previous_camera_alt_az = self.camera_alt_az
                 camera_ra_dec = await self.plate_solver.solve()
                 self.camera_alt_az = get_altaz_from_radec(
-                    camera_ra_dec, self.observing_location, now
+                    ra_dec=camera_ra_dec,
+                    observing_location=self.observing_location,
+                    timestamp=now,
+                    frame=TelescopeAltAzFrame,
                 )
                 # Make sure that the motors know the camera position as well.
                 if self.controller_type == MotorControllerType.CAMERA_AND_MOTORS:
@@ -392,8 +397,8 @@ class MountController:
 
         if alignment_handler is not None:
             now = DatetimeUtil.get_timestamp()
-            transformed_mount_alt_az = alignment_handler.reverse_matrix_transform(
-                mount_alt_az, now
+            transformed_mount_alt_az = (
+                alignment_handler.get_altaz_from_telescope_coords(mount_alt_az, now)
             )
         else:
             transformed_mount_alt_az = mount_alt_az
@@ -429,6 +434,7 @@ class MountController:
                 self.camera_alt_az.az.deg,
                 self.observing_location,
                 now,
+                TelescopeAltAzFrame,
             )
             self.camera_alignment_handler.add_alignment_position(
                 altaz=sky_alt_az, telescope=camera_alt_az
@@ -448,7 +454,8 @@ class MountController:
                 alt=self.motor_controller_alt.position.deg,
                 az=self.motor_controller_az.position.deg,
                 observing_location=self.observing_location,
-                timestamp=DatetimeUtil.get_timestamp(),
+                timestamp=now,
+                frame=TelescopeAltAzFrame,
             )
             self.mount_alignment_handler.add_alignment_position(
                 altaz=sky_alt_az, telescope=mount_alt_az
