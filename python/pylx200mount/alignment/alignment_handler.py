@@ -139,6 +139,7 @@ class AlignmentHandler:
         self.telescope_frame = TelescopeAltAzFrame()
         self.matrix = IDENTITY
         self._observing_location = ObservingLocation()
+        add_telescope_frame_transforms(self.matrix)
 
     def add_alignment_position(self, altaz: SkyCoord, telescope: SkyCoord) -> None:
         """Add an alignment point and compute the alignment matrix.
