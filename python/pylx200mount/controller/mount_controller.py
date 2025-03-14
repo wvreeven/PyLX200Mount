@@ -402,8 +402,8 @@ class MountController:
             )
         else:
             transformed_mount_alt_az = mount_alt_az
-        self.log.info(f"Mount AltAz = {mount_alt_az.to_string('dms')}")
-        self.log.info(
+        self.log.debug(f"Mount AltAz = {mount_alt_az.to_string('dms')}")
+        self.log.debug(
             f"Transformed Mount AltAz = {transformed_mount_alt_az.to_string('dms')}"
         )
         ra_dec = get_radec_from_altaz(alt_az=transformed_mount_alt_az)
