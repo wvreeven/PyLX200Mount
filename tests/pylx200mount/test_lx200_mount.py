@@ -45,5 +45,14 @@ class TestLx200Mount(unittest.IsolatedAsyncioTestCase):
             await writer.drain()
             data = await reader.read(1)
             assert data == b"1"
+            data = (await reader.readuntil(b"#")).decode()
+            assert data == pylx200mount.controller.UPDATING_PLANETARY_DATA1
+            data = (await reader.readuntil(b"#")).decode()
+            assert data == pylx200mount.controller.UPDATING_PLANETARY_DATA2
+
+            writer.write(b":GR#")
+            await writer.drain()
+            data = await reader.readuntil(b"#")
+            assert data == b"00:1.3#"
 
             await self.lx200_mount.stop()

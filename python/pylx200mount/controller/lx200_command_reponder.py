@@ -9,7 +9,12 @@ from ..enums import CommandName, CoordinatePrecision
 from ..my_math.astropy_util import get_skycoord_from_ra_dec_str
 from .mount_controller import MountController
 
-_all__ = ["Lx200CommandResponder", "REPLY_SEPARATOR"]
+_all__ = [
+    "Lx200CommandResponder",
+    "REPLY_SEPARATOR",
+    "UPDATING_PLANETARY_DATA1",
+    "UPDATING_PLANETARY_DATA2",
+]
 
 # Some replies are terminated by the hash symbol.
 HASH = "#"
