@@ -1,0 +1,7 @@
+{
+  "camera": {
+    "module": "pylx200mount.emulation.emulated_camera",
+    "class_name": "EmulatedCamera",
+    "focal_length": 0.0
+  }
+}

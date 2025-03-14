@@ -10,7 +10,7 @@ __all__ = [
 from datetime import datetime
 
 from astropy import units as u
-from astropy.coordinates import FK5, AltAz, Angle, SkyCoord
+from astropy.coordinates import FK5, AltAz, Angle, BaseCoordinateFrame, SkyCoord
 
 from ..observing_location import ObservingLocation
 
@@ -23,12 +23,16 @@ _fk5 = FK5(equinox=datetime.now().astimezone())
 
 
 def get_skycoord_from_alt_az(
-    alt: float, az: float, observing_location: ObservingLocation, timestamp: float
+    alt: float,
+    az: float,
+    observing_location: ObservingLocation,
+    timestamp: float,
+    frame: BaseCoordinateFrame = AltAz,
 ) -> SkyCoord:
     return SkyCoord(
         alt=Angle(alt * u.deg),
         az=Angle(az * u.deg),
-        frame="altaz",
+        frame=frame,
         obstime=datetime.fromtimestamp(timestamp, observing_location.tz),
         location=observing_location.location,
         pressure=DEFAULT_ATMOSPHERIC_PRESSURE,
@@ -44,9 +48,14 @@ def get_altaz_at_different_time(
     observing_location: ObservingLocation,
     timestamp: float,
     timediff: float,
+    frame: BaseCoordinateFrame = AltAz,
 ) -> AltAz:
     alt_az = get_skycoord_from_alt_az(
-        alt=alt, az=az, observing_location=observing_location, timestamp=timestamp
+        alt=alt,
+        az=az,
+        observing_location=observing_location,
+        timestamp=timestamp,
+        frame=frame,
     )
     return alt_az.transform_to(
         AltAz(
@@ -56,7 +65,10 @@ def get_altaz_at_different_time(
 
 
 def get_altaz_from_radec(
-    ra_dec: SkyCoord, observing_location: ObservingLocation, timestamp: float
+    ra_dec: SkyCoord,
+    observing_location: ObservingLocation,
+    timestamp: float,
+    frame: BaseCoordinateFrame = AltAz,
 ) -> SkyCoord:
     alt_az = ra_dec.transform_to(
         AltAz(
@@ -69,7 +81,7 @@ def get_altaz_from_radec(
         )
     )
     return get_skycoord_from_alt_az(
-        alt_az.alt.deg, alt_az.az.deg, observing_location, timestamp
+        alt_az.alt.deg, alt_az.az.deg, observing_location, timestamp, frame
     )
 
 
