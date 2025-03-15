@@ -322,7 +322,7 @@ class Lx200CommandResponder:
 
     async def get_site_1_name(self) -> str:
         """Get the name of the observing site."""
-        return self.mount_controller.observing_location.name + HASH
+        return "My Site" + HASH
 
     async def set_slew_rate(self) -> None:
         """Set the slew rate to the commanded rate."""
