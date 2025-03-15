@@ -415,7 +415,7 @@ class Trajectory:
 
             # If more than one root is found, take the largest one since the smallest one is usually negative,
             # and we are only interested in events in the future.
-            t0 = max(roots)
+            t0 = np.max(roots)
 
             max_vel = curr_vel + t0 * accel
 
@@ -456,7 +456,7 @@ class Trajectory:
 
             # If more than one root is found, take the largest one since the smallest one is usually negative,
             # and we are only interested in events in the future.
-            t0 = max(roots)
+            t0 = np.max(roots)
 
             max_vel = curr_vel + t0 * accel
 
