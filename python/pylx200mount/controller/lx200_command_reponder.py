@@ -1,3 +1,10 @@
+__all__ = [
+    "Lx200CommandResponder",
+    "REPLY_SEPARATOR",
+    "UPDATING_PLANETARY_DATA1",
+    "UPDATING_PLANETARY_DATA2",
+]
+
 import logging
 from datetime import datetime
 
@@ -7,14 +14,8 @@ from astropy.coordinates import Angle, Latitude, Longitude
 from ..datetime_util import DatetimeUtil
 from ..enums import CommandName, CoordinatePrecision
 from ..my_math.astropy_util import get_skycoord_from_ra_dec_str
+from ..observing_location import observing_location, set_latitude, set_longitude
 from .mount_controller import MountController
-
-_all__ = [
-    "Lx200CommandResponder",
-    "REPLY_SEPARATOR",
-    "UPDATING_PLANETARY_DATA1",
-    "UPDATING_PLANETARY_DATA2",
-]
 
 # Some replies are terminated by the hash symbol.
 HASH = "#"
@@ -243,7 +244,7 @@ class Lx200CommandResponder:
 
     async def get_current_site_latitude(self) -> str:
         """Get the latitude of the obsering site."""
-        lat = self.mount_controller.observing_location.location.lat
+        lat = observing_location.lat
         return (
             await get_angle_as_lx200_string(
                 angle=lat, digits=2, coordinate_precision=CoordinatePrecision.LOW
@@ -257,14 +258,10 @@ class Lx200CommandResponder:
         if "*" in data:
             # SkySafari and AstroPlanner send the latitude in the form "deg*min".
             lat_deg, lat_min = data.split("*")
-            self.mount_controller.observing_location.set_latitude(
-                Latitude(f"{lat_deg}d{lat_min}m")
-            )
+            set_latitude(Latitude(f"{lat_deg}d{lat_min}m"))
         else:
             # INDI sends the latitude in the form of a decimal value.
-            self.mount_controller.observing_location.set_latitude(
-                Latitude(f"{data} degrees")
-            )
+            set_latitude(Latitude(f"{data} degrees"))
         await self.mount_controller.location_updated()
         return DEFAULT_REPLY
 
@@ -275,16 +272,14 @@ class Lx200CommandResponder:
         longitude positive, so we need to convert from the astropy longitude to the
         LX200 longitude.
         """
-        longitude = self.mount_controller.observing_location.location.lon.to_string(
-            unit=u.degree, sep=":", fields=2
-        )
+        longitude = observing_location.lon.to_string(unit=u.degree, sep=":", fields=2)
         if longitude[0] == "-":
             longitude = longitude[1:]
         else:
             longitude = "-" + longitude
         self.log.debug(
             f"Converted internal longitude "
-            f"{self.mount_controller.observing_location.location.lon.to_string()} "
+            f"{observing_location.lon.to_string()} "
             f"to LX200 longitude {longitude}"
         )
         return longitude + HASH
@@ -305,17 +300,13 @@ class Lx200CommandResponder:
         if "*" in data:
             # SkySafari and AstroPlanner send the longitude in the form "deg*min".
             lon_deg, lon_min = longitude.split("*")
-            self.mount_controller.observing_location.set_longitude(
-                Latitude(f"{lon_deg}d{lon_min}m")
-            )
+            set_longitude(Latitude(f"{lon_deg}d{lon_min}m"))
         else:
             # INDI sends the longitude in the form of a decimal value.
-            self.mount_controller.observing_location.set_longitude(
-                Longitude(f"{longitude} degrees")
-            )
+            set_longitude(Longitude(f"{longitude} degrees"))
         self.log.debug(
             f"Converted LX200 longitude {data} to internal longitude "
-            f"{self.mount_controller.observing_location.location.lon.to_string()}"
+            f"{observing_location.lon.to_string()}"
         )
         await self.mount_controller.location_updated()
         return DEFAULT_REPLY

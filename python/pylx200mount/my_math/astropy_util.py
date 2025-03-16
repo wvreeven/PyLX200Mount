@@ -7,25 +7,23 @@ __all__ = [
     "get_skycoord_from_ra_dec_str",
 ]
 
-from datetime import datetime
-
 from astropy import units as u
 from astropy.coordinates import FK5, AltAz, Angle, BaseCoordinateFrame, SkyCoord
 
-from ..observing_location import ObservingLocation
+from ..datetime_util import DatetimeUtil
+from ..observing_location import observing_location
 
 DEFAULT_ATMOSPHERIC_PRESSURE = u.Quantity(101325.0 * u.Pa)
 DEFAULT_TEMPERATURE = u.Quantity(-20.0 * u.deg_C)
 DEFAULT_RELATIVE_HUMIDITY = 0.01
 DEFAULT_WAVELENGTH = u.Quantity(0.550 * u.micron)
 
-_fk5 = FK5(equinox=datetime.now().astimezone())
+_fk5 = FK5(equinox=DatetimeUtil.get_datetime())
 
 
 def get_skycoord_from_alt_az(
     alt: float,
     az: float,
-    observing_location: ObservingLocation,
     timestamp: float,
     frame: BaseCoordinateFrame = AltAz,
 ) -> SkyCoord:
@@ -33,8 +31,8 @@ def get_skycoord_from_alt_az(
         alt=Angle(alt * u.deg),
         az=Angle(az * u.deg),
         frame=frame,
-        obstime=datetime.fromtimestamp(timestamp, observing_location.tz),
-        location=observing_location.location,
+        obstime=DatetimeUtil.get_datetime_at_timestamp(timestamp),
+        location=observing_location,
         pressure=DEFAULT_ATMOSPHERIC_PRESSURE,
         temperature=DEFAULT_TEMPERATURE,
         relative_humidity=DEFAULT_RELATIVE_HUMIDITY,
@@ -45,7 +43,6 @@ def get_skycoord_from_alt_az(
 def get_altaz_at_different_time(
     alt: float,
     az: float,
-    observing_location: ObservingLocation,
     timestamp: float,
     timediff: float,
     frame: BaseCoordinateFrame = AltAz,
@@ -53,36 +50,30 @@ def get_altaz_at_different_time(
     alt_az = get_skycoord_from_alt_az(
         alt=alt,
         az=az,
-        observing_location=observing_location,
         timestamp=timestamp,
         frame=frame,
     )
     return alt_az.transform_to(
-        AltAz(
-            obstime=datetime.fromtimestamp(timestamp + timediff, observing_location.tz)
-        )
+        AltAz(obstime=DatetimeUtil.get_datetime_at_timestamp(timestamp + timediff)),
     )
 
 
 def get_altaz_from_radec(
     ra_dec: SkyCoord,
-    observing_location: ObservingLocation,
     timestamp: float,
     frame: BaseCoordinateFrame = AltAz,
 ) -> SkyCoord:
     alt_az = ra_dec.transform_to(
         AltAz(
-            obstime=datetime.fromtimestamp(timestamp, observing_location.tz),
-            location=observing_location.location,
+            obstime=DatetimeUtil.get_datetime_at_timestamp(timestamp),
+            location=observing_location,
             pressure=DEFAULT_ATMOSPHERIC_PRESSURE,
             temperature=DEFAULT_TEMPERATURE,
             relative_humidity=DEFAULT_RELATIVE_HUMIDITY,
             obswl=DEFAULT_WAVELENGTH,
         )
     )
-    return get_skycoord_from_alt_az(
-        alt_az.alt.deg, alt_az.az.deg, observing_location, timestamp, frame
-    )
+    return get_skycoord_from_alt_az(alt_az.alt.deg, alt_az.az.deg, timestamp, frame)
 
 
 def get_skycoord_from_ra_dec(ra: float, dec: float) -> SkyCoord:

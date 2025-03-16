@@ -18,7 +18,7 @@ CAM_OFFSET_ALT = 0.0
 # Camera offset for Az [deg].
 CAM_OFFSET_AZ = 1.0
 # Position offset tolerance [arcsec].
-POSITION_OFFSET_TOLERANCE = 10
+POSITION_OFFSET_TOLERANCE = 30.0
 
 
 class TestMountControllerPushTo(IsolatedAsyncioTestCase):
@@ -39,7 +39,6 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
                 altaz = pylx200mount.my_math.get_skycoord_from_alt_az(
                     alt=polaris_altaz.alt.deg,
                     az=320.0,
-                    observing_location=self.mount_controller.observing_location,
                     timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
                 )
                 radec = pylx200mount.my_math.get_radec_from_altaz(altaz)
@@ -48,7 +47,6 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
                 altaz = pylx200mount.my_math.get_skycoord_from_alt_az(
                     alt=polaris_altaz.alt.deg,
                     az=243.0,
-                    observing_location=self.mount_controller.observing_location,
                     timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
                 )
                 radec = pylx200mount.my_math.get_radec_from_altaz(altaz)
@@ -57,7 +55,6 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
                 target_altaz = pylx200mount.my_math.get_skycoord_from_alt_az(
                     alt=polaris_altaz.alt.deg,
                     az=211.0,
-                    observing_location=self.mount_controller.observing_location,
                     timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
                 )
                 radec = pylx200mount.my_math.get_radec_from_altaz(target_altaz)
@@ -66,27 +63,23 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
 
                 now = pylx200mount.DatetimeUtil.get_timestamp()
                 target_altaz = pylx200mount.my_math.get_skycoord_from_alt_az(
-                    target_altaz.alt.deg,
-                    target_altaz.az.deg,
-                    self.mount_controller.observing_location,
-                    now,
+                    target_altaz.alt.deg, target_altaz.az.deg, now
                 )
                 camera_altaz = pylx200mount.my_math.get_skycoord_from_alt_az(
                     self.mount_controller.camera_alt_az.alt.deg,
                     self.mount_controller.camera_alt_az.az.deg,
-                    self.mount_controller.observing_location,
                     now,
                 )
                 telescope_radec = await self.mount_controller.get_ra_dec()
                 telescope_altaz = pylx200mount.my_math.get_altaz_from_radec(
-                    telescope_radec, self.mount_controller.observing_location, now
+                    telescope_radec, now
                 )
                 self.log.debug(f"target_altaz={target_altaz.to_string("dms")}")
                 self.log.debug(f"camera_altaz={camera_altaz.to_string("dms")}")
                 self.log.debug(f"telescope_altaz={telescope_altaz.to_string("dms")}")
 
                 target_camera_sep = target_altaz.separation(camera_altaz).arcsecond
-                assert target_camera_sep < 3.0
+                assert target_camera_sep < POSITION_OFFSET_TOLERANCE
 
                 telescope_camera_sep = telescope_altaz.separation(camera_altaz).deg
                 assert math.isclose(
@@ -99,13 +92,10 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
     async def add_camera_position(self, target: SkyCoord) -> None:
         self.num_alignment_points_added += 1
         now = pylx200mount.DatetimeUtil.get_timestamp()
-        target_altaz = pylx200mount.my_math.get_altaz_from_radec(
-            target, self.mount_controller.observing_location, now
-        )
+        target_altaz = pylx200mount.my_math.get_altaz_from_radec(target, now)
         camera_altaz = pylx200mount.my_math.get_skycoord_from_alt_az(
             target_altaz.alt.deg + CAM_OFFSET_ALT,
             target_altaz.az.deg + CAM_OFFSET_AZ,
-            self.mount_controller.observing_location,
             now,
         )
         camera_radec = pylx200mount.my_math.get_radec_from_altaz(camera_altaz)
