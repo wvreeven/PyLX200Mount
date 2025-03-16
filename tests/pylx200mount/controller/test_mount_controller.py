@@ -25,7 +25,6 @@ class TestMountController(IsolatedAsyncioTestCase):
         alt_az = pylx200mount.my_math.get_skycoord_from_alt_az(
             alt=alt,
             az=az,
-            observing_location=self.mount_controller.observing_location,
             timestamp=pylx200mount.DatetimeUtil.get_timestamp(),
         )
         ra_dec = pylx200mount.my_math.get_radec_from_altaz(alt_az=alt_az)

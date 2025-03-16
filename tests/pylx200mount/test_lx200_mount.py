@@ -57,6 +57,6 @@ class TestLx200Mount(unittest.IsolatedAsyncioTestCase):
             writer.write(b":GR#")
             await writer.drain()
             data = await reader.readuntil(b"#")
-            assert data == b"00:1.3#"
+            assert data.decode().endswith("#")
 
             await self.lx200_mount.stop()

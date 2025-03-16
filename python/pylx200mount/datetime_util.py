@@ -17,7 +17,6 @@ class DatetimeUtil:
     """
 
     delta = timedelta()
-    utc_offset = 0.0
     assert utcoffset is not None
     tz = timezone(utcoffset)
 
@@ -38,6 +37,27 @@ class DatetimeUtil:
         return datetime.now().astimezone(DatetimeUtil.tz) + DatetimeUtil.delta
 
     @classmethod
+    def get_datetime_at_timestamp(cls, timestamp: float) -> datetime:
+        """Convenience method to retrieve the timezone datetime at the provided timestamp.
+
+        This takes both the timezone (either taken from the computer or set by the planetarium software) and
+        the timestamp into account.
+
+        Unit tests may replace this function for better time control.
+
+        Parameters
+        ----------
+        timestamp : `float`
+            The current timestamp.
+
+        Returns
+        -------
+        `float`
+            The timezone datetime at thge provided timestamp.
+        """
+        return datetime.fromtimestamp(timestamp, DatetimeUtil.tz)
+
+    @classmethod
     def get_timestamp(cls) -> float:
         """Convenience method to retrieve the current time stamp.
 
@@ -47,6 +67,22 @@ class DatetimeUtil:
             The current timezone time as timestamp.
         """
         return DatetimeUtil.get_datetime().timestamp()
+
+    @classmethod
+    def get_timestamp_from_timestamp(cls, timestamp: float) -> float:
+        """Convenience method to retrieve the time stamp for the current timezone.
+
+        Parameters
+        ----------
+        timestamp : `float`
+            The current timestamp.
+
+        Returns
+        -------
+        `float`
+            The current timezone time as timestamp.
+        """
+        return datetime.fromtimestamp(timestamp, DatetimeUtil.tz).timestamp()
 
     @classmethod
     def set_datetime(cls, dt: datetime) -> None:
@@ -61,6 +97,7 @@ class DatetimeUtil:
         dt : `datetime`
             The datetime as set by the planetarium software.
         """
+        global utcoffset
         logging.getLogger(cls.__name__).debug(f"{dt=}")
         # noinspection PyTypeChecker
         DatetimeUtil.delta = DatetimeUtil.get_datetime() - dt

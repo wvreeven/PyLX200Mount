@@ -22,7 +22,6 @@ from ..my_math.astropy_util import (
     get_skycoord_from_alt_az,
     get_skycoord_from_ra_dec_str,
 )
-from ..observing_location import ObservingLocation
 from ..plate_solver import BasePlateSolver
 from .utils import load_config
 
@@ -38,7 +37,6 @@ PLATE_SOLVE_INTERVAL = 0.5
 ZERO_ALT_AZ = get_skycoord_from_alt_az(
     alt=0.0,
     az=0.0,
-    observing_location=ObservingLocation(),
     timestamp=DatetimeUtil.get_timestamp(),
     frame=TelescopeAltAzFrame,
 )
@@ -49,7 +47,6 @@ class MountController:
 
     def __init__(self, log: logging.Logger) -> None:
         self.log = log.getChild(type(self).__name__)
-        self.observing_location = ObservingLocation()
 
         self.configuration: types.SimpleNamespace | None = None
 
@@ -236,7 +233,6 @@ class MountController:
             self.motor_alt_az = get_skycoord_from_alt_az(
                 alt=self.motor_controller_alt.position.deg,
                 az=self.motor_controller_az.position.deg,
-                observing_location=self.observing_location,
                 timestamp=DatetimeUtil.get_timestamp(),
                 frame=TelescopeAltAzFrame,
             )
@@ -259,7 +255,6 @@ class MountController:
                 target_alt_az = get_altaz_at_different_time(
                     alt=self.motor_controller_alt.position.deg,
                     az=self.motor_controller_az.position.deg,
-                    observing_location=self.observing_location,
                     timestamp=DatetimeUtil.get_timestamp(),
                     timediff=timediff,
                 )
@@ -339,7 +334,6 @@ class MountController:
                 camera_ra_dec = await self.plate_solver.solve()
                 self.camera_alt_az = get_altaz_from_radec(
                     ra_dec=camera_ra_dec,
-                    observing_location=self.observing_location,
                     timestamp=now,
                     frame=TelescopeAltAzFrame,
                 )
@@ -423,7 +417,7 @@ class MountController:
         now = DatetimeUtil.get_timestamp()
 
         # Determine the sky AltAz.
-        sky_alt_az = get_altaz_from_radec(ra_dec, self.observing_location, now)
+        sky_alt_az = get_altaz_from_radec(ra_dec, now)
 
         if self.controller_type in [
             MotorControllerType.CAMERA_ONLY,
@@ -432,7 +426,6 @@ class MountController:
             camera_alt_az = get_skycoord_from_alt_az(
                 self.camera_alt_az.alt.deg,
                 self.camera_alt_az.az.deg,
-                self.observing_location,
                 now,
                 TelescopeAltAzFrame,
             )
@@ -453,7 +446,6 @@ class MountController:
             mount_alt_az = get_skycoord_from_alt_az(
                 alt=self.motor_controller_alt.position.deg,
                 az=self.motor_controller_az.position.deg,
-                observing_location=self.observing_location,
                 timestamp=now,
                 frame=TelescopeAltAzFrame,
             )
@@ -508,9 +500,7 @@ class MountController:
 
         now = DatetimeUtil.get_timestamp()
         ra_dec = get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
-        alt_az = get_altaz_from_radec(
-            ra_dec=ra_dec, observing_location=self.observing_location, timestamp=now
-        )
+        alt_az = get_altaz_from_radec(ra_dec=ra_dec, timestamp=now)
 
         # Compute slew times.
         az_slew_time = await self.motor_controller_az.estimate_slew_time(alt_az.az)
@@ -520,9 +510,7 @@ class MountController:
 
         # Compute AltAz at the end of the slew.
         alt_az_after_slew = get_altaz_from_radec(
-            ra_dec=ra_dec,
-            observing_location=self.observing_location,
-            timestamp=now + slew_time,
+            ra_dec=ra_dec, timestamp=now + slew_time
         )
 
         self.slew_direction = SlewDirection.NONE

@@ -21,7 +21,6 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
     )
 
     async def test_telescope_frame(self) -> None:
-        observing_location = pylx200mount.observing_location.ObservingLocation()
         now = pylx200mount.DatetimeUtil.get_timestamp()
 
         pylx200mount.alignment.add_telescope_frame_transforms(self.matrix)
@@ -35,9 +34,7 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
         assert np.all(np.isclose(coo.ra, coo2.ra))
         assert np.all(np.isclose(coo.dec, coo2.dec))
 
-        altaz = get_skycoord_from_alt_az(
-            az=0.0, alt=41.3, observing_location=observing_location, timestamp=now
-        )
+        altaz = get_skycoord_from_alt_az(az=0.0, alt=41.3, timestamp=now)
         altaz_as_icrs = SkyCoord(altaz.az, altaz.alt)
         tel_coo = altaz_as_icrs.transform_to(pylx200mount.alignment.TelescopeAltAzFrame)
         assert math.isclose(tel_coo.az.deg, expected[0].ra.deg)
@@ -58,19 +55,16 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
         assert np.all(np.isclose(m, self.matrix))
 
     async def test_create_matrix_using_alignment_points(self) -> None:
-        observing_location = pylx200mount.observing_location.ObservingLocation()
         now = pylx200mount.DatetimeUtil.get_timestamp()
         ap1 = pylx200mount.alignment.AlignmentPoint(
             altaz=pylx200mount.my_math.get_skycoord_from_alt_az(
                 az=0.0,
                 alt=41.3,
-                observing_location=observing_location,
                 timestamp=now,
             ),
             telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
                 az=1.0,
                 alt=41.3,
-                observing_location=observing_location,
                 timestamp=now,
                 frame=pylx200mount.alignment.TelescopeAltAzFrame,
             ),
@@ -79,13 +73,11 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
             altaz=pylx200mount.my_math.get_skycoord_from_alt_az(
                 az=90.0,
                 alt=41.3,
-                observing_location=observing_location,
                 timestamp=now,
             ),
             telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
                 az=91.0,
                 alt=41.3,
-                observing_location=observing_location,
                 timestamp=now,
                 frame=pylx200mount.alignment.TelescopeAltAzFrame,
             ),
@@ -94,13 +86,11 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
             altaz=pylx200mount.my_math.get_skycoord_from_alt_az(
                 az=120.0,
                 alt=41.3,
-                observing_location=observing_location,
                 timestamp=now,
             ),
             telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
                 az=121.0,
                 alt=41.3,
-                observing_location=observing_location,
                 timestamp=now,
                 frame=pylx200mount.alignment.TelescopeAltAzFrame,
             ),
@@ -117,18 +107,14 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
         assert np.all(np.isclose(m, self.matrix))
 
     async def test_alignment_handler(self) -> None:
-        observing_location = pylx200mount.observing_location.ObservingLocation()
         now = pylx200mount.DatetimeUtil.get_timestamp()
         ah = pylx200mount.alignment.AlignmentHandler()
-        altaz = get_skycoord_from_alt_az(
-            az=0.0, alt=41.3, observing_location=observing_location, timestamp=now
-        )
+        altaz = get_skycoord_from_alt_az(az=0.0, alt=41.3, timestamp=now)
         ah.add_alignment_position(
             altaz,
             telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
                 az=1.0,
                 alt=41.3,
-                observing_location=observing_location,
                 timestamp=now,
                 frame=pylx200mount.alignment.TelescopeAltAzFrame,
             ),
@@ -137,13 +123,11 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
             altaz=pylx200mount.my_math.get_skycoord_from_alt_az(
                 az=90.0,
                 alt=41.3,
-                observing_location=observing_location,
                 timestamp=now,
             ),
             telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
                 az=91.0,
                 alt=41.3,
-                observing_location=observing_location,
                 timestamp=now,
                 frame=pylx200mount.alignment.TelescopeAltAzFrame,
             ),
@@ -152,13 +136,11 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
             altaz=pylx200mount.my_math.get_skycoord_from_alt_az(
                 az=120.0,
                 alt=41.3,
-                observing_location=observing_location,
                 timestamp=now,
             ),
             telescope=pylx200mount.my_math.get_skycoord_from_alt_az(
                 az=121.0,
                 alt=41.3,
-                observing_location=observing_location,
                 timestamp=now,
                 frame=pylx200mount.alignment.TelescopeAltAzFrame,
             ),

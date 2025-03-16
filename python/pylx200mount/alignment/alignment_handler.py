@@ -26,7 +26,6 @@ from astropy.coordinates.matrix_utilities import matrix_transpose
 
 from ..enums import IDENTITY
 from ..my_math import get_radec_from_altaz, get_skycoord_from_alt_az
-from ..observing_location import ObservingLocation
 
 
 class TelescopeAltAzFrame(BaseCoordinateFrame):
@@ -138,7 +137,6 @@ class AlignmentHandler:
         self._alignment_data: list[AlignmentPoint] = list()
         self.telescope_frame = TelescopeAltAzFrame()
         self.matrix = IDENTITY
-        self._observing_location = ObservingLocation()
         add_telescope_frame_transforms(self.matrix)
 
     def add_alignment_position(self, altaz: SkyCoord, telescope: SkyCoord) -> None:
@@ -213,12 +211,10 @@ class AlignmentHandler:
     def get_altaz_from_telescope_coords(
         self, telescope_coord: SkyCoord, timestamp: float
     ) -> SkyCoord:
-        self._observing_location.location = telescope_coord.location
         altaz_coord = telescope_coord.transform_to(ICRS)
         return get_skycoord_from_alt_az(
             altaz_coord.dec.deg,
             altaz_coord.ra.deg,
-            self._observing_location,
             timestamp,
         )
 
