@@ -70,9 +70,8 @@ class PlateSolver(BasePlateSolver):
         img_end = DatetimeUtil.get_timestamp()
         self.log.debug(f"Async get_image took {img_end - img_start} s.")
         try:
-            loop = asyncio.get_running_loop()
             await asyncio.wait_for(
-                loop.run_in_executor(None, self._blocking_solve, img),
+                asyncio.to_thread(self._blocking_solve, img),
                 timeout=SOLVER_TIMEOUT,
             )
         except Exception:
