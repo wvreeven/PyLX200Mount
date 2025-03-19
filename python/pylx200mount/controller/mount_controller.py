@@ -125,15 +125,10 @@ class MountController:
                 f"Loading camera "
                 f"{self.configuration.camera_module_name}.{self.configuration.camera_class_name}."
             )
-            camera_module = importlib.import_module(
-                self.configuration.camera_module_name
-            )
-            camera_class = getattr(camera_module, self.configuration.camera_class_name)
-            camera: BaseCamera = camera_class(log=self.log)
             if self.configuration.camera_class_name == "EmulatedCamera":
                 from ..emulation import EmulatedCamera, EmulatedPlateSolver
 
-                camera = EmulatedCamera(log=self.log)
+                camera: BaseCamera = EmulatedCamera(log=self.log)
                 self.plate_solver = EmulatedPlateSolver(
                     camera,
                     self.configuration.camera_focal_length,
@@ -142,6 +137,13 @@ class MountController:
             else:
                 from ..plate_solver import PlateSolver
 
+                camera_module = importlib.import_module(
+                    self.configuration.camera_module_name
+                )
+                camera_class = getattr(
+                    camera_module, self.configuration.camera_class_name
+                )
+                camera = camera_class(log=self.log)
                 self.plate_solver = PlateSolver(
                     camera,
                     self.configuration.camera_focal_length,
