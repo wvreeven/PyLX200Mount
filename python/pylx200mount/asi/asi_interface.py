@@ -485,8 +485,7 @@ class AsiCamera(BaseCamera):
 
     async def get_image(self) -> np.ndarray:
         self.log.debug("Get the latest image.")
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, self._blocking_get_image)
+        return await asyncio.to_thread(self._blocking_get_image)
 
     def _blocking_get_image(self) -> np.ndarray:
         img_start = DatetimeUtil.get_timestamp()
