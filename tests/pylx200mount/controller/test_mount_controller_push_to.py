@@ -1,4 +1,5 @@
 import asyncio
+import importlib
 import logging
 import math
 import pathlib
@@ -8,6 +9,7 @@ import astropy.units as u
 import numpy as np
 import pylx200mount
 from astropy.coordinates import SkyCoord
+from pylx200mount import datetime_util, observing_location
 
 CONFIG_DIR = pathlib.Path(__file__).parents[1] / "test_data"
 
@@ -24,6 +26,8 @@ POSITION_OFFSET_TOLERANCE = 30.0
 class TestMountControllerPushTo(IsolatedAsyncioTestCase):
     async def test_push_to(self) -> None:
         self.log = logging.getLogger(type(self).__name__)
+        importlib.reload(datetime_util)
+        importlib.reload(observing_location)
         self.config_file = CONFIG_DIR / "config_emulated_camera_only.json"
         self.target_radec = pylx200mount.my_math.get_skycoord_from_ra_dec(0.0, 0.0)
         self.num_alignment_points_added = 0
@@ -79,7 +83,9 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
                 self.log.debug(f"telescope_altaz={telescope_altaz.to_string("dms")}")
 
                 target_camera_sep = target_altaz.separation(camera_altaz).arcsecond
-                assert target_camera_sep < POSITION_OFFSET_TOLERANCE
+                assert (
+                    target_camera_sep < POSITION_OFFSET_TOLERANCE
+                ), f"{target_camera_sep=}, {POSITION_OFFSET_TOLERANCE=}"
 
                 telescope_camera_sep = telescope_altaz.separation(camera_altaz).deg
                 assert math.isclose(
