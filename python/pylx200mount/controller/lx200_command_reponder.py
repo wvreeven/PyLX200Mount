@@ -14,7 +14,7 @@ from astropy.coordinates import Angle, Latitude, Longitude
 from ..datetime_util import DatetimeUtil
 from ..enums import CommandName, CoordinatePrecision
 from ..my_math.astropy_util import get_skycoord_from_ra_dec_str
-from ..observing_location import observing_location, set_latitude, set_longitude
+from ..observing_location import get_observing_location, set_latitude, set_longitude
 from .mount_controller import MountController
 
 # Some replies are terminated by the hash symbol.
@@ -244,7 +244,7 @@ class Lx200CommandResponder:
 
     async def get_current_site_latitude(self) -> str:
         """Get the latitude of the obsering site."""
-        lat = observing_location.lat
+        lat = get_observing_location().lat
         return (
             await get_angle_as_lx200_string(
                 angle=lat, digits=2, coordinate_precision=CoordinatePrecision.LOW
@@ -262,6 +262,10 @@ class Lx200CommandResponder:
         else:
             # INDI sends the latitude in the form of a decimal value.
             set_latitude(Latitude(f"{data} degrees"))
+        self.log.debug(
+            f"Converted LX200 latitude {data} to internal latitude "
+            f"{get_observing_location().lat.deg}"
+        )
         await self.mount_controller.location_updated()
         return DEFAULT_REPLY
 
@@ -272,14 +276,16 @@ class Lx200CommandResponder:
         longitude positive, so we need to convert from the astropy longitude to the
         LX200 longitude.
         """
-        longitude = observing_location.lon.to_string(unit=u.degree, sep=":", fields=2)
+        longitude = get_observing_location().lon.to_string(
+            unit=u.degree, sep=":", fields=2
+        )
         if longitude[0] == "-":
             longitude = longitude[1:]
         else:
             longitude = "-" + longitude
         self.log.debug(
             f"Converted internal longitude "
-            f"{observing_location.lon.to_string()} "
+            f"{get_observing_location().lon.to_string()} "
             f"to LX200 longitude {longitude}"
         )
         return longitude + HASH
@@ -306,7 +312,7 @@ class Lx200CommandResponder:
             set_longitude(Longitude(f"{longitude} degrees"))
         self.log.debug(
             f"Converted LX200 longitude {data} to internal longitude "
-            f"{observing_location.lon.to_string()}"
+            f"{get_observing_location().lon.deg}"
         )
         await self.mount_controller.location_updated()
         return DEFAULT_REPLY

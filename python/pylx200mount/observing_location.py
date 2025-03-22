@@ -1,9 +1,9 @@
-__all__ = ["observing_location", "set_height", "set_latitude", "set_longitude"]
+__all__ = ["get_observing_location", "set_height", "set_latitude", "set_longitude"]
 
 from astropy import units as u
 from astropy.coordinates import EarthLocation, Latitude, Longitude
 
-observing_location: EarthLocation = EarthLocation.from_geodetic(
+_observing_location: EarthLocation = EarthLocation.from_geodetic(
     lon=Longitude("0d0m0s"),
     lat=Latitude("0d0m00s"),
     height=0 * u.meter,
@@ -21,11 +21,11 @@ def set_longitude(longitude: Longitude) -> None:
     longitude: `Longitude`
         The new longitude
     """
-    global observing_location
-    observing_location = EarthLocation.from_geodetic(
+    global _observing_location
+    _observing_location = EarthLocation.from_geodetic(
         lon=longitude,
-        lat=observing_location.lat,
-        height=observing_location.height,
+        lat=_observing_location.lat,
+        height=_observing_location.height,
     )
 
 
@@ -40,11 +40,11 @@ def set_latitude(latitude: Latitude) -> None:
     latitude: `Latitude`
         The new latitude
     """
-    global observing_location
-    observing_location = EarthLocation.from_geodetic(
-        lon=observing_location.lon,
+    global _observing_location
+    _observing_location = EarthLocation.from_geodetic(
+        lon=_observing_location.lon,
         lat=latitude,
-        height=observing_location.height,
+        height=_observing_location.height,
     )
 
 
@@ -59,9 +59,13 @@ def set_height(height: float) -> None:
     height: `float`
         The new height in `u.meter`
     """
-    global observing_location
-    observing_location = EarthLocation.from_geodetic(
-        lon=observing_location.lon,
-        lat=observing_location.lat,
+    global _observing_location
+    _observing_location = EarthLocation.from_geodetic(
+        lon=_observing_location.lon,
+        lat=_observing_location.lat,
         height=height * u.meter,
     )
+
+
+def get_observing_location() -> EarthLocation:
+    return _observing_location

@@ -11,7 +11,7 @@ from astropy import units as u
 from astropy.coordinates import FK5, AltAz, Angle, BaseCoordinateFrame, SkyCoord
 
 from ..datetime_util import DatetimeUtil
-from ..observing_location import observing_location
+from ..observing_location import get_observing_location
 
 DEFAULT_ATMOSPHERIC_PRESSURE = u.Quantity(101325.0 * u.Pa)
 DEFAULT_TEMPERATURE = u.Quantity(-20.0 * u.deg_C)
@@ -32,7 +32,7 @@ def get_skycoord_from_alt_az(
         az=Angle(az * u.deg),
         frame=frame,
         obstime=DatetimeUtil.get_datetime_at_timestamp(timestamp),
-        location=observing_location,
+        location=get_observing_location(),
         pressure=DEFAULT_ATMOSPHERIC_PRESSURE,
         temperature=DEFAULT_TEMPERATURE,
         relative_humidity=DEFAULT_RELATIVE_HUMIDITY,
@@ -66,7 +66,7 @@ def get_altaz_from_radec(
     alt_az = ra_dec.transform_to(
         AltAz(
             obstime=DatetimeUtil.get_datetime_at_timestamp(timestamp),
-            location=observing_location,
+            location=get_observing_location(),
             pressure=DEFAULT_ATMOSPHERIC_PRESSURE,
             temperature=DEFAULT_TEMPERATURE,
             relative_humidity=DEFAULT_RELATIVE_HUMIDITY,
