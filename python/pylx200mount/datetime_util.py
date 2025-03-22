@@ -1,11 +1,6 @@
 __all__ = ["DatetimeUtil"]
 
-import logging
 from datetime import datetime, timedelta, timezone
-
-dt = datetime.now().astimezone()
-assert dt is not None
-utcoffset = dt.utcoffset()
 
 
 class DatetimeUtil:
@@ -16,8 +11,12 @@ class DatetimeUtil:
     solve that for this project.
     """
 
-    delta = timedelta()
+    _dt = datetime.now().astimezone()
+    assert _dt is not None
+    utcoffset = _dt.utcoffset()
     assert utcoffset is not None
+
+    delta = timedelta()
     tz = timezone(utcoffset)
 
     @classmethod
@@ -97,12 +96,8 @@ class DatetimeUtil:
         dt : `datetime`
             The datetime as set by the planetarium software.
         """
-        global utcoffset
-        logging.getLogger(cls.__name__).debug(f"{dt=}")
         # noinspection PyTypeChecker
         DatetimeUtil.delta = DatetimeUtil.get_datetime() - dt
-        logging.getLogger(cls.__name__).debug(f"{DatetimeUtil.delta=}")
-        utcoffset = dt.utcoffset()
-        assert utcoffset is not None
-        DatetimeUtil.tz = timezone(utcoffset)
-        logging.getLogger(cls.__name__).debug(f"{DatetimeUtil.tz=}")
+        DatetimeUtil.utcoffset = dt.utcoffset()
+        assert DatetimeUtil.utcoffset is not None
+        DatetimeUtil.tz = timezone(DatetimeUtil.utcoffset)
