@@ -232,6 +232,7 @@ class MountController:
         start_time = DatetimeUtil.get_timestamp()
         self.log.debug(f"position_loop starts at {start_time}")
         while self.should_run_position_loop:
+            self.log.debug("Getting motor positions.")
             self.motor_alt_az = get_skycoord_from_alt_az(
                 alt=self.motor_controller_alt.position.deg,
                 az=self.motor_controller_az.position.deg,
@@ -403,6 +404,11 @@ class MountController:
             f"Transformed Mount AltAz = {transformed_mount_alt_az.to_string('dms')}"
         )
         ra_dec = get_radec_from_altaz(alt_az=transformed_mount_alt_az)
+        self.log.debug(f"RaDec = {ra_dec.to_string('hmsdms')}")
+        alt_az = get_altaz_from_radec(
+            ra_dec=ra_dec, timestamp=DatetimeUtil.get_timestamp()
+        )
+        self.log.debug(f"AltAz = {alt_az.to_string('dms')}")
         return ra_dec
 
     async def set_ra_dec(self, ra_dec: SkyCoord) -> None:
