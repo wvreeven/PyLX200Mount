@@ -9,7 +9,7 @@ import logging
 from datetime import datetime
 
 from astropy import units as u
-from astropy.coordinates import Angle, Latitude, Longitude
+from astropy.coordinates import Angle, Latitude, Longitude, SkyCoord
 
 from ..datetime_util import DatetimeUtil
 from ..enums import CommandName, CoordinatePrecision
@@ -120,6 +120,8 @@ class Lx200CommandResponder:
 
         # Keep track of the timezone, time and date, so it can be passed on to DatetimeUtil.
         self._datetime_str = ""
+        # Keep track of the mount position for quicker responses.
+        self.ra_dec = SkyCoord(0.0, 0.0, unit="deg")
 
     async def start(self) -> None:
         """Start the responder."""
@@ -133,8 +135,8 @@ class Lx200CommandResponder:
 
     async def get_ra(self) -> str:
         """Get the RA that the mount currently is pointing at."""
-        ra_dec = await self.mount_controller.get_ra_dec()
-        ra = ra_dec.ra
+        self.ra_dec = await self.mount_controller.get_ra_dec()
+        ra = self.ra_dec.ra
         hms = ra.hms
         if self.coordinate_precision == CoordinatePrecision.HIGH:
             ra_str = f"{hms.h:02.0f}:{hms.m:02.0f}:{hms.s:02.0f}"
@@ -162,9 +164,8 @@ class Lx200CommandResponder:
 
     async def get_dec(self) -> str:
         """Get the DEC that the mount currently is pointing at."""
-        ra_dec = await self.mount_controller.get_ra_dec()
         dec_str = await get_angle_as_lx200_string(
-            angle=ra_dec.dec,
+            angle=self.ra_dec.dec,
             digits=2,
             coordinate_precision=self.coordinate_precision,
         )
