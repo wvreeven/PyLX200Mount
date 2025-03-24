@@ -28,8 +28,8 @@ def get_skycoord_from_alt_az(
     frame: BaseCoordinateFrame = AltAz,
 ) -> SkyCoord:
     return SkyCoord(
-        alt=Angle(alt * u.deg),
-        az=Angle(az * u.deg),
+        alt=Angle(alt * u.deg).wrap_at(180.0 * u.deg),
+        az=Angle(az * u.deg).wrap_at(360.0 * u.deg),
         frame=frame,
         obstime=DatetimeUtil.get_datetime_at_timestamp(timestamp),
         location=get_observing_location(),
