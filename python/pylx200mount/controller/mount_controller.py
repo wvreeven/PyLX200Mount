@@ -62,6 +62,9 @@ class MountController:
         self.should_run_position_loop = False
         self.motor_alt_az: SkyCoord = ZERO_ALT_AZ
 
+        # Position event to set in the position loop. Used by unit tests.
+        self.position_event: asyncio.Event = asyncio.Event()
+
         # Slew related variables.
         self.slew_direction = SlewDirection.NONE
         self.slew_rate = SlewRate.HIGH
@@ -239,6 +242,7 @@ class MountController:
                 timestamp=DatetimeUtil.get_timestamp(),
                 frame=TelescopeAltAzFrame,
             )
+            self.position_event.set()
 
             self.check_motor_tracking(self.motor_controller_az)
             self.check_motor_tracking(self.motor_controller_alt)
@@ -393,9 +397,8 @@ class MountController:
                 mount_alt_az = ZERO_ALT_AZ
 
         if alignment_handler is not None:
-            now = DatetimeUtil.get_timestamp()
             transformed_mount_alt_az = (
-                alignment_handler.get_altaz_from_telescope_coords(mount_alt_az, now)
+                alignment_handler.get_altaz_from_telescope_coords(mount_alt_az)
             )
         else:
             transformed_mount_alt_az = mount_alt_az
