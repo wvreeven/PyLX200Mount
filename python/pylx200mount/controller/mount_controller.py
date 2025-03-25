@@ -62,6 +62,9 @@ class MountController:
         self.should_run_position_loop = False
         self.motor_alt_az: SkyCoord = ZERO_ALT_AZ
 
+        # Position event to set in the position loop. Used by unit tests.
+        self.position_event: asyncio.Event = asyncio.Event()
+
         # Slew related variables.
         self.slew_direction = SlewDirection.NONE
         self.slew_rate = SlewRate.HIGH
@@ -232,12 +235,14 @@ class MountController:
         start_time = DatetimeUtil.get_timestamp()
         self.log.debug(f"position_loop starts at {start_time}")
         while self.should_run_position_loop:
+            self.log.debug("Getting motor positions.")
             self.motor_alt_az = get_skycoord_from_alt_az(
                 alt=self.motor_controller_alt.position.deg,
                 az=self.motor_controller_az.position.deg,
                 timestamp=DatetimeUtil.get_timestamp(),
                 frame=TelescopeAltAzFrame,
             )
+            self.position_event.set()
 
             self.check_motor_tracking(self.motor_controller_az)
             self.check_motor_tracking(self.motor_controller_alt)
@@ -392,9 +397,8 @@ class MountController:
                 mount_alt_az = ZERO_ALT_AZ
 
         if alignment_handler is not None:
-            now = DatetimeUtil.get_timestamp()
             transformed_mount_alt_az = (
-                alignment_handler.get_altaz_from_telescope_coords(mount_alt_az, now)
+                alignment_handler.get_altaz_from_telescope_coords(mount_alt_az)
             )
         else:
             transformed_mount_alt_az = mount_alt_az
@@ -403,6 +407,11 @@ class MountController:
             f"Transformed Mount AltAz = {transformed_mount_alt_az.to_string('dms')}"
         )
         ra_dec = get_radec_from_altaz(alt_az=transformed_mount_alt_az)
+        self.log.debug(f"RaDec = {ra_dec.to_string('hmsdms')}")
+        alt_az = get_altaz_from_radec(
+            ra_dec=ra_dec, timestamp=DatetimeUtil.get_timestamp()
+        )
+        self.log.debug(f"AltAz = {alt_az.to_string('dms')}")
         return ra_dec
 
     async def set_ra_dec(self, ra_dec: SkyCoord) -> None:

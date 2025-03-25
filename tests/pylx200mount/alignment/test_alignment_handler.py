@@ -4,7 +4,7 @@ import unittest
 import astropy.units as u
 import numpy as np
 import pylx200mount
-from astropy.coordinates import ICRS, SkyCoord
+from astropy.coordinates import AltAz, SkyCoord
 from pylx200mount.my_math import get_skycoord_from_alt_az
 
 
@@ -25,20 +25,23 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
 
         pylx200mount.alignment.add_telescope_frame_transforms(self.matrix)
 
-        coo = SkyCoord([0.0, 90.0, 120.0] * u.deg, [41.3, 86.8, 77.9] * u.deg)
-        expected = SkyCoord([1.0, 91.0, 121.0] * u.deg, [41.3, 86.8, 77.9] * u.deg)
+        coo = SkyCoord(
+            az=[0.0, 90.0, 120.0] * u.deg, alt=[41.3, 86.8, 77.9] * u.deg, frame=AltAz
+        )
+        expected = SkyCoord(
+            az=[1.0, 91.0, 121.0] * u.deg, alt=[41.3, 86.8, 77.9] * u.deg, frame=AltAz
+        )
         tel_coo = coo.transform_to(pylx200mount.alignment.TelescopeAltAzFrame)
-        assert np.all(np.isclose(tel_coo.az, expected.ra))
-        assert np.all(np.isclose(tel_coo.alt, expected.dec))
-        coo2 = tel_coo.transform_to(ICRS)
-        assert np.all(np.isclose(coo.ra, coo2.ra))
-        assert np.all(np.isclose(coo.dec, coo2.dec))
+        assert np.all(np.isclose(tel_coo.az, expected.az))
+        assert np.all(np.isclose(tel_coo.alt, expected.alt))
+        coo2 = tel_coo.transform_to(AltAz)
+        assert np.all(np.isclose(coo.az, coo2.az))
+        assert np.all(np.isclose(coo.alt, coo2.alt))
 
         altaz = get_skycoord_from_alt_az(az=0.0, alt=41.3, timestamp=now)
-        altaz_as_icrs = SkyCoord(altaz.az, altaz.alt)
-        tel_coo = altaz_as_icrs.transform_to(pylx200mount.alignment.TelescopeAltAzFrame)
-        assert math.isclose(tel_coo.az.deg, expected[0].ra.deg)
-        assert math.isclose(tel_coo.alt.deg, expected[0].dec.deg)
+        tel_coo = altaz.transform_to(pylx200mount.alignment.TelescopeAltAzFrame)
+        assert math.isclose(tel_coo.az.deg, expected[0].az.deg)
+        assert math.isclose(tel_coo.alt.deg, expected[0].alt.deg)
 
     async def test_create_matrix(self) -> None:
         coo = SkyCoord([0.0, 90.0, 120.0] * u.deg, [41.3, 86.8, 77.9] * u.deg)
@@ -151,7 +154,7 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
         assert math.isclose(tel.az.deg, 1.0)
         assert math.isclose(tel.alt.deg, 41.3)
 
-        coo = ah.get_altaz_from_telescope_coords(tel, now)
+        coo = ah.get_altaz_from_telescope_coords(tel)
         coo_az = coo.az.wrap_at(180 * u.deg)
         assert math.isclose(coo_az.deg, 0.0, abs_tol=1.0e-10)
         assert math.isclose(coo.alt.deg, 41.3)

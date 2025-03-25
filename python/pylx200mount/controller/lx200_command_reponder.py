@@ -9,12 +9,12 @@ import logging
 from datetime import datetime
 
 from astropy import units as u
-from astropy.coordinates import Angle, Latitude, Longitude
+from astropy.coordinates import Angle, Latitude, Longitude, SkyCoord
 
 from ..datetime_util import DatetimeUtil
 from ..enums import CommandName, CoordinatePrecision
 from ..my_math.astropy_util import get_skycoord_from_ra_dec_str
-from ..observing_location import observing_location, set_latitude, set_longitude
+from ..observing_location import get_observing_location, set_latitude, set_longitude
 from .mount_controller import MountController
 
 # Some replies are terminated by the hash symbol.
@@ -120,6 +120,8 @@ class Lx200CommandResponder:
 
         # Keep track of the timezone, time and date, so it can be passed on to DatetimeUtil.
         self._datetime_str = ""
+        # Keep track of the mount position for quicker responses.
+        self.ra_dec = SkyCoord(0.0, 0.0, unit="deg")
 
     async def start(self) -> None:
         """Start the responder."""
@@ -133,8 +135,8 @@ class Lx200CommandResponder:
 
     async def get_ra(self) -> str:
         """Get the RA that the mount currently is pointing at."""
-        ra_dec = await self.mount_controller.get_ra_dec()
-        ra = ra_dec.ra
+        self.ra_dec = await self.mount_controller.get_ra_dec()
+        ra = self.ra_dec.ra
         hms = ra.hms
         if self.coordinate_precision == CoordinatePrecision.HIGH:
             ra_str = f"{hms.h:02.0f}:{hms.m:02.0f}:{hms.s:02.0f}"
@@ -162,9 +164,8 @@ class Lx200CommandResponder:
 
     async def get_dec(self) -> str:
         """Get the DEC that the mount currently is pointing at."""
-        ra_dec = await self.mount_controller.get_ra_dec()
         dec_str = await get_angle_as_lx200_string(
-            angle=ra_dec.dec,
+            angle=self.ra_dec.dec,
             digits=2,
             coordinate_precision=self.coordinate_precision,
         )
@@ -244,7 +245,7 @@ class Lx200CommandResponder:
 
     async def get_current_site_latitude(self) -> str:
         """Get the latitude of the obsering site."""
-        lat = observing_location.lat
+        lat = get_observing_location().lat
         return (
             await get_angle_as_lx200_string(
                 angle=lat, digits=2, coordinate_precision=CoordinatePrecision.LOW
@@ -262,6 +263,10 @@ class Lx200CommandResponder:
         else:
             # INDI sends the latitude in the form of a decimal value.
             set_latitude(Latitude(f"{data} degrees"))
+        self.log.debug(
+            f"Converted LX200 latitude {data} to internal latitude "
+            f"{get_observing_location().lat.deg}"
+        )
         await self.mount_controller.location_updated()
         return DEFAULT_REPLY
 
@@ -272,14 +277,16 @@ class Lx200CommandResponder:
         longitude positive, so we need to convert from the astropy longitude to the
         LX200 longitude.
         """
-        longitude = observing_location.lon.to_string(unit=u.degree, sep=":", fields=2)
+        longitude = get_observing_location().lon.to_string(
+            unit=u.degree, sep=":", fields=2
+        )
         if longitude[0] == "-":
             longitude = longitude[1:]
         else:
             longitude = "-" + longitude
         self.log.debug(
             f"Converted internal longitude "
-            f"{observing_location.lon.to_string()} "
+            f"{get_observing_location().lon.to_string()} "
             f"to LX200 longitude {longitude}"
         )
         return longitude + HASH
@@ -306,7 +313,7 @@ class Lx200CommandResponder:
             set_longitude(Longitude(f"{longitude} degrees"))
         self.log.debug(
             f"Converted LX200 longitude {data} to internal longitude "
-            f"{observing_location.lon.to_string()}"
+            f"{get_observing_location().lon.deg}"
         )
         await self.mount_controller.location_updated()
         return DEFAULT_REPLY
