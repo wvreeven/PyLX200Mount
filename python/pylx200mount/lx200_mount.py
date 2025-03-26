@@ -32,7 +32,7 @@ class LX200Mount:
             self.cmd_loop, port=self.port, family=socket.AF_INET
         )
         self.log.info(
-            f"Server started on host "
+            "Server started on host "
             f"{self._server.sockets[0].getsockname()[0]}"
             f":{self._server.sockets[0].getsockname()[1]}"
         )
@@ -77,7 +77,6 @@ class LX200Mount:
             while True:
                 # First read only one character.
                 c = await reader.read(1)
-                # self.log.debug(f"Processing {c=}")
                 # SkySafari connects and disconnects all the time and expects a reply when it does.
                 if c == b"" or c == AQ:
                     await self.write(EMPTY_REPLY)
@@ -90,7 +89,7 @@ class LX200Mount:
                     await self._read_and_process_line(reader)
                 # Not sure what to do in this case, so log the character and do nothing else.
                 else:
-                    self.log.debug(f"Ignoring {c=}.")
+                    self.log.debug("Ignoring c=%c.", c)
 
         except (ConnectionResetError, BrokenPipeError):
             pass
@@ -101,7 +100,7 @@ class LX200Mount:
         line_b = await reader.readuntil(HASH)
         line = line_b.decode().strip()
         if CommandName.GD.value not in line and CommandName.GR.value not in line:
-            self.log.debug(f"Read command line: {line!r}")
+            self.log.debug("Read command line: '%s'", line)
 
         # Almost all LX200 commands are unique but don't have a fixed length.
         # So we simply loop over all implemented commands until we find
@@ -117,7 +116,7 @@ class LX200Mount:
 
         # Log a message if the command wasn't found.
         if cmd == "":
-            self.log.error(f"Unknown command {line!r}.")
+            self.log.error("Unknown command '%s'.", line)
 
     async def _process_command(self, cmd: CommandName, line: str) -> None:
         self.responder.cmd = cmd.value

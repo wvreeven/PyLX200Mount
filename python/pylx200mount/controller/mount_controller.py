@@ -350,8 +350,8 @@ class MountController:
                     assert self.motor_controller_az is not None
                     self.motor_controller_az.position = self.camera_alt_az.az
                     self.motor_controller_alt.position = self.camera_alt_az.alt
-                self.log.debug(f"Camera RaDec = {camera_ra_dec.to_string('hmsdms')}")
-                self.log.debug(f"Camera AltAz = {self.camera_alt_az.to_string('dms')}")
+                self.log.debug("Camera RaDec = %s", camera_ra_dec.to_string("hmsdms"))
+                self.log.debug("Camera AltAz = %s", self.camera_alt_az.to_string("dms"))
 
             except RuntimeError:
                 self.log.exception("Error solving.")
@@ -402,16 +402,16 @@ class MountController:
             )
         else:
             transformed_mount_alt_az = mount_alt_az
-        self.log.debug(f"Mount AltAz = {mount_alt_az.to_string('dms')}")
+        self.log.debug("Mount AltAz = %s", mount_alt_az.to_string("dms"))
         self.log.debug(
-            f"Transformed Mount AltAz = {transformed_mount_alt_az.to_string('dms')}"
+            "Transformed Mount AltAz = %s", transformed_mount_alt_az.to_string("dms")
         )
         ra_dec = get_radec_from_altaz(alt_az=transformed_mount_alt_az)
-        self.log.debug(f"RaDec = {ra_dec.to_string('hmsdms')}")
+        self.log.debug("RaDec = %s", ra_dec.to_string("hmsdms"))
         alt_az = get_altaz_from_radec(
             ra_dec=ra_dec, timestamp=DatetimeUtil.get_timestamp()
         )
-        self.log.debug(f"AltAz = {alt_az.to_string('dms')}")
+        self.log.debug("AltAz = %s", alt_az.to_string("dms"))
         return ra_dec
 
     async def set_ra_dec(self, ra_dec: SkyCoord) -> None:
@@ -443,9 +443,10 @@ class MountController:
             self.camera_alignment_handler.add_alignment_position(
                 altaz=sky_alt_az, telescope=camera_alt_az
             )
-            self.log.info(
-                f"New alignment point SkyAltAz={sky_alt_az.to_string('dms')} "
-                f"and CameraAltAz={camera_alt_az.to_string('dms')}."
+            self.log.debug(
+                "New alignment point SkyAltAz=%s and CameraAltAz=%s.",
+                sky_alt_az.to_string("dms"),
+                camera_alt_az.to_string("dms"),
             )
         if self.controller_type in [
             MotorControllerType.MOTORS_ONLY,
@@ -464,8 +465,9 @@ class MountController:
                 altaz=sky_alt_az, telescope=mount_alt_az
             )
             self.log.debug(
-                f"New alignment point SkyAltAz={sky_alt_az.to_string('dms')} "
-                f"and MountAltAz={mount_alt_az.to_string('dms')}."
+                "New alignment point SkyAltAz=%s and MountAltAz=%s.",
+                sky_alt_az.to_string("dms"),
+                mount_alt_az.to_string("dms"),
             )
 
     async def set_slew_rate(self, cmd: str) -> None:
