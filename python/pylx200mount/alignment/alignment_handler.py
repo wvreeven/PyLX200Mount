@@ -6,7 +6,6 @@ __all__ = [
     "add_telescope_frame_transforms",
 ]
 
-import math
 from dataclasses import dataclass
 from itertools import combinations
 
@@ -27,7 +26,6 @@ from astropy.coordinates import (
 from astropy.coordinates.matrix_utilities import matrix_transpose
 
 from ..enums import IDENTITY
-from ..my_math import get_radec_from_altaz
 
 
 class TelescopeAltAzFrame(BaseCoordinateFrame):
@@ -153,16 +151,7 @@ class AlignmentHandler:
         telescope : `SkyCoord`
             The telescope [azimuth, altitude].
         """
-        alignment_point = AlignmentPoint(altaz=altaz, telescope=telescope)
-        ra_dec = get_radec_from_altaz(altaz)
-
-        for ad in self._alignment_data:
-            ad_ra_dec = get_radec_from_altaz(ad.altaz)
-            if math.isclose(ra_dec.ra.deg, ad_ra_dec.ra.deg) and math.isclose(
-                ra_dec.dec.deg, ad_ra_dec.dec.deg
-            ):
-                self._alignment_data.remove(ad)
-        self._alignment_data.append(alignment_point)
+        self._alignment_data.append(AlignmentPoint(altaz=altaz, telescope=telescope))
         self.compute_transformation_matrix()
 
     def compute_transformation_matrix(self) -> None:
@@ -191,17 +180,14 @@ class AlignmentHandler:
             telescope_car = np.transpose(np.array(telescope_coords.cartesian.xyz.value))
 
             matrix = np.dot(np.linalg.inv(telescope_car), altaz_car)
-            transformation_matrices.append(matrix)
+            if not np.any(np.isnan(matrix)):
+                transformation_matrices.append(matrix)
 
         if len(transformation_matrices) == 0:
             self.matrix = IDENTITY
         elif len(transformation_matrices) == 1:
             self.matrix = transformation_matrices[0]
         else:
-            # Filter out NaN values
-            transformation_matrices = [
-                tfm for tfm in transformation_matrices if not np.isnan(np.sum(tfm))
-            ]
             # Compute the mean.
             self.matrix = np.mean(transformation_matrices, axis=0)
 

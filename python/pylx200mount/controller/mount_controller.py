@@ -82,7 +82,7 @@ class MountController:
 
         # Alignment handler.
         self.camera_alignment_handler = AlignmentHandler()
-        self.mount_alignment_handler = AlignmentHandler()
+        self.motor_alignment_handler = AlignmentHandler()
 
     async def load_motors_camera_and_plate_solver(self) -> None:
         """Helper method to load the configured motors, camera and plate solver."""
@@ -385,14 +385,14 @@ class MountController:
                 alignment_handler = self.camera_alignment_handler
             case MotorControllerType.MOTORS_ONLY:
                 mount_alt_az = self.motor_alt_az
-                alignment_handler = self.mount_alignment_handler
+                alignment_handler = self.motor_alignment_handler
             case MotorControllerType.CAMERA_AND_MOTORS:
                 if self.is_slewing:
                     mount_alt_az = self.motor_alt_az
                     alignment_handler = self.camera_alignment_handler
                 else:
                     mount_alt_az = self.camera_alt_az
-                    alignment_handler = self.mount_alignment_handler
+                    alignment_handler = self.motor_alignment_handler
             case _:
                 mount_alt_az = ZERO_ALT_AZ
 
@@ -460,7 +460,7 @@ class MountController:
                 timestamp=now,
                 frame=TelescopeAltAzFrame,
             )
-            self.mount_alignment_handler.add_alignment_position(
+            self.motor_alignment_handler.add_alignment_position(
                 altaz=sky_alt_az, telescope=mount_alt_az
             )
             self.log.debug(
@@ -506,16 +506,37 @@ class MountController:
         slew_possible: 0 or 1
             0 means in reach, 1 not.
         """
+        alignment_handler: AlignmentHandler | None = None
+        match self.controller_type:
+            case MotorControllerType.CAMERA_ONLY:
+                alignment_handler = self.camera_alignment_handler
+            case MotorControllerType.MOTORS_ONLY:
+                alignment_handler = self.motor_alignment_handler
+            case MotorControllerType.CAMERA_AND_MOTORS:
+                if self.is_slewing:
+                    alignment_handler = self.camera_alignment_handler
+                else:
+                    alignment_handler = self.motor_alignment_handler
+            case _:
+                # No alignment handler to choose.
+                pass
+
         assert self.motor_controller_alt is not None
         assert self.motor_controller_az is not None
+        assert alignment_handler is not None
 
         now = DatetimeUtil.get_timestamp()
         ra_dec = get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
         alt_az = get_altaz_from_radec(ra_dec=ra_dec, timestamp=now)
+        mount_alt_az = alignment_handler.get_altaz_from_telescope_coords(alt_az)
 
         # Compute slew times.
-        az_slew_time = await self.motor_controller_az.estimate_slew_time(alt_az.az)
-        alt_slew_time = await self.motor_controller_alt.estimate_slew_time(alt_az.alt)
+        az_slew_time = await self.motor_controller_az.estimate_slew_time(
+            mount_alt_az.az
+        )
+        alt_slew_time = await self.motor_controller_alt.estimate_slew_time(
+            mount_alt_az.alt
+        )
 
         slew_time = max(az_slew_time, alt_slew_time)
 
@@ -523,12 +544,15 @@ class MountController:
         alt_az_after_slew = get_altaz_from_radec(
             ra_dec=ra_dec, timestamp=now + slew_time
         )
+        mount_alt_az_after_slew = alignment_handler.get_altaz_from_telescope_coords(
+            alt_az_after_slew
+        )
 
         self.slew_direction = SlewDirection.NONE
-        if alt_az_after_slew.alt.value > 0:
+        if mount_alt_az_after_slew.alt.value > 0:
             self.slew_rate = SlewRate.HIGH
-            await self.motor_controller_az.move(alt_az_after_slew.az)
-            await self.motor_controller_alt.move(alt_az_after_slew.alt)
+            await self.motor_controller_az.move(mount_alt_az_after_slew.az)
+            await self.motor_controller_alt.move(mount_alt_az_after_slew.alt)
             return "0"
         else:
             return "1"
