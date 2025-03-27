@@ -19,9 +19,9 @@ from ..datetime_util import DatetimeUtil
 EXTENSIONS = {"Linux": "so", "Darwin": "dylib"}
 
 # The camera gain.
-GAIN = 80
+GAIN = 100
 # The exposure time [µs].
-EXPOSURE_TIME = 150000
+EXPOSURE_TIME = 100000
 
 
 class AsiBayerPattern(enum.Enum):
