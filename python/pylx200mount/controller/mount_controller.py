@@ -465,7 +465,7 @@ class MountController:
                 altaz=sky_alt_az, telescope=mount_alt_az
             )
             self.log.debug(
-                "New alignment point SkyAltAz=%s and MountAltAz=%s.",
+                "New alignment point SkyAltAz=%s and MotorAltAz=%s.",
                 sky_alt_az.to_string("dms"),
                 mount_alt_az.to_string("dms"),
             )
