@@ -31,8 +31,6 @@ NINETY = Angle(90.0, u.deg)
 ZERO = Angle(0.0, u.deg)
 # Position loop task interval [sec].
 POSITION_INTERVAL = 0.5
-# Plate solve loop task interval [sec].
-PLATE_SOLVE_INTERVAL = 0.5
 
 ZERO_ALT_AZ = get_skycoord_from_alt_az(
     alt=0.0,
@@ -358,15 +356,6 @@ class MountController:
                 self.camera_alt_az = self.previous_camera_alt_az
             end = DatetimeUtil.get_timestamp()
             self.log.debug(f"Plate solve for mount AltAz took {end - now} s.")
-
-            remainder = (
-                DatetimeUtil.get_timestamp() - start_time
-            ) % PLATE_SOLVE_INTERVAL
-            try:
-                await asyncio.sleep(PLATE_SOLVE_INTERVAL - remainder)
-            except asyncio.CancelledError:
-                # Ignore.
-                pass
 
     async def get_ra_dec(self) -> SkyCoord:
         """Get the current RA and DEC of the mount.

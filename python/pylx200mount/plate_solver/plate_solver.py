@@ -18,7 +18,7 @@ FOV_MAX_ERROR = 0.25
 FOV_FACTOR = 202.265 / 60 / 60
 
 # Solver timout [s].
-SOLVER_TIMEOUT = 0.25
+SOLVER_TIMEOUT = 0.2
 
 
 class PlateSolver(BasePlateSolver):
