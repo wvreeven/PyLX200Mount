@@ -21,7 +21,7 @@ EXTENSIONS = {"Linux": "so", "Darwin": "dylib"}
 # The camera gain.
 GAIN = 100
 # The exposure time [µs].
-EXPOSURE_TIME = 100000
+EXPOSURE_TIME = 50000
 
 
 class AsiBayerPattern(enum.Enum):
