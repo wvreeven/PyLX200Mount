@@ -80,7 +80,7 @@ class MountController:
         self.camera_alignment_handler = AlignmentHandler()
 
     async def load_motors_camera_and_plate_solver(self) -> None:
-        """Helper method to load the configured motors, camera and plate solver."""
+        """Helper method to load the configured motors, camera, and plate solver."""
         zero_alt_az = await get_skycoord_from_alt_az(
             alt=0.0,
             az=0.0,
@@ -162,7 +162,7 @@ class MountController:
     async def start(self) -> None:
         """Start the mount controller.
 
-        The main actions are to start the position loop, to connect the motors and to perform other start up
+        The main actions are to start the position loop, to connect the motors, and to perform other startup
         actions.
         """
         self.log.info("Start called.")
@@ -274,7 +274,7 @@ class MountController:
     async def stop(self) -> None:
         """Stop the mount controller.
 
-        The main actions are to stop the position loop, to disconnect the motors and to perform other shut
+        The main actions are to stop the position loop, to disconnect the motors, and to perform other shut
         down actions.
         """
         self.log.info("Stop called.")
@@ -283,7 +283,7 @@ class MountController:
         self.log.info("Stopped.")
 
     async def stop_plate_solver(self) -> None:
-        """Stop the plate solve task and let the camera stop taking images."""
+        """Stop the platesolve task and let the camera stop taking images."""
         if self.controller_type in [
             MotorControllerType.CAMERA_AND_MOTORS,
             MotorControllerType.CAMERA_ONLY,

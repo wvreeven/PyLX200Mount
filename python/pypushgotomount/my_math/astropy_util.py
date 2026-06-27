@@ -70,7 +70,7 @@ async def get_altaz_from_radec(
             )
         )
     else:
-        raise ValueError(f"Unknown frame type: {type(frame)}.")
+        raise ValueError(f"Unknown frame type: {frame}.")
 
 
 async def get_skycoord_from_ra_dec(ra: float, dec: float) -> SkyCoord:
