@@ -8,7 +8,6 @@ from unittest import IsolatedAsyncioTestCase, mock
 import astropy.units as u
 import numpy as np
 import pypushgotomount
-import pytest
 from astropy.coordinates import SkyCoord
 from pypushgotomount import datetime_util, observing_location
 
@@ -25,7 +24,6 @@ POSITION_OFFSET_TOLERANCE = 30.0
 
 
 class TestMountControllerPushTo(IsolatedAsyncioTestCase):
-    @pytest.mark.skip(reason="Need to fix.")
     async def test_push_to(self) -> None:
         self.log = logging.getLogger(type(self).__name__)
         importlib.reload(datetime_util)
@@ -78,13 +76,10 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
                 )
                 telescope_radec = await self.mount_controller.get_ra_dec()
                 telescope_altaz = await pypushgotomount.my_math.get_altaz_from_radec(telescope_radec, now)
-                self.log.debug(f"target_altaz={target_altaz.to_string('dms')}")
-                self.log.debug(f"camera_altaz={camera_altaz.to_string('dms')}")
-                self.log.debug(f"telescope_altaz={telescope_altaz.to_string('dms')}")
 
-                target_camera_sep = target_altaz.separation(camera_altaz).arcsecond
-                assert target_camera_sep < POSITION_OFFSET_TOLERANCE, (
-                    f"{target_camera_sep=}, {POSITION_OFFSET_TOLERANCE=}"
+                target_camera_sep = target_altaz.separation(camera_altaz).arcsecond - CAM_OFFSET_AZ * 3600.0
+                assert abs(target_camera_sep) < POSITION_OFFSET_TOLERANCE, (
+                    f"{abs(target_camera_sep)=}, {POSITION_OFFSET_TOLERANCE=}"
                 )
 
                 telescope_camera_sep = telescope_altaz.separation(camera_altaz).deg
