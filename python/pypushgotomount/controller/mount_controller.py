@@ -7,21 +7,22 @@ import importlib
 import logging
 import types
 
+import numpy as np
 from astropy import units as u
-from astropy.coordinates import AltAz, Angle, SkyCoord
+from astropy.coordinates import Angle, SkyCoord
 
 from ..alignment import AlignmentHandler, TelescopeAltAzFrame
 from ..camera import BaseCamera
 from ..datetime_util import DatetimeUtil
-from ..enums import MILLISECOND, MotorControllerState, MotorControllerType, SlewDirection, SlewRate
+from ..enums import IDENTITY, MILLISECOND, MotorControllerState, MotorControllerType, SlewDirection, SlewRate
 from ..motor.base_motor_controller import BaseMotorController
 from ..my_math.astropy_util import (
+    get_altaz_frame,
     get_altaz_from_radec,
     get_radec_from_altaz,
     get_skycoord_from_alt_az,
     get_skycoord_from_ra_dec_str,
 )
-from ..observing_location import get_observing_location
 from ..plate_solver import BasePlateSolver
 from .utils import load_config
 
@@ -32,7 +33,7 @@ ZERO = Angle(0.0, u.deg)
 # Position loop task interval [sec].
 POSITION_INTERVAL = 0.25
 # Track interval [sec].
-TRACK_INTERVAL = 5.0
+TRACK_INTERVAL = 0.5
 
 
 class MountController:
@@ -48,6 +49,8 @@ class MountController:
         # The motor controllers.
         self.motor_controller_alt: BaseMotorController | None = None
         self.motor_controller_az: BaseMotorController | None = None
+        self.motor_controller_alt_offset: Angle | None = None
+        self.motor_controller_az_offset: Angle | None = None
 
         # Position loop that is done, so it can be safely canceled at all times.
         self._position_loop_task: asyncio.Future = asyncio.Future()
@@ -57,7 +60,7 @@ class MountController:
 
         # Target RaDec for moves and tracking.
         self.target_radec = SkyCoord(0.0 * u.deg, 0.0 * u.deg)
-        self.track_start_datetime = DatetimeUtil.get_timestamp()
+        self.track_start_datetime = 0.0
 
         # Position event to set in the position loop. Used by unit tests.
         self.position_event: asyncio.Event = asyncio.Event()
@@ -77,7 +80,7 @@ class MountController:
         self.previous_camera_alt_az: SkyCoord | None = None
 
         # Alignment handler.
-        self.camera_alignment_handler = AlignmentHandler()
+        self.alignment_handler = AlignmentHandler()
 
     async def load_motors_camera_and_plate_solver(self) -> None:
         """Helper method to load the configured motors, camera, and plate solver."""
@@ -231,31 +234,42 @@ class MountController:
     async def get_motor_positions(self) -> None:
         assert self.motor_controller_alt is not None
         assert self.motor_controller_az is not None
+        now = DatetimeUtil.get_timestamp()
 
-        self.log.debug("Getting motor positions.")
         self.motor_alt_az = await get_skycoord_from_alt_az(
             alt=self.motor_controller_alt.position.deg,
             az=self.motor_controller_az.position.deg,
-            timestamp=DatetimeUtil.get_timestamp(),
+            timestamp=now,
             frame=TelescopeAltAzFrame,
         )
         self.position_event.set()
 
-        self.check_motor_tracking(self.motor_controller_az)
-        self.check_motor_tracking(self.motor_controller_alt)
         # Since the slew is performed to the AltAz at the end of the longest axis slew, tracking the position
         # should only start as soon as both motors are in TRACKING state.
+        self.check_motor_tracking(self.motor_controller_az)
+        self.check_motor_tracking(self.motor_controller_alt)
         if (
             self.motor_controller_az.state == MotorControllerState.TRACKING
             and self.motor_controller_alt.state == MotorControllerState.TRACKING
-            and DatetimeUtil.get_timestamp() - self.track_start_datetime >= TRACK_INTERVAL
+            and now - self.track_start_datetime >= TRACK_INTERVAL
         ):
-            self.track_start_datetime = DatetimeUtil.get_timestamp()
-            fut_timestamp = DatetimeUtil.get_timestamp() + 2 * TRACK_INTERVAL
-            target_alt_az = await get_altaz_from_radec(self.target_radec, fut_timestamp)
+            target_alt_az = await get_altaz_from_radec(self.target_radec, now)
+            motor_alt_az = await self.alignment_handler.get_altaz_from_telescope_coords(self.motor_alt_az)
+            self.log.debug(f"{self.motor_alt_az.to_string('dms')=}")
+            self.log.debug(f"     {motor_alt_az.to_string('dms')=}")
+            self.log.debug(f"    {target_alt_az.to_string('dms')=}")
+            self.log.debug(f"{motor_alt_az.separation(target_alt_az).arcsecond=}")
 
-            await self.motor_controller_az.track(target_alt_az.az, TRACK_INTERVAL)
-            await self.motor_controller_alt.track(target_alt_az.alt, TRACK_INTERVAL)
+            self.track_start_datetime = now
+            time_diff = 2.0 * TRACK_INTERVAL
+            fut_timestamp = now + time_diff
+            target_alt_az = await get_altaz_from_radec(self.target_radec, fut_timestamp)
+            telescope_target_alt_az = await self.alignment_handler.get_telescope_coords_from_altaz(
+                target_alt_az
+            )
+
+            await self.motor_controller_az.track(telescope_target_alt_az.az, time_diff)
+            await self.motor_controller_alt.track(telescope_target_alt_az.alt, time_diff)
 
     def check_motor_tracking(self, motor: BaseMotorController) -> None:
         """Check if the provided motor is stopped.
@@ -325,12 +339,19 @@ class MountController:
             self.camera_alt_az = await get_altaz_from_radec(
                 ra_dec=camera_ra_dec, timestamp=now, frame=TelescopeAltAzFrame
             )
-            # Make sure that the motors know the camera position as well.
             if self.controller_type == MotorControllerType.CAMERA_AND_MOTORS:
+                # Make sure that the motors know the camera position as well.
                 assert self.motor_controller_alt is not None
                 assert self.motor_controller_az is not None
-                self.motor_controller_alt.position = self.camera_alt_az.alt
-                self.motor_controller_az.position = self.camera_alt_az.az
+                if self.motor_controller_alt.state in [
+                    MotorControllerState.TRACKING,
+                    MotorControllerState.STOPPED,
+                ] and self.motor_controller_az.state in [
+                    MotorControllerState.TRACKING,
+                    MotorControllerState.STOPPED,
+                ]:
+                    self.motor_controller_alt.position = self.camera_alt_az.alt
+                    self.motor_controller_az.position = self.camera_alt_az.az
 
             self.log.debug("Camera RaDec = %s", camera_ra_dec.to_string("hmsdms"))
             self.log.debug("Camera AltAz = %s", self.camera_alt_az.to_string("dms"))
@@ -352,16 +373,13 @@ class MountController:
         -------
         The right ascention and declination.
         """
-        alignment_handler: AlignmentHandler | None = None
         match self.controller_type:
             case MotorControllerType.CAMERA_ONLY:
                 assert self.camera_alt_az is not None
                 mount_alt_az = self.camera_alt_az
-                alignment_handler = self.camera_alignment_handler
             case MotorControllerType.MOTORS_ONLY:
                 assert self.motor_alt_az is not None
                 mount_alt_az = self.motor_alt_az
-                alignment_handler = None
             case MotorControllerType.CAMERA_AND_MOTORS:
                 assert self.motor_controller_alt is not None
                 assert self.motor_controller_az is not None
@@ -370,11 +388,9 @@ class MountController:
                     or self.motor_controller_alt.state == MotorControllerState.SLEWING
                 ):
                     mount_alt_az = self.motor_alt_az
-                    alignment_handler = None
                 else:
                     assert self.camera_alt_az is not None
                     mount_alt_az = self.camera_alt_az
-                    alignment_handler = self.camera_alignment_handler
             case _:
                 mount_alt_az = await get_skycoord_from_alt_az(
                     alt=0.0,
@@ -383,13 +399,37 @@ class MountController:
                     frame=TelescopeAltAzFrame,
                 )
 
-        if alignment_handler is not None:
-            transformed_mount_alt_az = await alignment_handler.get_altaz_from_telescope_coords(mount_alt_az)
-        else:
-            transformed_mount_alt_az = mount_alt_az
-
-        ra_dec = await get_radec_from_altaz(alt_az=transformed_mount_alt_az)
+        sky_alt_az = await self.alignment_handler.get_altaz_from_telescope_coords(mount_alt_az)
+        ra_dec = await get_radec_from_altaz(alt_az=sky_alt_az)
         return ra_dec
+
+    async def determine_motor_offsets(self, sky_alt_az: SkyCoord, telescope_alt_az: SkyCoord) -> None:
+        """Determine the motor offsets for the mount.
+
+        Transform both SkyCoords to the same frame and compute the offsets between the two. This is only done
+        if the motor offsets are zero and alignment has not yet been performed.
+
+        Parameters
+        ----------
+        sky_alt_az: `SkyCoord`
+            The sky coordinates.
+        telescope_alt_az: `SkyCoord`
+            The telescope coordinates.
+        """
+        if self.motor_controller_az_offset is None and np.array_equal(
+            self.alignment_handler.matrix, IDENTITY
+        ):
+            temp_tel_alt_az = await get_skycoord_from_alt_az(
+                telescope_alt_az.alt.deg, telescope_alt_az.az.deg, sky_alt_az.obstime.datetime.timestamp()
+            )
+            temp_sky_alt_az = await get_skycoord_from_alt_az(
+                sky_alt_az.alt.deg, sky_alt_az.az.deg, sky_alt_az.obstime.datetime.timestamp()
+            )
+            self.motor_controller_az_offset, self.motor_controller_alt_offset = (
+                temp_tel_alt_az.spherical_offsets_to(temp_sky_alt_az)
+            )
+            self.motor_controller_alt_offset = None
+            self.motor_controller_az_offset = None
 
     async def set_ra_dec(self, ra_dec: SkyCoord) -> None:
         """Set the current RA and DEC of the mount.
@@ -410,22 +450,35 @@ class MountController:
 
         if self.controller_type in [MotorControllerType.CAMERA_ONLY, MotorControllerType.CAMERA_AND_MOTORS]:
             assert self.camera_alt_az is not None
-            camera_alt_az = await get_skycoord_from_alt_az(
+            telescope_alt_az = await get_skycoord_from_alt_az(
                 self.camera_alt_az.alt.deg, self.camera_alt_az.az.deg, now, TelescopeAltAzFrame
             )
-            await self.camera_alignment_handler.add_alignment_position(
-                altaz=sky_alt_az, telescope=camera_alt_az
-            )
-            self.log.debug(
-                "New alignment point SkyAltAz=%s and CameraAltAz=%s.",
-                sky_alt_az.to_string("dms"),
-                camera_alt_az.to_string("dms"),
-            )
-        if self.controller_type in [MotorControllerType.MOTORS_ONLY, MotorControllerType.CAMERA_AND_MOTORS]:
+            await self.determine_motor_offsets(sky_alt_az, telescope_alt_az)
+        elif self.controller_type in [MotorControllerType.MOTORS_ONLY]:
             assert self.motor_controller_alt is not None
             assert self.motor_controller_az is not None
-            self.motor_controller_alt.position = sky_alt_az.alt
-            self.motor_controller_az.position = sky_alt_az.az
+            telescope_alt_az = await get_skycoord_from_alt_az(
+                self.motor_controller_alt.position.deg,
+                self.motor_controller_az.position.deg,
+                now,
+                TelescopeAltAzFrame,
+            )
+            await self.determine_motor_offsets(sky_alt_az, telescope_alt_az)
+        else:
+            # Nothing to do.
+            return
+
+        await self.alignment_handler.add_alignment_position(altaz=sky_alt_az, telescope=telescope_alt_az)
+        self.log.debug(
+            "New alignment point SkyAltAz=%s and CameraAltAz=%s.",
+            sky_alt_az.to_string("dms"),
+            telescope_alt_az.to_string("dms"),
+        )
+
+        # Clean up motor offsets if alignment successful.
+        if not np.array_equal(self.alignment_handler.matrix, IDENTITY):
+            self.motor_controller_az_offset = None
+            self.motor_controller_alt_offset = None
 
     async def set_slew_rate(self, cmd: str) -> None:
         """Set the slew rate.
@@ -473,18 +526,22 @@ class MountController:
         now = DatetimeUtil.get_timestamp()
         self.target_radec = await get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
         self.log.debug("slew_to Set target_radec to %s.", self.target_radec.to_string("hmsdms"))
-        motor_alt_az = await get_altaz_from_radec(ra_dec=self.target_radec, timestamp=now)
+        target_alt_az = await get_altaz_from_radec(ra_dec=self.target_radec, timestamp=now)
+        mount_alt_az = await self.alignment_handler.get_telescope_coords_from_altaz(target_alt_az)
 
         # Compute slew times.
-        az_slew_time = await self.motor_controller_az.estimate_slew_time(motor_alt_az.az)
-        alt_slew_time = await self.motor_controller_alt.estimate_slew_time(motor_alt_az.alt)
+        az_slew_time = await self.motor_controller_az.estimate_slew_time(mount_alt_az.az)
+        alt_slew_time = await self.motor_controller_alt.estimate_slew_time(mount_alt_az.alt)
 
         slew_time = max(az_slew_time, alt_slew_time)
 
         # Compute AltAz at the end of the slew.
-        fut_time = motor_alt_az.obstime + slew_time * u.second
-        fut_altaz_frame = AltAz(obstime=fut_time, location=get_observing_location())
-        mount_alt_az_after_slew = self.target_radec.transform_to(fut_altaz_frame)
+        fut_time = mount_alt_az.obstime + slew_time * u.second
+        fut_altaz_frame = await get_altaz_frame(fut_time)
+        target_alt_az_after_slew = self.target_radec.transform_to(fut_altaz_frame)
+        mount_alt_az_after_slew = await self.alignment_handler.get_telescope_coords_from_altaz(
+            target_alt_az_after_slew
+        )
 
         self.slew_direction = SlewDirection.NONE
         if mount_alt_az_after_slew.alt.value > 0:
@@ -542,7 +599,8 @@ class MountController:
             timestamp=DatetimeUtil.get_timestamp(),
             frame=TelescopeAltAzFrame,
         )
-        self.target_radec = await get_radec_from_altaz(target_altaz)
+        sky_target_altaz = await self.alignment_handler.get_altaz_from_telescope_coords(target_altaz)
+        self.target_radec = await get_radec_from_altaz(sky_target_altaz)
         self.log.debug("stop_slew Set target_radec to %s.", self.target_radec.to_string("hmsdms"))
 
     async def location_updated(self) -> None:

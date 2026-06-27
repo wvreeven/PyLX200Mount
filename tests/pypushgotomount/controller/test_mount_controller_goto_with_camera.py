@@ -24,14 +24,24 @@ POSITION_OFFSET_TOLERANCE = 30.0
 
 
 class TestMountControllerPushTo(IsolatedAsyncioTestCase):
-    async def test_push_to(self) -> None:
+    async def asyncSetUp(self) -> None:
         self.log = logging.getLogger(type(self).__name__)
         importlib.reload(datetime_util)
         importlib.reload(observing_location)
-        self.config_file = CONFIG_DIR / "config_emulated_camera_only.json"
+        self.config_file = CONFIG_DIR / "config_emulated_camera_and_motors.json"
         self.target_radec = await pypushgotomount.my_math.get_skycoord_from_ra_dec(0.0, 0.0)
         self.num_alignment_points_added = 0
 
+    async def test_goto_with_camera(self) -> None:
+        with mock.patch("pypushgotomount.controller.utils.CONFIG_FILE", self.config_file):
+            async with pypushgotomount.controller.MountController(log=self.log) as self.mount_controller:
+                self.mount_controller.plate_solver.solve = self.solve  # type: ignore
+                await self.add_camera_position(target=POLARIS)
+                polaris_altaz = self.mount_controller.camera_alt_az
+                assert polaris_altaz is not None
+                # TODO Add slewing and check camera and motor positions.
+
+    async def test_basic_sync_motor_positions_with_camera_position(self) -> None:
         with mock.patch("pypushgotomount.controller.utils.CONFIG_FILE", self.config_file):
             async with pypushgotomount.controller.MountController(log=self.log) as self.mount_controller:
                 self.mount_controller.plate_solver.solve = self.solve  # type: ignore
@@ -117,6 +127,17 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
                 pypushgotomount.IDENTITY,
             )
         await self.mount_controller.get_ra_dec()
+
+        assert self.mount_controller.motor_controller_az is not None
+        assert self.mount_controller.motor_controller_alt is not None
+        assert self.mount_controller.camera_alt_az is not None
+        assert math.isclose(
+            self.mount_controller.motor_controller_az.position.deg, self.mount_controller.camera_alt_az.az.deg
+        )
+        assert math.isclose(
+            self.mount_controller.motor_controller_alt.position.deg,
+            self.mount_controller.camera_alt_az.alt.deg,
+        )
 
     async def solve(self) -> SkyCoord:
         """Mock solve method."""
