@@ -14,7 +14,6 @@ import numpy as np
 import numpy.typing as npt
 from astropy.coordinates import (
     AltAz,
-    BaseCoordinateFrame,
     EarthLocationAttribute,
     RepresentationMapping,
     SkyCoord,
@@ -29,7 +28,7 @@ from astropy.coordinates.matrix_utilities import matrix_transpose
 from ..enums import IDENTITY, MILLISECOND
 
 
-class TelescopeAltAzFrame(BaseCoordinateFrame):
+class TelescopeAltAzFrame(AltAz):
     """Telescope coordinate frame."""
 
     default_representation = UnitSphericalRepresentation
