@@ -4,12 +4,14 @@ __all__ = [
     "get_skycoord_from_alt_az",
     "get_skycoord_from_ra_dec",
     "get_skycoord_from_ra_dec_str",
+    "get_altaz_frame",
 ]
 
 import asyncio
 
 from astropy import units as u
 from astropy.coordinates import FK5, AltAz, Angle, BaseCoordinateFrame, SkyCoord
+from astropy.time import Time
 
 from ..alignment import TelescopeAltAzFrame
 from ..datetime_util import DatetimeUtil
@@ -70,7 +72,7 @@ async def get_altaz_from_radec(
             )
         )
     else:
-        raise ValueError(f"Unknown frame type: {type(frame)}.")
+        raise ValueError(f"Unknown frame type: {frame}.")
 
 
 async def get_skycoord_from_ra_dec(ra: float, dec: float) -> SkyCoord:
@@ -92,3 +94,16 @@ async def get_radec_from_altaz(alt_az: SkyCoord) -> SkyCoord:
 
     ra_dec = alt_az.transform_to(_fk5)
     return ra_dec
+
+
+async def get_altaz_frame(time: Time) -> BaseCoordinateFrame:
+    await asyncio.sleep(MILLISECOND)
+
+    return AltAz(
+        obstime=time,
+        location=get_observing_location(),
+        pressure=DEFAULT_ATMOSPHERIC_PRESSURE,
+        temperature=DEFAULT_TEMPERATURE,
+        relative_humidity=DEFAULT_RELATIVE_HUMIDITY,
+        obswl=DEFAULT_WAVELENGTH,
+    )

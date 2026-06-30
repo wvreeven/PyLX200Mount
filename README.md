@@ -1,4 +1,4 @@
-# PyLX200Mount
+# PyPushGoToMount
 
 A mount controller implementing the Meade LX200 protocol and commanding stepper motors.
 This allows for any dobson telescope to present itself as an LX200 mount.
@@ -13,7 +13,7 @@ Note that LX200 mounts generally are RaDec but under the hood this project uses 
 
 To control a mount, clone the repo, install via pip and then issue
 
-```run_lx200_mount```
+```run_pushgoto_mount```
 
 This will run the controller with emulated motors.
 
@@ -21,13 +21,13 @@ This will run the controller with emulated motors.
 
 In order to run with your own motor controllers, create a 
 
-```~/.config/pylx200mount/config.json```
+```~/.config/pypushgotomount/config.json```
 
-file according to the [configuration JSON schema](https://github.com/wvreeven/PyLX200Mount/blob/main/python/pylx200mount/controller/configuration_schema.json).
+file according to the [configuration JSON schema](https://github.com/wvreeven/PyPushGoToMount/blob/main/python/pypushgotomount/controller/configuration_schema.json).
 
 In it make sure to set the `module` and `class_name` for your motor controller class(es) and the `gear_reduction` which represents the angle (deg) for each (micro)step of your motors.
-If you use Phidgets motor controllers, like me, then set `module` to `pylx200mount.phidgets.phidgets_motor_controller` and `class_name` to `PhidgetsMotorController`.
-If you want use different motor hardware then create a new subclass of `pylx200mount.motor.base_motor_controller.BaseMotorController` and implement the following methods:
+If you use Phidgets motor controllers, like me, then set `module` to `pypushgotomount.phidgets.phidgets_motor_controller` and `class_name` to `PhidgetsMotorController`.
+If you want use different motor hardware then create a new subclass of `pypushgotomount.motor.base_motor_controller.BaseMotorController` and implement the following methods:
 
   * connect: connect to a motor
   * disconnect: disconnect from a motor
@@ -39,7 +39,7 @@ Then set `module` to the python module and `class_name` to the python class for 
 
 You can also set the `module` and `class_name` for your camera, the focal length of the lens or telescope [mm] and whether or not to save the images taken with the camera to enable plate solving.
 Currently only ASI120MM-S/MC-S cameras are supported.
-If you want to use a different camera then create a new subclass of  `pylx200mount.camera.base_camera.BaseCamera` and implement the following methods:
+If you want to use a different camera then create a new subclass of  `pypushgotomount.camera.base_camera.BaseCamera` and implement the following methods:
 
   * open: open and connect to the camera
   * get_image_parameters: get the maximum image size and pixel size from the camera and set and the bit depth
@@ -74,9 +74,9 @@ t3.generate_database(
 
 It took about an hour on my 2020 Intel MacBook to create the db.
 Note that the db is not included in this GitHub repo.
-It can be downloaded [here](https://wvreeven.stackstorage.com/s/pylx200mount_databases).
+It can be downloaded [here](https://wvreeven.stackstorage.com/s/pypushgotomount_databases).
 
-As soon as a planetarium application connects to the PyLX200Mount software and the position loop starts, the camera starts taking images.
+As soon as a planetarium application connects to the PyPushGoToMount software and the position loop starts, the camera starts taking images.
 Those images are plate solved using tetra3.
 The resulting position is returned to the planetarium application.
 
@@ -94,7 +94,7 @@ A configuration file for push-to with an ASI120MM-S camera looks like this:
 ```json
 {
   "camera": {
-    "module": "pylx200mount.asi",
+    "module": "pypushgotomount.asi",
     "class_name": "AsiCamera",
     "focal_length": 25.0
   }
@@ -106,13 +106,13 @@ A configuration file for GOTO with Phidgets motor controllers looks like this:
 ```json
 {
   "alt": {
-    "module": "pylx200mount.phidgets",
+    "module": "pypushgotomount.phidgets",
     "class_name": "PhidgetsMotorController",
     "hub_port": 0,
     "gear_reduction": 0.00005625
   },
   "az": {
-    "module": "pylx200mount.phidgets",
+    "module": "pypushgotomount.phidgets",
     "class_name": "PhidgetsMotorController",
     "hub_port": 1,
     "gear_reduction": 0.00005625
@@ -125,19 +125,19 @@ A configuration file GOTO with Phidgets motor controllers and an ASI120MM-S came
 ```json
 {
   "alt": {
-    "module": "pylx200mount.phidgets",
+    "module": "pypushgotomount.phidgets",
     "class_name": "PhidgetsMotorController",
     "hub_port": 0,
     "gear_reduction": 0.00005625
   },
   "az": {
-    "module": "pylx200mount.phidgets",
+    "module": "pypushgotomount.phidgets",
     "class_name": "PhidgetsMotorController",
     "hub_port": 1,
     "gear_reduction": 0.00005625
   },
   "camera": {
-    "module": "pylx200mount.asi",
+    "module": "pypushgotomount.asi",
     "class_name": "AsiCamera",
     "focal_length": 25.0
   }
@@ -148,7 +148,7 @@ A configuration file GOTO with Phidgets motor controllers and an ASI120MM-S came
 
 Here are instructions to set up some popular planetarium applications on the computer or mobile device from which you want to command the mount.
 
-In all cases, the connection must be set to Wi-Fi/Ethernet using the IP address of the computer running PyLX200Mount and port 11880.
+In all cases, the connection must be set to Wi-Fi/Ethernet using the IP address of the computer running PyPushGoToMount and port 11880.
 
 ### SkySafari 6 (macOS)
 

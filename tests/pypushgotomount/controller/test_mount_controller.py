@@ -1,3 +1,4 @@
+import datetime
 import logging
 import pathlib
 from typing import Tuple
@@ -153,7 +154,7 @@ class TestMountController(IsolatedAsyncioTestCase):
             assert self.mount_controller.plate_solver is None
             assert self.mount_controller.controller_type == pypushgotomount.MotorControllerType.NONE
 
-    async def test_track(self) -> None:
+    async def test_track_zero_offset(self) -> None:
         self.config_file = CONFIG_DIR / "config_emulated_motors_only.json"
         with (
             mock.patch(
@@ -163,33 +164,28 @@ class TestMountController(IsolatedAsyncioTestCase):
             mock.patch("pypushgotomount.controller.utils.CONFIG_FILE", self.config_file),
         ):
             log = logging.getLogger(type(self).__name__)
-            for az_offset in [0.0, -1.0]:
-                self.t = 1000000000.0
-                self.mount_controller = pypushgotomount.controller.MountController(log=log)
-                await self.mount_controller.start()
-                await self.mount_controller.stop()
+            self.t = datetime.datetime.now().timestamp()
 
-                assert self.mount_controller.motor_controller_alt is not None
-                assert self.mount_controller.motor_controller_az is not None
-                assert self.mount_controller.plate_solver is None
-                assert (
-                    self.mount_controller.controller_type == pypushgotomount.MotorControllerType.MOTORS_ONLY
-                )
+            self.mount_controller = pypushgotomount.controller.MountController(log=log)
+            await self.mount_controller.start()
+            await self.mount_controller.stop()
 
-                await self.set_motor_controller_position(
-                    alt=10.0, az=10.0, alt_offset=0.0, az_offset=az_offset
-                )
-                await self.set_motor_controller_position(
-                    alt=10.0, az=70.0, alt_offset=0.0, az_offset=az_offset
-                )
-                await self.set_motor_controller_position(
-                    alt=10.0, az=130.0, alt_offset=0.0, az_offset=az_offset
-                )
-                await self.deterine_motor_controller_position()
+            assert self.mount_controller.motor_controller_alt is not None
+            assert self.mount_controller.motor_controller_az is not None
+            assert self.mount_controller.plate_solver is None
+            assert self.mount_controller.controller_type == pypushgotomount.MotorControllerType.MOTORS_ONLY
 
-                for _ in range(10):
-                    self.t += pypushgotomount.controller.POSITION_INTERVAL
-                    await self.deterine_motor_controller_position()
+            offset = 10.0
+            await self.set_motor_controller_position(alt=10.0, az=10.0, alt_offset=0.0, az_offset=offset)
+            await self.set_motor_controller_position(alt=10.0, az=70.0, alt_offset=0.0, az_offset=offset)
+            await self.set_motor_controller_position(alt=10.0, az=180.0, alt_offset=0.0, az_offset=offset)
+            await self.determine_motor_controller_position()
+
+            for _ in range(40):
+                self.t += pypushgotomount.controller.POSITION_INTERVAL
+                await self.determine_motor_controller_position()
+
+            # TODO Add GoTo. That is where the issue is.
 
     def get_timestamp(self) -> float:
         return self.t
@@ -223,7 +219,7 @@ class TestMountController(IsolatedAsyncioTestCase):
         radec = await pypushgotomount.my_math.get_radec_from_altaz(altaz)
         await self.mount_controller.set_ra_dec(radec)
 
-    async def deterine_motor_controller_position(self) -> None:
+    async def determine_motor_controller_position(self) -> None:
         assert isinstance(
             self.mount_controller.motor_controller_alt, pypushgotomount.emulation.EmulatedMotorController
         )
@@ -233,9 +229,6 @@ class TestMountController(IsolatedAsyncioTestCase):
         self.mount_controller.motor_controller_alt.stepper._compute_position_and_velocity()
         self.mount_controller.motor_controller_az.stepper._compute_position_and_velocity()
         await self.mount_controller.get_motor_positions()
-        logging.getLogger(type(self).__name__).debug(
-            f"{self.mount_controller.motor_controller_alt.stepper._trajectory}"
-        )
 
     async def solve(self) -> SkyCoord:
         return await pypushgotomount.my_math.get_skycoord_from_ra_dec_str(
