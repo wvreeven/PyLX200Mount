@@ -32,7 +32,7 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
         assert np.all(np.isclose(coo.az, coo2.az))
         assert np.all(np.isclose(coo.alt, coo2.alt))
 
-        altaz = await pypushgotomount.my_math.get_skycoord_from_alt_az(az=0.0, alt=41.3, timestamp=now)
+        altaz = await pypushgotomount.my_math.get_skycoord_from_altaz(az=0.0, alt=41.3, timestamp=now)
         tel_coo = altaz.transform_to(pypushgotomount.alignment.TelescopeAltAzFrame)
         assert math.isclose(tel_coo.az.deg, expected[0].az.deg)
         assert math.isclose(tel_coo.alt.deg, expected[0].alt.deg)
@@ -54,12 +54,12 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
     async def test_create_matrix_using_alignment_points(self) -> None:
         now = pypushgotomount.DatetimeUtil.get_timestamp()
         ap1 = pypushgotomount.alignment.AlignmentPoint(
-            altaz=await pypushgotomount.my_math.get_skycoord_from_alt_az(
+            altaz=await pypushgotomount.my_math.get_skycoord_from_altaz(
                 az=0.0,
                 alt=41.3,
                 timestamp=now,
             ),
-            telescope=await pypushgotomount.my_math.get_skycoord_from_alt_az(
+            telescope=await pypushgotomount.my_math.get_skycoord_from_altaz(
                 az=1.0,
                 alt=41.3,
                 timestamp=now,
@@ -67,12 +67,12 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
             ),
         )
         ap2 = pypushgotomount.alignment.AlignmentPoint(
-            altaz=await pypushgotomount.my_math.get_skycoord_from_alt_az(
+            altaz=await pypushgotomount.my_math.get_skycoord_from_altaz(
                 az=90.0,
                 alt=41.3,
                 timestamp=now,
             ),
-            telescope=await pypushgotomount.my_math.get_skycoord_from_alt_az(
+            telescope=await pypushgotomount.my_math.get_skycoord_from_altaz(
                 az=91.0,
                 alt=41.3,
                 timestamp=now,
@@ -80,12 +80,12 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
             ),
         )
         ap3 = pypushgotomount.alignment.AlignmentPoint(
-            altaz=await pypushgotomount.my_math.get_skycoord_from_alt_az(
+            altaz=await pypushgotomount.my_math.get_skycoord_from_altaz(
                 az=120.0,
                 alt=41.3,
                 timestamp=now,
             ),
-            telescope=await pypushgotomount.my_math.get_skycoord_from_alt_az(
+            telescope=await pypushgotomount.my_math.get_skycoord_from_altaz(
                 az=121.0,
                 alt=41.3,
                 timestamp=now,
@@ -106,10 +106,10 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
     async def test_alignment_handler(self) -> None:
         now = pypushgotomount.DatetimeUtil.get_timestamp()
         ah = pypushgotomount.alignment.AlignmentHandler()
-        altaz = await pypushgotomount.my_math.get_skycoord_from_alt_az(az=0.0, alt=41.3, timestamp=now)
+        altaz = await pypushgotomount.my_math.get_skycoord_from_altaz(az=0.0, alt=41.3, timestamp=now)
         await ah.add_alignment_position(
             altaz,
-            telescope=await pypushgotomount.my_math.get_skycoord_from_alt_az(
+            telescope=await pypushgotomount.my_math.get_skycoord_from_altaz(
                 az=1.0,
                 alt=41.3,
                 timestamp=now,
@@ -117,12 +117,12 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
             ),
         )
         await ah.add_alignment_position(
-            altaz=await pypushgotomount.my_math.get_skycoord_from_alt_az(
+            altaz=await pypushgotomount.my_math.get_skycoord_from_altaz(
                 az=90.0,
                 alt=41.3,
                 timestamp=now,
             ),
-            telescope=await pypushgotomount.my_math.get_skycoord_from_alt_az(
+            telescope=await pypushgotomount.my_math.get_skycoord_from_altaz(
                 az=91.0,
                 alt=41.3,
                 timestamp=now,
@@ -130,12 +130,12 @@ class TestAlignmentHandler(unittest.IsolatedAsyncioTestCase):
             ),
         )
         await ah.add_alignment_position(
-            altaz=await pypushgotomount.my_math.get_skycoord_from_alt_az(
+            altaz=await pypushgotomount.my_math.get_skycoord_from_altaz(
                 az=120.0,
                 alt=41.3,
                 timestamp=now,
             ),
-            telescope=await pypushgotomount.my_math.get_skycoord_from_alt_az(
+            telescope=await pypushgotomount.my_math.get_skycoord_from_altaz(
                 az=121.0,
                 alt=41.3,
                 timestamp=now,

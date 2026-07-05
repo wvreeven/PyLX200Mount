@@ -11,7 +11,7 @@ from PIL import Image
 
 from ..camera import BaseCamera
 from ..datetime_util import DatetimeUtil
-from ..my_math import get_skycoord_from_ra_dec
+from ..my_math import get_skycoord_from_radec
 from .base_plate_solver import BasePlateSolver
 
 # Max FOV error [deg].
@@ -55,9 +55,9 @@ class PlateSolver(BasePlateSolver):
         self.log.debug("Start solve.")
 
         if self.center is None:
-            self.center = await get_skycoord_from_ra_dec(0.0, 0.0)
+            self.center = await get_skycoord_from_radec(0.0, 0.0)
         if self.previous_center is None:
-            self.previous_center = await get_skycoord_from_ra_dec(0.0, 0.0)
+            self.previous_center = await get_skycoord_from_radec(0.0, 0.0)
 
         start = DatetimeUtil.get_timestamp()
         if math.isclose(self.fov_estimate, 0.0):
@@ -77,7 +77,7 @@ class PlateSolver(BasePlateSolver):
                 asyncio.to_thread(self._blocking_solve, img),
                 timeout=SOLVER_TIMEOUT,
             )
-            self.center = await get_skycoord_from_ra_dec(result["RA"], result["Dec"])
+            self.center = await get_skycoord_from_radec(result["RA"], result["Dec"])
             self.fov_estimate = result["FOV"]
         except Exception:
             self.center = self.previous_center
