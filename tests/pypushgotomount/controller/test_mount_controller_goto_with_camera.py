@@ -29,7 +29,7 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
         importlib.reload(datetime_util)
         importlib.reload(observing_location)
         self.config_file = CONFIG_DIR / "config_emulated_camera_and_motors.json"
-        self.target_radec = await pypushgotomount.my_math.get_skycoord_from_ra_dec(0.0, 0.0)
+        self.target_radec = await pypushgotomount.my_math.get_skycoord_from_radec(0.0, 0.0)
         self.num_alignment_points_added = 0
 
     async def test_goto_with_camera(self) -> None:
@@ -37,7 +37,7 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
             async with pypushgotomount.controller.MountController(log=self.log) as self.mount_controller:
                 self.mount_controller.plate_solver.solve = self.solve  # type: ignore
                 await self.add_camera_position(target=POLARIS)
-                polaris_altaz = self.mount_controller.camera_alt_az
+                polaris_altaz = self.mount_controller.camera_altaz
                 assert polaris_altaz is not None
                 # TODO Add slewing and check camera and motor positions.
 
@@ -46,10 +46,10 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
             async with pypushgotomount.controller.MountController(log=self.log) as self.mount_controller:
                 self.mount_controller.plate_solver.solve = self.solve  # type: ignore
                 await self.add_camera_position(target=POLARIS)
-                polaris_altaz = self.mount_controller.camera_alt_az
+                polaris_altaz = self.mount_controller.camera_altaz
                 assert polaris_altaz is not None
 
-                altaz = await pypushgotomount.my_math.get_skycoord_from_alt_az(
+                altaz = await pypushgotomount.my_math.get_skycoord_from_altaz(
                     alt=polaris_altaz.alt.deg,
                     az=320.0,
                     timestamp=pypushgotomount.DatetimeUtil.get_timestamp(),
@@ -57,7 +57,7 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
                 radec = await pypushgotomount.my_math.get_radec_from_altaz(altaz)
                 await self.add_camera_position(target=radec)
 
-                altaz = await pypushgotomount.my_math.get_skycoord_from_alt_az(
+                altaz = await pypushgotomount.my_math.get_skycoord_from_altaz(
                     alt=polaris_altaz.alt.deg,
                     az=243.0,
                     timestamp=pypushgotomount.DatetimeUtil.get_timestamp(),
@@ -65,7 +65,7 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
                 radec = await pypushgotomount.my_math.get_radec_from_altaz(altaz)
                 await self.add_camera_position(target=radec)
 
-                target_altaz = await pypushgotomount.my_math.get_skycoord_from_alt_az(
+                target_altaz = await pypushgotomount.my_math.get_skycoord_from_altaz(
                     alt=polaris_altaz.alt.deg,
                     az=211.0,
                     timestamp=pypushgotomount.DatetimeUtil.get_timestamp(),
@@ -75,16 +75,16 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
                 await asyncio.sleep(0.5)
 
                 now = pypushgotomount.DatetimeUtil.get_timestamp()
-                target_altaz = await pypushgotomount.my_math.get_skycoord_from_alt_az(
+                target_altaz = await pypushgotomount.my_math.get_skycoord_from_altaz(
                     target_altaz.alt.deg, target_altaz.az.deg, now
                 )
-                assert self.mount_controller.camera_alt_az is not None
-                camera_altaz = await pypushgotomount.my_math.get_skycoord_from_alt_az(
-                    self.mount_controller.camera_alt_az.alt.deg,
-                    self.mount_controller.camera_alt_az.az.deg,
+                assert self.mount_controller.camera_altaz is not None
+                camera_altaz = await pypushgotomount.my_math.get_skycoord_from_altaz(
+                    self.mount_controller.camera_altaz.alt.deg,
+                    self.mount_controller.camera_altaz.az.deg,
                     now,
                 )
-                telescope_radec = await self.mount_controller.get_ra_dec()
+                telescope_radec = await self.mount_controller.get_radec()
                 telescope_altaz = await pypushgotomount.my_math.get_altaz_from_radec(telescope_radec, now)
 
                 target_camera_sep = target_altaz.separation(camera_altaz).arcsecond - CAM_OFFSET_AZ * 3600.0
@@ -103,7 +103,7 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
         self.num_alignment_points_added += 1
         now = pypushgotomount.DatetimeUtil.get_timestamp()
         target_altaz = await pypushgotomount.my_math.get_altaz_from_radec(target, now)
-        camera_altaz = await pypushgotomount.my_math.get_skycoord_from_alt_az(
+        camera_altaz = await pypushgotomount.my_math.get_skycoord_from_altaz(
             target_altaz.alt.deg + CAM_OFFSET_ALT,
             target_altaz.az.deg + CAM_OFFSET_AZ,
             now,
@@ -111,7 +111,7 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
         camera_radec = await pypushgotomount.my_math.get_radec_from_altaz(camera_altaz)
         self.target_radec = camera_radec
         await asyncio.sleep(0.5)
-        await self.mount_controller.set_ra_dec(ra_dec=target)
+        await self.mount_controller.set_radec(radec=target)
         await asyncio.sleep(0.2)
 
         if self.num_alignment_points_added < 3:
@@ -126,17 +126,17 @@ class TestMountControllerPushTo(IsolatedAsyncioTestCase):
                 self.mount_controller.alignment_handler.matrix,
                 pypushgotomount.IDENTITY,
             )
-        await self.mount_controller.get_ra_dec()
+        await self.mount_controller.get_radec()
 
         assert self.mount_controller.motor_controller_az is not None
         assert self.mount_controller.motor_controller_alt is not None
-        assert self.mount_controller.camera_alt_az is not None
+        assert self.mount_controller.camera_altaz is not None
         assert math.isclose(
-            self.mount_controller.motor_controller_az.position.deg, self.mount_controller.camera_alt_az.az.deg
+            self.mount_controller.motor_controller_az.position.deg, self.mount_controller.camera_altaz.az.deg
         )
         assert math.isclose(
             self.mount_controller.motor_controller_alt.position.deg,
-            self.mount_controller.camera_alt_az.alt.deg,
+            self.mount_controller.camera_altaz.alt.deg,
         )
 
     async def solve(self) -> SkyCoord:

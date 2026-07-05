@@ -41,18 +41,18 @@ class TestPushGoToMount(unittest.IsolatedAsyncioTestCase):
         config_file = CONFIG_DIR / "config_emulated_motors_only.json"
 
         # RaDec of Polaris for first alignment point.
-        polaris = await pypushgotomount.my_math.get_skycoord_from_ra_dec(37.95456067, 89.26410897)
+        polaris = await pypushgotomount.my_math.get_skycoord_from_radec(37.95456067, 89.26410897)
 
         importlib.reload(datetime_util)
 
         self.expected_alt_offset = 0.0
         self.expected_az_offset = 0.0
 
-        altaz_second_point = await pypushgotomount.my_math.get_skycoord_from_alt_az(
+        altaz_second_point = await pypushgotomount.my_math.get_skycoord_from_altaz(
             ALT_SECOND_POINT.deg, AZ_SECOND_POINT.deg, timestamp=self.now.timestamp()
         )
         radec_second_point = await pypushgotomount.my_math.get_radec_from_altaz(altaz_second_point)
-        altaz_third_point = await pypushgotomount.my_math.get_skycoord_from_alt_az(
+        altaz_third_point = await pypushgotomount.my_math.get_skycoord_from_altaz(
             ALT_THIRD_POINT.deg, AZ_THIRD_POINT.deg, timestamp=self.now.timestamp()
         )
         radec_third_point = await pypushgotomount.my_math.get_radec_from_altaz(altaz_third_point)
@@ -101,7 +101,7 @@ class TestPushGoToMount(unittest.IsolatedAsyncioTestCase):
                     await self.reader.readuntil(b"#")
 
         await self.assert_position(
-            expected=await pypushgotomount.my_math.get_skycoord_from_alt_az(
+            expected=await pypushgotomount.my_math.get_skycoord_from_altaz(
                 alt=MOTOR_START_POSITION,
                 az=MOTOR_START_POSITION,
                 timestamp=self.now.timestamp(),
@@ -144,10 +144,10 @@ class TestPushGoToMount(unittest.IsolatedAsyncioTestCase):
         await self.writer.drain()
         de = (await self.reader.readuntil(b"#")).decode().strip("#").replace("*", ":").replace("'", ":")
 
-        ra_dec = await pypushgotomount.my_math.get_skycoord_from_ra_dec_str(ra, de)
-        self.log.debug(f"RaDec = {ra_dec.to_string('hmsdms')}")
+        radec = await pypushgotomount.my_math.get_skycoord_from_radec_str(ra, de)
+        self.log.debug(f"RaDec = {radec.to_string('hmsdms')}")
 
-        altaz = await pypushgotomount.my_math.get_altaz_from_radec(ra_dec, timestamp=self.now.timestamp())
+        altaz = await pypushgotomount.my_math.get_altaz_from_radec(radec, timestamp=self.now.timestamp())
         self.log.debug(f"AltAz = {altaz.to_string('dms')}")
         self.log.debug(f"Expected AltAz = {expected.to_string('dms')}")
 

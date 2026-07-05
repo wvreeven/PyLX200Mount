@@ -12,33 +12,33 @@ from astropy.coordinates import SkyCoord
 CONFIG_DIR = pathlib.Path(__file__).parents[1] / "test_data"
 
 
-def format_ra_dec_str(ra_dec: SkyCoord) -> Tuple[str, str]:
-    ra = ra_dec.ra
+def format_radec_str(radec: SkyCoord) -> Tuple[str, str]:
+    ra = radec.ra
     ra_str = ra.to_string(unit=u.hour, sep=":", precision=2, pad=True)
-    dec = ra_dec.dec
+    dec = radec.dec
     dec_dms = dec.signed_dms
     dec_str = f"{dec_dms.sign * dec_dms.d:2.0f}*{dec_dms.m:2.0f}:{dec_dms.s:2.0f}"
     return ra_str, dec_str
 
 
 class TestMountController(IsolatedAsyncioTestCase):
-    async def get_ra_dec_str_from_alt_az(self, alt: float, az: float) -> Tuple[str, str]:
-        alt_az = await pypushgotomount.my_math.get_skycoord_from_alt_az(
+    async def get_radec_str_from_altaz(self, alt: float, az: float) -> Tuple[str, str]:
+        altaz = await pypushgotomount.my_math.get_skycoord_from_altaz(
             alt=alt,
             az=az,
             timestamp=pypushgotomount.DatetimeUtil.get_timestamp(),
         )
-        ra_dec = await pypushgotomount.my_math.get_radec_from_altaz(alt_az=alt_az)
-        return format_ra_dec_str(ra_dec)
+        radec = await pypushgotomount.my_math.get_radec_from_altaz(altaz=altaz)
+        return format_radec_str(radec)
 
     async def async_set_up(self) -> None:
         log = logging.getLogger(type(self).__name__)
         self.mount_controller = pypushgotomount.controller.MountController(log=log)
-        ra_str, dec_str = await self.get_ra_dec_str_from_alt_az(alt=45.0, az=175.0)
-        self.target_ra_str, self.target_dec_str = await self.get_ra_dec_str_from_alt_az(alt=40.0, az=179.0)
-        ra_dec = await pypushgotomount.my_math.get_skycoord_from_ra_dec_str(ra_str=ra_str, dec_str=dec_str)
+        ra_str, dec_str = await self.get_radec_str_from_altaz(alt=45.0, az=175.0)
+        self.target_ra_str, self.target_dec_str = await self.get_radec_str_from_altaz(alt=40.0, az=179.0)
+        radec = await pypushgotomount.my_math.get_skycoord_from_radec_str(ra_str=ra_str, dec_str=dec_str)
         await self.mount_controller.start()
-        await self.mount_controller.set_ra_dec(ra_dec=ra_dec)
+        await self.mount_controller.set_radec(radec=radec)
 
     async def asyncTearDown(self) -> None:
         await self.mount_controller.stop()
@@ -56,7 +56,7 @@ class TestMountController(IsolatedAsyncioTestCase):
                 ra_str=self.target_ra_str, dec_str=self.target_dec_str
             )
             assert "0" == slew_to
-            self.target_ra_str, self.target_dec_str = await self.get_ra_dec_str_from_alt_az(
+            self.target_ra_str, self.target_dec_str = await self.get_radec_str_from_altaz(
                 alt=-40.0, az=-179.0
             )
             slew_to = await self.mount_controller.slew_to(
@@ -213,11 +213,11 @@ class TestMountController(IsolatedAsyncioTestCase):
         self.mount_controller.motor_controller_az.stepper._position = az_position_in_steps
         self.mount_controller.motor_controller_az.state = pypushgotomount.MotorControllerState.SLEWING
 
-        altaz = await pypushgotomount.my_math.get_skycoord_from_alt_az(
+        altaz = await pypushgotomount.my_math.get_skycoord_from_altaz(
             alt=alt, az=az, timestamp=pypushgotomount.DatetimeUtil.get_timestamp()
         )
         radec = await pypushgotomount.my_math.get_radec_from_altaz(altaz)
-        await self.mount_controller.set_ra_dec(radec)
+        await self.mount_controller.set_radec(radec)
 
     async def determine_motor_controller_position(self) -> None:
         assert isinstance(
@@ -231,6 +231,6 @@ class TestMountController(IsolatedAsyncioTestCase):
         await self.mount_controller.get_motor_positions()
 
     async def solve(self) -> SkyCoord:
-        return await pypushgotomount.my_math.get_skycoord_from_ra_dec_str(
+        return await pypushgotomount.my_math.get_skycoord_from_radec_str(
             self.target_ra_str, self.target_dec_str
         )

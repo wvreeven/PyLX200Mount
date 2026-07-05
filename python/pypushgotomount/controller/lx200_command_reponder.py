@@ -14,7 +14,7 @@ from astropy.coordinates import Angle, Latitude, Longitude, SkyCoord
 
 from ..datetime_util import DatetimeUtil
 from ..enums import MILLISECOND, CommandName, CoordinatePrecision
-from ..my_math.astropy_util import get_skycoord_from_ra_dec_str
+from ..my_math.astropy_util import get_skycoord_from_radec_str
 from ..observing_location import get_observing_location, set_latitude, set_longitude
 from .mount_controller import MountController
 
@@ -124,7 +124,7 @@ class Lx200CommandResponder:
         # Keep track of the timezone, time and date, so it can be passed on to DatetimeUtil.
         self._datetime_str = ""
         # Keep track of the mount position for quicker responses.
-        self.ra_dec = SkyCoord(0.0, 0.0, unit="deg")
+        self.radec = SkyCoord(0.0, 0.0, unit="deg")
 
     async def start(self) -> None:
         """Start the responder."""
@@ -138,8 +138,8 @@ class Lx200CommandResponder:
 
     async def get_ra(self) -> str:
         """Get the RA that the mount currently is pointing at."""
-        self.ra_dec = await self.mount_controller.get_ra_dec()
-        ra = self.ra_dec.ra
+        self.radec = await self.mount_controller.get_radec()
+        ra = self.radec.ra
         hms = ra.hms
         if self.coordinate_precision == CoordinatePrecision.HIGH:
             ra_str = f"{hms.h:02.0f}:{hms.m:02.0f}:{hms.s:02.0f}"
@@ -169,7 +169,7 @@ class Lx200CommandResponder:
     async def get_dec(self) -> str:
         """Get the DEC that the mount currently is pointing at."""
         dec_str = await get_angle_as_lx200_string(
-            angle=self.ra_dec.dec,
+            angle=self.radec.dec,
             digits=2,
             coordinate_precision=self.coordinate_precision,
         )
@@ -417,8 +417,8 @@ class Lx200CommandResponder:
 
     async def sync(self) -> str:
         self.log.debug("sync received.")
-        ra_dec = await get_skycoord_from_ra_dec_str(ra_str=self.target_ra, dec_str=self.target_dec)
-        await self.mount_controller.set_ra_dec(ra_dec)
+        radec = await get_skycoord_from_radec_str(ra_str=self.target_ra, dec_str=self.target_dec)
+        await self.mount_controller.set_radec(radec)
         return "RANDOM NAME" + HASH
 
     async def get_distance_bars(self) -> str:
