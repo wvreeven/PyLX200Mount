@@ -17,7 +17,6 @@ from ..datetime_util import DatetimeUtil
 from ..enums import IDENTITY, MILLISECOND, MotorControllerState, MotorControllerType, SlewDirection, SlewRate
 from ..motor.base_motor_controller import BaseMotorController
 from ..my_math.astropy_util import (
-    get_altaz_frame,
     get_altaz_from_radec,
     get_radec_from_altaz,
     get_skycoord_from_altaz,
@@ -536,9 +535,9 @@ class MountController:
         slew_time = max(az_slew_time, alt_slew_time)
 
         # Compute AltAz at the end of the slew.
-        fut_time = mount_altaz.obstime + slew_time * u.second
-        fut_altaz_frame = await get_altaz_frame(fut_time)
-        target_altaz_after_slew = self.target_radec.transform_to(fut_altaz_frame)
+        target_altaz_after_slew = await get_altaz_from_radec(
+            radec=self.target_radec, timestamp=now + slew_time
+        )
         mount_altaz_after_slew = await self.alignment_handler.get_telescope_coords_from_altaz(
             target_altaz_after_slew
         )

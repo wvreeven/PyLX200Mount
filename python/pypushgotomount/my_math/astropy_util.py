@@ -4,14 +4,12 @@ __all__ = [
     "get_skycoord_from_altaz",
     "get_skycoord_from_radec",
     "get_skycoord_from_radec_str",
-    "get_altaz_frame",
 ]
 
 import asyncio
 
 from astropy import units as u
 from astropy.coordinates import FK5, AltAz, Angle, BaseCoordinateFrame, SkyCoord
-from astropy.time import Time
 
 from ..alignment import TelescopeAltAzFrame
 from ..datetime_util import DatetimeUtil
@@ -32,7 +30,7 @@ async def get_skycoord_from_altaz(
     await asyncio.sleep(MILLISECOND)
 
     return SkyCoord(
-        alt=Angle(alt * u.deg).wrap_at(180.0 * u.deg),
+        alt=Angle(alt * u.deg).wrap_at(90.0 * u.deg),
         az=Angle(az * u.deg).wrap_at(360.0 * u.deg),
         frame=frame,
         obstime=DatetimeUtil.get_datetime_at_timestamp(timestamp),
@@ -49,30 +47,28 @@ async def get_altaz_from_radec(
 ) -> SkyCoord:
     await asyncio.sleep(MILLISECOND)
 
+    obstime = DatetimeUtil.get_datetime_at_timestamp(timestamp)
     if frame.name == "altaz":
-        return radec.transform_to(
-            AltAz(
-                obstime=DatetimeUtil.get_datetime_at_timestamp(timestamp),
-                location=get_observing_location(),
-                pressure=DEFAULT_ATMOSPHERIC_PRESSURE,
-                temperature=DEFAULT_TEMPERATURE,
-                relative_humidity=DEFAULT_RELATIVE_HUMIDITY,
-                obswl=DEFAULT_WAVELENGTH,
-            )
+        new_frame = AltAz(
+            obstime=obstime,
+            location=get_observing_location(),
+            pressure=DEFAULT_ATMOSPHERIC_PRESSURE,
+            temperature=DEFAULT_TEMPERATURE,
+            relative_humidity=DEFAULT_RELATIVE_HUMIDITY,
+            obswl=DEFAULT_WAVELENGTH,
         )
     elif frame.name == "telescopealtazframe":
-        return radec.transform_to(
-            TelescopeAltAzFrame(
-                obstime=DatetimeUtil.get_datetime_at_timestamp(timestamp),
-                location=get_observing_location(),
-                pressure=DEFAULT_ATMOSPHERIC_PRESSURE,
-                temperature=DEFAULT_TEMPERATURE,
-                relative_humidity=DEFAULT_RELATIVE_HUMIDITY,
-                obswl=DEFAULT_WAVELENGTH,
-            )
+        new_frame = TelescopeAltAzFrame(
+            obstime=obstime,
+            location=get_observing_location(),
+            pressure=DEFAULT_ATMOSPHERIC_PRESSURE,
+            temperature=DEFAULT_TEMPERATURE,
+            relative_humidity=DEFAULT_RELATIVE_HUMIDITY,
+            obswl=DEFAULT_WAVELENGTH,
         )
     else:
         raise ValueError(f"Unknown frame type: {frame}.")
+    return radec.transform_to(new_frame)
 
 
 async def get_skycoord_from_radec(ra: float, dec: float) -> SkyCoord:
@@ -84,9 +80,10 @@ async def get_skycoord_from_radec(ra: float, dec: float) -> SkyCoord:
 async def get_skycoord_from_radec_str(ra_str: str, dec_str: str) -> SkyCoord:
     await asyncio.sleep(MILLISECOND)
 
-    return SkyCoord(
-        ra=Angle(ra_str + " hours"), dec=Angle(dec_str.replace("*", ":") + " degrees"), frame=_fk5
-    )
+    ra = Angle(ra_str + " hours")
+    dec = Angle(dec_str.replace("*", ":") + " degrees")
+
+    return await get_skycoord_from_radec(ra.deg, dec.deg)
 
 
 async def get_radec_from_altaz(altaz: SkyCoord) -> SkyCoord:
@@ -94,16 +91,3 @@ async def get_radec_from_altaz(altaz: SkyCoord) -> SkyCoord:
 
     radec = altaz.transform_to(_fk5)
     return radec
-
-
-async def get_altaz_frame(time: Time) -> BaseCoordinateFrame:
-    await asyncio.sleep(MILLISECOND)
-
-    return AltAz(
-        obstime=time,
-        location=get_observing_location(),
-        pressure=DEFAULT_ATMOSPHERIC_PRESSURE,
-        temperature=DEFAULT_TEMPERATURE,
-        relative_humidity=DEFAULT_RELATIVE_HUMIDITY,
-        obswl=DEFAULT_WAVELENGTH,
-    )
